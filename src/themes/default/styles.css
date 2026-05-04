@@ -1,0 +1,45 @@
+/* Tema: default — src/themes/default/ */
+
+[data-site-theme="default"] {
+  --site-bg: #ffffff;
+  --site-fg: #171717;
+  --site-brand: #be123c;
+  --site-brand-hover: #9f1239;
+  --site-header-bg: rgba(255, 255, 255, 0.95);
+  --site-footer-bg: #fafafa;
+  --site-footer-fg: #171717;
+  --site-muted: #71717a;
+  --site-nav-hover: #fff1f2;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-site-theme="default"] {
+    --site-bg: #0a0a0a;
+    --site-fg: #ededed;
+    --site-header-bg: rgba(9, 9, 11, 0.95);
+    --site-footer-bg: #18181b;
+    --site-footer-fg: #fafafa;
+    --site-muted: #a1a1aa;
+    --site-nav-hover: rgba(190, 18, 60, 0.15);
+  }
+}
+
+[data-site-theme="default"] .site-footer-themed {
+  background: var(--site-footer-bg);
+  color: var(--site-footer-muted, var(--site-muted));
+  border-color: var(--site-footer-border, #e4e4e7);
+}
+
+[data-site-theme="default"] .site-footer-themed a {
+  color: var(--site-footer-link, var(--site-brand));
+}
+
+[data-site-theme="default"] .site-footer-themed a:hover {
+  color: var(--site-footer-link-hover, var(--site-brand-hover));
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-site-theme="default"] .site-footer-themed {
+    border-color: #27272a;
+  }
+}

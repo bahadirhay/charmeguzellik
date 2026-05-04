@@ -1,0 +1,211 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Page {
+  id                     String   @id @default(cuid())
+  slug                   String   @unique
+  title                  String
+  metaTitle              String?
+  metaDescription        String?
+  ogImage                String?
+  canonicalPath          String?
+  blocks                 String   @default("[]")
+  blocksMobile           String?
+  published              Boolean  @default(false)
+  noIndex                Boolean  @default(false)
+  /// Yayında ve endeks açıkken sitemap’e dahil (noIndex ile birlikte kullanılmaz)
+  includeInSitemap       Boolean  @default(true)
+  /// 0–1; boşsa site varsayılanı (iç sayfa 0.7)
+  sitemapPriority        Float?
+  /// always | hourly | daily | weekly | monthly | yearly | never; boşsa site varsayılanı
+  sitemapChangeFrequency String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+model SiteSettings {
+  id                     Int      @id @default(1)
+  siteName               String   @default("Güzellik Merkezi")
+  /// Paketlenmiş tema kimliği: "default" | "cherry" | ileride src/themes altına ekledikleriniz
+  activeThemeId          String   @default("default")
+  /// public/uploads/{mediaUploadSlug}/ — panelden görsel indirme için klasör adı (isteğe bağlı)
+  mediaUploadSlug        String?
+  /// Üst şeritte kampanya / fiyat metni (Cherry temasında)
+  headerPromoLine        String?
+  /// Cherry üst pembe şerit (adres, kampanya, sosyal) — kapatılırsa yalnız ana menü kalır
+  showHeaderTopBar       Boolean  @default(true)
+  socialInstagramUrl     String?
+  socialFacebookUrl      String?
+  defaultMetaTitle       String?
+  defaultMetaDescription String?
+  businessJson           String?
+  googleAnalyticsId      String?
+  googleTagManagerId     String?
+  facebookPixelId        String?
+  customHeadHtml         String?
+  whatsappNumber         String?
+  googleCalendarEmbedUrl String?
+  googleCalendarIcsUrl   String?
+  googleCalendarClientId String?
+  googleCalendarSecret   String?
+  googleRefreshToken     String?
+  seoKeywords            String?
+  /// Instagram Graph API: İşletme IG kullanıcı id (içe aktarma için)
+  instagramGraphUserId   String?
+  /// Uzun ömürlü erişim jetonu — üretimde güvenli saklayın
+  instagramAccessToken     String?
+  /// Tema özelleştirici (renk, tipografi, genişlik) — JSON, src/lib/theme-tokens.ts
+  themeTokensJson        String?
+  /// Sabit üst içerik (menü altı, tüm sayfalar) — blok JSON dizisi, Admin → Site düzeni
+  headerBlocks           String   @default("[]")
+  /// Sabit alt bilgi (tüm sayfalar) — blok JSON dizisi; telif satırının üstünde
+  footerBlocks           String   @default("[]")
+  /// Sitemap’e eklenecek ek yollar — JSON dizi: [{ "path": "/x", "priority": 0.5, "changeFrequency": "weekly" }]
+  sitemapExtrasJson      String   @default("[]")
+  /// Ana sayfa sitemap önceliği (0–1)
+  sitemapHomePriority    Float    @default(1)
+  /// Diğer sayfalar için öntanımlı öncelik (0–1)
+  sitemapPagePriority    Float    @default(0.7)
+  /// Giden posta (SMTP) — randevu onay/red vb.; şifre panelde saklanır (üretimde güvenli ortam önerilir)
+  smtpHost                 String?
+  smtpPort                 Int?
+  smtpUser                 String?
+  smtpPass                 String?
+  smtpSecure               Boolean  @default(false)
+  /// Gönderen (örn. "Salon <randevu@alanadiniz.com>"); SPF/DKIM alan adınızda ayarlanmalı
+  transactionalMailFrom  String?
+  updatedAt              DateTime @updatedAt
+}
+
+/// Sitede gösterilecek Instagram gönderileri — yayın kutusu admin’den
+model SiteInstagramPost {
+  id            String   @id @default(cuid())
+  instagramId   String?  @unique
+  permalink     String   @unique
+  caption       String?
+  mediaUrl      String?
+  thumbnailUrl  String?
+  mediaType     String?
+  published     Boolean  @default(false)
+  sortOrder     Int      @default(0)
+  source        String   @default("manual")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+/// YouTube vitrinı — video kimliği (11 karakter) + isteğe bağlı başlık
+model SiteYoutubeVideo {
+  id         String   @id @default(cuid())
+  videoId    String   @unique
+  title      String?
+  watchUrl   String?
+  published  Boolean  @default(false)
+  sortOrder  Int      @default(0)
+  source     String   @default("manual")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/// TikTok vitrinı — paylaşım bağlantısı; küçük resim oEmbed ile dolar
+model SiteTiktokVideo {
+  id            String   @id @default(cuid())
+  permalink     String   @unique
+  videoId       String?
+  thumbnailUrl  String?
+  title         String?
+  published     Boolean  @default(false)
+  sortOrder     Int      @default(0)
+  source        String   @default("manual")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Lead {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  message   String?
+  source    String?
+  status    String   @default("new")
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+/// Telefonla eşleşen müşteri kartı (randevu taleplerinden otomatik dolar)
+model CrmContact {
+  id           String        @id @default(cuid())
+  phoneKey     String        @unique
+  name         String
+  email        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+}
+
+model Appointment {
+  id             String      @id @default(cuid())
+  startAt        DateTime
+  endAt          DateTime?
+  serviceName    String?
+  clientName     String
+  clientEmail    String?
+  clientPhone    String?
+  /// normalizePhoneKey(clientPhone) — çift kayıt ve CRM eşlemesi
+  clientPhoneKey String?
+  /// normalizeClientNameKey(clientName)
+  clientNameKey  String?
+  notes          String?
+  googleEventId  String?
+  status         String      @default("pending")
+  createdAt      DateTime    @default(now())
+  crmContactId   String?
+  crmContact     CrmContact? @relation(fields: [crmContactId], references: [id], onDelete: SetNull)
+
+  @@index([startAt, serviceName, status])
+}
+
+/// Üst menü / alt menü — parentId null ise kök öğe
+/// menuSlug: "header" = sabit üst şerit menüsü; "footer" = alt bilgi / widget için ayrı liste
+model NavItem {
+  id           String    @id @default(cuid())
+  menuSlug     String    @default("header")
+  parentId     String?
+  parent       NavItem?  @relation("NavTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children     NavItem[] @relation("NavTree")
+  label        String
+  href         String
+  sortOrder    Int       @default(0)
+  published    Boolean   @default(true)
+  openInNewTab Boolean   @default(false)
+
+  @@index([menuSlug, parentId, sortOrder])
+}
+
+/// Panel rolleri — permissionsJson: ["content.pages", "site.settings", ...]
+model StaffRole {
+  id              String      @id @default(cuid())
+  slug            String      @unique
+  label           String
+  permissionsJson String
+  users           StaffUser[]
+  createdAt       DateTime    @default(now())
+}
+
+model StaffUser {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  passwordHash String
+  displayName  String?
+  roleId       String
+  role         StaffRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}

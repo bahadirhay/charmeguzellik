@@ -1,0 +1,55 @@
+import { NextResponse } from "next/server";
+import { createAppointmentRecord, AppointmentDuplicateError } from "@/lib/create-appointment-record";
+import { prisma } from "@/lib/prisma";
+import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+
+export async function GET() {
+  const auth = await requireStaffApiPerm("crm.appointments");
+  if (auth instanceof NextResponse) return auth;
+  const list = await prisma.appointment.findMany({ orderBy: { startAt: "desc" } });
+  return NextResponse.json(list);
+}
+
+export async function POST(req: Request) {
+  const auth = await requireStaffApiPerm("crm.appointments");
+  if (auth instanceof NextResponse) return auth;
+  const body = (await req.json()) as {
+    startAt: string;
+    endAt?: string | null;
+    serviceName?: string | null;
+    clientName: string;
+    clientEmail?: string | null;
+    clientPhone?: string | null;
+    notes?: string | null;
+  };
+  if (!body.clientName?.trim() || !body.startAt) {
+    return NextResponse.json({ error: "Eksik alan" }, { status: 400 });
+  }
+  let row;
+  try {
+    row = await prisma.$transaction(async (tx) =>
+      createAppointmentRecord(tx, {
+        startAt: new Date(body.startAt),
+        endAt: body.endAt ? new Date(body.endAt) : null,
+        serviceName: body.serviceName?.trim() || null,
+        clientName: body.clientName,
+        clientEmail: body.clientEmail?.trim() || null,
+        clientPhone: body.clientPhone?.trim() || null,
+        notes: body.notes?.trim() || null,
+        status: "pending",
+      }),
+    );
+  } catch (e) {
+    if (e instanceof AppointmentDuplicateError) {
+      return NextResponse.json(
+        {
+          error:
+            "Aynı müşteri adı veya telefonla bu hizmet ve saatte zaten kayıt var (bekleyen veya onaylı).",
+        },
+        { status: 409 },
+      );
+    }
+    throw e;
+  }
+  return NextResponse.json(row);
+}

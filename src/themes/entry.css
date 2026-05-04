@@ -1,0 +1,3 @@
+/* Tüm tema stilleri — globals.css burayı import eder */
+@import "./default/styles.css";
+@import "./cherry/styles.css";

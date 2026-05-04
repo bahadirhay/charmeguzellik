@@ -1,0 +1,53 @@
+/* Tema: cherry — src/themes/cherry/ (güzellik salonu yerleşimi) */
+
+[data-site-theme="cherry"] {
+  --site-bg: #fdf8f6;
+  --site-fg: #2c2826;
+  --site-brand: #b84d5c;
+  --site-brand-hover: #9a3e4b;
+  --site-header-bg: rgba(255, 252, 250, 0.97);
+  --site-footer-bg: #2c2826;
+  --site-footer-fg: #fdf8f6;
+  --site-muted: #6b6460;
+  --site-nav-hover: #fce8ec;
+  --site-topbar-bg: #b84d5c;
+  --site-topbar-fg: #fffefc;
+}
+
+[data-site-theme="cherry"] .site-main-wrap {
+  background: var(--site-bg);
+  color: var(--site-fg);
+}
+
+[data-site-theme="cherry"] .site-footer-themed {
+  background: var(--site-footer-bg);
+  color: var(--site-footer-muted, #e8e4e1);
+  border-color: var(--site-footer-border, #3d3835);
+}
+
+[data-site-theme="cherry"] .site-footer-themed a {
+  color: var(--site-footer-link, #f5c4cd);
+}
+
+[data-site-theme="cherry"] .site-footer-themed a:hover {
+  color: var(--site-footer-link-hover, #fff);
+}
+
+/* Tam genişlik slayt — Cherry marka tonları */
+[data-site-theme="cherry"] .site-hero-slider-cta {
+  background: rgba(255, 254, 252, 0.96);
+  color: var(--site-brand);
+}
+
+[data-site-theme="cherry"] .site-hero-slider-cta:hover {
+  background: #fffefc;
+  color: var(--site-brand-hover);
+}
+
+[data-site-theme="cherry"] .site-testimonial-card {
+  box-shadow: 0 8px 30px rgba(44, 40, 38, 0.08);
+}
+
+[data-site-theme="cherry"] .site-service-promo-tile {
+  box-shadow: 0 10px 40px rgba(44, 40, 38, 0.1);
+}
