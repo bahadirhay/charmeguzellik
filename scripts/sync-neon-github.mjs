@@ -6,7 +6,7 @@
  *   npm run sync:neon-github
  *   npm run sync:neon-github -- --dry-run
  *   npm run sync:neon-github -- --seed
- *   npm run sync:neon-github -- --git-pull --commit=chore: sync --git-push
+ *   npm run sync:neon-github -- --git-pull --commit=chore:sync --git-push
  *
  * PowerShell: boşluklu commit için --commit="mesaj" npm tarafından parçalanabilir;
  *   güvenli: --commit=mesaj veya --commit mesaj (tırnaksız tek kelime)
@@ -21,14 +21,19 @@ import { config as loadEnv } from "dotenv";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
 const prismaSchemaPath = resolve(root, "prisma", "schema.prisma");
+/** Windows’ta spawn + npx/npm + shell:false sessizce başarısız olabiliyor; doğrudan Node ile çalıştır. */
+const prismaCliPath = resolve(root, "node_modules", "prisma", "build", "index.js");
+const tsxCliPath = resolve(root, "node_modules", "tsx", "dist", "cli.mjs");
+const nodeBin = process.execPath;
 
 const isWin = process.platform === "win32";
-/** Windows’ta shell:false ile npx / npm çağrısı (DEP0190 kaçınır). */
-function npxCmd() {
-  return isWin ? "npx.cmd" : "npx";
-}
 function npmCmd() {
   return isWin ? "npm.cmd" : "npm";
+}
+
+/** Prisma CLI — `npx prisma` yerine (Windows uyumlu). */
+function runPrisma(prismaArgs, opts = {}) {
+  return run(nodeBin, [prismaCliPath, ...prismaArgs], opts);
 }
 
 function loadProjectEnv() {
@@ -175,34 +180,38 @@ async function main() {
 
   if (!args.skipDb) {
     process.stdout.write("\n=== Prisma: generate ===\n");
-    let r = run(npxCmd(), ["prisma", "generate"], { dryRun: args.dryRun });
+    let r = runPrisma(["generate"], { dryRun: args.dryRun });
     if (r.status !== 0) {
-      process.stderr.write("\nprisma generate başarısız. npm run dev açıksa kapatıp tekrar deneyin.\n");
+      process.stderr.write(
+        "\nprisma generate başarısız. `npm run dev` veya başka Prisma süreçlerini kapatıp tekrar deneyin.\n" +
+          "Elle: node node_modules/prisma/build/index.js generate\n",
+      );
       process.exit(r.status ?? 1);
     }
 
     process.stdout.write("\n=== Prisma: db push (şema → Neon) ===\n");
-    r = run(npxCmd(), ["prisma", "db", "push"], { dryRun: args.dryRun });
+    r = runPrisma(["db", "push"], { dryRun: args.dryRun });
     if (r.status !== 0) {
       process.stderr.write("\nprisma db push başarısız.\n");
       process.exit(r.status ?? 1);
     }
 
     process.stdout.write("\n=== Prisma: bağlantı testi (SELECT 1) ===\n");
-    r = run(
-      npxCmd(),
-      ["prisma", "db", "execute", "--stdin", "--schema", prismaSchemaPath],
-      { dryRun: args.dryRun, inherit: true, stdinInput: "SELECT 1 as ok;" },
-    );
+    r = runPrisma(["db", "execute", "--stdin", "--schema", prismaSchemaPath], {
+      dryRun: args.dryRun,
+      inherit: true,
+      stdinInput: "SELECT 1 as ok;",
+    });
     if (r.status !== 0) {
       process.stdout.write("Uyarı: SELECT 1 başarısız (db push geçtiyse genelde sorun değil).\n");
     }
   }
 
   if (args.seed) {
-    process.stdout.write("\n=== npm run db:seed ===\n");
+    process.stdout.write("\n=== db:seed (tsx) ===\n");
     process.stdout.write("(!) Seed veritabanını değiştirebilir.\n");
-    const r = run(npmCmd(), ["run", "db:seed"], { dryRun: args.dryRun });
+    const seedPath = resolve(root, "prisma", "seed.ts");
+    const r = run(nodeBin, [tsxCliPath, seedPath], { dryRun: args.dryRun });
     if (r.status !== 0) process.exit(r.status ?? 1);
   }
 
