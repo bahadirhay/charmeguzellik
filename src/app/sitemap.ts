@@ -7,6 +7,9 @@ import {
   parseSitemapExtrasJson,
 } from "@/lib/sitemap-config";
 
+/** Vercel build aşamasında DATABASE_URL olmayabilir; sitemap’i istek anında üret. */
+export const dynamic = "force-dynamic";
+
 type ChangeFreq = NonNullable<MetadataRoute.Sitemap[number]["changeFrequency"]>;
 
 function clampPriority(n: number, fallback: number): number {
@@ -16,6 +19,17 @@ function clampPriority(n: number, fallback: number): number {
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  if (!process.env.DATABASE_URL?.trim()) {
+    return [
+      {
+        url: `${base}/`,
+        lastModified: new Date(),
+        changeFrequency: "weekly",
+        priority: 1,
+      },
+    ];
+  }
+
   const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
   const homePriority = clampPriority(settings?.sitemapHomePriority ?? 1, 1);
   const pageDefaultPriority = clampPriority(settings?.sitemapPagePriority ?? 0.7, 0.7);
