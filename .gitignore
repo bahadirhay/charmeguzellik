@@ -47,9 +47,8 @@ prisma/*.db-journal
 # Yerel görsel URL listesi (isteğe bağlı)
 scripts/image-urls.json
 
-# Admin’den yüklenen / import edilen medya
-public/uploads/*
-!public/uploads/.gitkeep
+# Admin’den yüklenen medya — repoda tutulur (Vercel’de de görünsün). Çok büyük dosyalar için Git LFS düşünün.
+public/uploads/.DS_Store
 
 # HTTrack yerel ayna (büyük; gerekirse kaldırıp repoya ekleyin)
 public/webpace-mirror/
