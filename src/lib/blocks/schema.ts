@@ -383,7 +383,12 @@ export type PageBlock = z.infer<typeof pageBlockSchema>;
 export const blocksArraySchema = z.array(pageBlockSchema);
 
 export function parseBlocks(json: string): PageBlock[] {
-  const raw = JSON.parse(json || "[]");
+  let raw: unknown;
+  try {
+    raw = JSON.parse(json || "[]");
+  } catch {
+    return [];
+  }
   const parsed = blocksArraySchema.safeParse(raw);
   if (!parsed.success) return [];
   return parsed.data;

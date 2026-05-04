@@ -10,6 +10,8 @@
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "setup:env": "node scripts/setup-deploy-env.mjs",
+    "vercel:sync-env": "node scripts/sync-vercel-env.mjs",
     "images:import": "node scripts/download-images.cjs",
     "mirror:webpace": "node scripts/sync-webpace.mjs"
   },

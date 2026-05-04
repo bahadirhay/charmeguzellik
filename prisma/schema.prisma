@@ -1,9 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  /// Windows’ta geliştirme (`native`) + Vercel Linux üretim — aksi halde sunucuda Prisma motoru yüklenmeyebilir (500).
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
