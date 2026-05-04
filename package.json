@@ -10,6 +10,7 @@
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "sql:neon-full": "tsx scripts/generate-neon-full-sql.ts",
     "db:mirror": "node scripts/mirror-postgres-data.mjs",
     "reset:admin": "tsx scripts/reset-staff-admin.ts",
     "publish:local": "node scripts/publish-local.mjs",
