@@ -18,7 +18,8 @@
     "vercel:sync-env": "node scripts/sync-vercel-env.mjs",
     "sync:neon-github": "node scripts/sync-neon-github.mjs",
     "images:import": "node scripts/download-images.cjs",
-    "mirror:webpace": "node scripts/sync-webpace.mjs"
+    "mirror:webpace": "node scripts/sync-webpace.mjs",
+    "release:check": "node scripts/release-check.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
