@@ -55,13 +55,17 @@ export function parseHHMM(s: string): number | null {
 }
 
 export function getWeekdayInTimeZone(d: Date, timeZone: string): number {
-  const w = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(d) as keyof typeof WEEKDAY_SHORT;
+  const tz = timeZone.trim() || DEFAULT_APPOINTMENT_TIMEZONE;
+  const w = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" }).format(
+    d,
+  ) as keyof typeof WEEKDAY_SHORT;
   return WEEKDAY_SHORT[w] ?? 0;
 }
 
 export function getClockMinutesInTimeZone(d: Date, timeZone: string): number {
+  const tz = timeZone.trim() || DEFAULT_APPOINTMENT_TIMEZONE;
   const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone,
+    timeZone: tz,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -106,8 +110,9 @@ export function slotStartLabelsForCalendarDate(
 }
 
 export function todayYmdInTimeZone(timeZone: string): string {
+  const tz = timeZone.trim() || DEFAULT_APPOINTMENT_TIMEZONE;
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
+    timeZone: tz,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
