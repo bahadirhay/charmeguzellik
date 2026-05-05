@@ -20,7 +20,8 @@
     "images:import": "node scripts/download-images.cjs",
     "mirror:webpace": "node scripts/sync-webpace.mjs",
     "release:check": "node scripts/release-check.mjs",
-    "smoke:live": "node scripts/smoke-live.mjs"
+    "smoke:live": "node scripts/smoke-live.mjs",
+    "release:prod": "npm run release:check && npm run smoke:live"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
