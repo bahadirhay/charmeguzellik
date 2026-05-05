@@ -12,7 +12,7 @@ import { prisma } from "@/lib/prisma";
 const postSchema = z.object({
   clientName: z.string().min(1).max(120),
   clientEmail: z.string().max(200).optional().nullable(),
-  clientPhone: z.string().max(40).optional().nullable(),
+  clientPhone: z.string().trim().min(1).max(40),
   serviceId: z.string().max(64).optional().nullable(),
   serviceLabel: z.string().max(160).optional().nullable(),
   preferredStart: z.string().min(4).max(120),

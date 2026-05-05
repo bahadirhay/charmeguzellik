@@ -94,7 +94,8 @@ export function ContactFormBlock({
   const isAppointment = mode === "appointment";
   const showApptService = isAppointment && on(appointmentShowService);
   const showApptEmail = isAppointment && on(appointmentShowEmail);
-  const showApptPhone = isAppointment && on(appointmentShowPhone);
+  // Randevu talebinde telefon zorunlu: alan her zaman görünür.
+  const showApptPhone = isAppointment;
   const showApptMessage = isAppointment && on(appointmentShowMessage);
   const showContactEmail = !isAppointment && on(contactShowEmail);
   const showContactPhone = !isAppointment && on(contactShowPhone);
@@ -275,7 +276,7 @@ export function ContactFormBlock({
       body: JSON.stringify({
         clientName: name,
         clientEmail: showApptEmail ? String(fd.get("clientEmail") ?? "").trim() || null : null,
-        clientPhone: showApptPhone ? String(fd.get("clientPhone") ?? "").trim() || null : null,
+        clientPhone: String(fd.get("clientPhone") ?? "").trim() || null,
         serviceId,
         serviceLabel,
         preferredStart: start.toISOString(),
@@ -449,6 +450,7 @@ export function ContactFormBlock({
               <input
                 name="clientPhone"
                 type="tel"
+                required
                 onBlur={onClientPhoneBlur}
                 className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
               />
