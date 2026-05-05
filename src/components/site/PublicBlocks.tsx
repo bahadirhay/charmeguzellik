@@ -89,7 +89,7 @@ async function PublicBlockRow({
         title={block.props.title}
         columns={block.props.columns}
         embedHeightPx={block.props.embedHeightPx}
-        displayMode={block.props.displayMode}
+        displayMode="mediaCard"
         feedLayout={block.props.feedLayout}
         carouselAutoplayMs={block.props.carouselAutoplayMs}
       />
@@ -111,7 +111,7 @@ async function PublicBlockRow({
         title={block.props.title}
         columns={block.props.columns}
         embedHeightPx={block.props.embedHeightPx}
-        displayMode={block.props.displayMode}
+        displayMode="mediaCard"
       />
     );
   }
