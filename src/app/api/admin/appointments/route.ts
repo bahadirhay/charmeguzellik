@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAppointmentRecord, AppointmentDuplicateError } from "@/lib/create-appointment-record";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { appointmentPhoneTurkeyHint, isValidTurkeyMobileAppointmentPhone } from "@/lib/appointment-phone";
 
 export async function GET() {
   const auth = await requireStaffApiPerm("crm.appointments");
@@ -25,8 +26,12 @@ export async function POST(req: Request) {
   if (!body.clientName?.trim() || !body.startAt) {
     return NextResponse.json({ error: "Eksik alan" }, { status: 400 });
   }
-  if (!body.clientPhone?.trim()) {
+  const phone = body.clientPhone?.trim() ?? "";
+  if (!phone) {
     return NextResponse.json({ error: "Telefon boş bırakılamaz." }, { status: 400 });
+  }
+  if (!isValidTurkeyMobileAppointmentPhone(phone)) {
+    return NextResponse.json({ error: appointmentPhoneTurkeyHint() }, { status: 400 });
   }
   let row;
   try {
@@ -37,7 +42,7 @@ export async function POST(req: Request) {
         serviceName: body.serviceName?.trim() || null,
         clientName: body.clientName,
         clientEmail: body.clientEmail?.trim() || null,
-        clientPhone: body.clientPhone?.trim() || null,
+        clientPhone: phone,
         notes: body.notes?.trim() || null,
         status: "pending",
       }),

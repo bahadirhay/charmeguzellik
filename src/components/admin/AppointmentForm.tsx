@@ -9,6 +9,11 @@ import {
   slotStartLabelsForCalendarDate,
   todayYmdInTimeZone,
 } from "@/lib/appointment-schedule";
+import {
+  APPOINTMENT_PHONE_INPUT_MAX_LENGTH,
+  appointmentPhoneTurkeyHint,
+  isValidTurkeyMobileAppointmentPhone,
+} from "@/lib/appointment-phone";
 
 type Props = {
   serviceOptions?: string[];
@@ -95,6 +100,10 @@ export function AppointmentForm({ serviceOptions = [], schedule = null }: Props)
     }
     if (!phone) {
       setFeedback({ text: "Telefon boş bırakılamaz.", error: true });
+      return;
+    }
+    if (!isValidTurkeyMobileAppointmentPhone(phone)) {
+      setFeedback({ text: appointmentPhoneTurkeyHint(), error: true });
       return;
     }
     if (!timeSlotLabels.includes(time)) {
@@ -258,7 +267,16 @@ export function AppointmentForm({ serviceOptions = [], schedule = null }: Props)
           name="clientPhone"
           type="tel"
           required
-          onInvalid={(e) => e.currentTarget.setCustomValidity("Telefon boş bırakılamaz.")}
+          inputMode="tel"
+          autoComplete="tel"
+          maxLength={APPOINTMENT_PHONE_INPUT_MAX_LENGTH}
+          placeholder="Örn. 05325717714"
+          onInvalid={(e) => {
+            const el = e.currentTarget;
+            el.setCustomValidity(
+              el.validity.valueMissing ? "Telefon boş bırakılamaz." : appointmentPhoneTurkeyHint(),
+            );
+          }}
           onInput={(e) => e.currentTarget.setCustomValidity("")}
           onBlur={onClientPhoneBlur}
           className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"

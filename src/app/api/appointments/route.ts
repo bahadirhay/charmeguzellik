@@ -8,11 +8,21 @@ import { resolvePublishedContactFormBlock, type ContactFormContext } from "@/lib
 import { createAppointmentRecord, AppointmentDuplicateError } from "@/lib/create-appointment-record";
 import { insertPrimaryCalendarEvent, refreshGoogleAccessToken } from "@/lib/google-calendar";
 import { prisma } from "@/lib/prisma";
+import {
+  APPOINTMENT_PHONE_INPUT_MAX_LENGTH,
+  appointmentPhoneTurkeyHint,
+  isValidTurkeyMobileAppointmentPhone,
+} from "@/lib/appointment-phone";
 
 const postSchema = z.object({
   clientName: z.string().min(1).max(120),
   clientEmail: z.string().max(200).optional().nullable(),
-  clientPhone: z.string().trim().min(1).max(40),
+  clientPhone: z
+    .string()
+    .trim()
+    .min(1, appointmentPhoneTurkeyHint())
+    .max(APPOINTMENT_PHONE_INPUT_MAX_LENGTH)
+    .refine(isValidTurkeyMobileAppointmentPhone, appointmentPhoneTurkeyHint()),
   serviceId: z.string().max(64).optional().nullable(),
   serviceLabel: z.string().max(160).optional().nullable(),
   preferredStart: z.string().min(4).max(120),
@@ -34,7 +44,13 @@ export async function POST(req: Request) {
   }
   const parsed = postSchema.safeParse(raw);
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, error: "Eksik veya geçersiz alanlar" }, { status: 400 });
+    const issues = parsed.error.issues;
+    const phoneIssue = issues.find((i) => i.path[0] === "clientPhone");
+    const msg =
+      phoneIssue?.message ??
+      issues[0]?.message ??
+      "Eksik veya geçersiz alanlar.";
+    return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
   const body = parsed.data;
   if (body.website?.trim()) {

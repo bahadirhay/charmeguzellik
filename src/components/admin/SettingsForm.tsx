@@ -715,11 +715,20 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
           <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/25 dark:text-amber-100">
             <p className="font-medium">Randevu formu → Google Takvim (isteğe bağlı)</p>
             <p className="mt-1 leading-relaxed opacity-90">
-              Google Cloud Console’da Calendar API açın; OAuth masaüstü uygulaması ile refresh token alıp aşağıya
-              yapıştırın. Doldurulduğunda siteden gelen randevu talepleri <code className="rounded bg-white/80 px-1 dark:bg-black/30">
-                primary
-              </code>{" "}
-              takviminize etkinlik olarak eklenir.
+              Google Cloud Console’da Calendar API açın; OAuth ile refresh token alıp alanları doldurun. Doldurulduğunda
+              randevular, bu token için yetki verdiğiniz{" "}
+              <strong className="font-medium">aynı Google hesabının ana (primary) takvimine</strong> yazılır. Kontrol için
+              bilgisayarınızdan{" "}
+              <a className="font-medium underline" href="https://calendar.google.com" target="_blank" rel="noreferrer">
+                calendar.google.com
+              </a>{" "}
+              açın — etkinlik o hesabın ana takvim listesinde görünür.
+            </p>
+            <p className="mt-2 leading-relaxed opacity-90">
+              Panele mi bakacaksınız? Burada doğrudan bağlantı yok; bunun yerine{" "}
+              <strong>Randevular</strong> sayfasındaki <strong>Takvim</strong> sütununa bakın:
+              <strong> Google ✓</strong> ise Google’a yazılmıştır (boş ise sunucuya kayıtlıdır ama Google senkronu
+              olmamıştır — Client ID / Secret / Refresh yanlış veya süresiz geçerlilik sorunu olabilir).
             </p>
             <ul className="mt-2 list-inside list-disc space-y-1 leading-relaxed opacity-95">
               <li>
