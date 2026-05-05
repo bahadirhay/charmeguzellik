@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { PageBlock } from "@/lib/blocks/schema";
 import { resolveWaDigits, rewriteWhatsappHref } from "@/lib/whatsapp-url";
 
@@ -23,6 +24,17 @@ function newTabAttrsForFooterHref(
 }
 
 type InfoIcon = NonNullable<Props["infoCards"]>[number]["icon"];
+
+function telDigitsFromHref(href: string): string {
+  const t = href.trim();
+  if (!/^tel:/i.test(t)) return "";
+  return t.slice(4).replace(/[^\d+]/g, "");
+}
+
+function isLikelyMobileUserAgent(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
 
 function IconGlyph({ kind }: { kind: InfoIcon }) {
   const stroke = "currentColor";
@@ -76,6 +88,7 @@ export function MarketingFooterBlock({
   embedPreview?: boolean;
   siteWhatsappNumber?: string | null;
 }) {
+  const [telHint, setTelHint] = useState<string | null>(null);
   /** Tema `--site-footer-fg` vermezse: açık footer zeminde okunaklı olsun diye `--site-fg` zinciri */
   const fg = "var(--site-footer-fg, var(--site-fg, #171717))";
   const muted = "var(--site-footer-muted, var(--site-muted, #52525b))";
@@ -108,11 +121,19 @@ export function MarketingFooterBlock({
                 const solid = c.variant === "solid";
                 const href =
                   waDigitsCombined ? rewriteWhatsappHref(c.href, waDigitsCombined) : c.href;
+                const telDigits = telDigitsFromHref(href);
                 return (
                   <a
                     key={c.id}
                     href={href}
                     {...newTabAttrsForFooterHref(href, openExternalInNewTab)}
+                    onClick={(e) => {
+                      if (!telDigits) return;
+                      if (isLikelyMobileUserAgent()) return;
+                      e.preventDefault();
+                      const pretty = telDigits.startsWith("+") ? telDigits : `+${telDigits}`;
+                      setTelHint(`Masaüstünde doğrudan arama açılamıyor. Telefon: ${pretty}`);
+                    }}
                     className={`inline-flex min-h-[2.5rem] items-center justify-center rounded-full px-5 text-sm font-semibold transition ${
                       solid
                         ? "bg-white text-zinc-900 hover:bg-zinc-100"
@@ -129,6 +150,11 @@ export function MarketingFooterBlock({
                 );
               })}
             </div>
+          ) : null}
+          {telHint ? (
+            <p className="text-xs md:text-right" style={{ color: muted }}>
+              {telHint}
+            </p>
           ) : null}
         </div>
 
