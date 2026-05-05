@@ -19,7 +19,8 @@
     "sync:neon-github": "node scripts/sync-neon-github.mjs",
     "images:import": "node scripts/download-images.cjs",
     "mirror:webpace": "node scripts/sync-webpace.mjs",
-    "release:check": "node scripts/release-check.mjs"
+    "release:check": "node scripts/release-check.mjs",
+    "smoke:live": "node scripts/smoke-live.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
