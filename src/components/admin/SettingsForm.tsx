@@ -10,6 +10,7 @@ import {
   type SiteHeaderBrand,
   type ThemeTokens,
 } from "@/lib/theme-tokens";
+import { parseGoogleCalendarCredentialsJson } from "@/lib/google-calendar-credentials-import";
 
 /** DB'de yanlışlıkla "null" string olarak saklanmış alanları boş göster */
 function strForInput(v: string | null | undefined) {
@@ -29,6 +30,7 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
   const [importPresetImages, setImportPresetImages] = useState(false);
   const [importCustomUrls, setImportCustomUrls] = useState(false);
   const [customUrlsJson, setCustomUrlsJson] = useState("");
+  const [googleCalendarJsonDraft, setGoogleCalendarJsonDraft] = useState("");
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -110,6 +112,30 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
 
   function field<K extends keyof SettingsRow>(key: K, value: SettingsRow[K]) {
     setRow((r) => ({ ...r, [key]: value }));
+  }
+
+  function applyGoogleCalendarImportJson(text: string) {
+    const parsed = parseGoogleCalendarCredentialsJson(text);
+    if ("error" in parsed) {
+      setFeedback({ text: parsed.error, error: true });
+      return;
+    }
+    setRow((r) => ({
+      ...r,
+      ...(parsed.clientId ? { googleCalendarClientId: parsed.clientId } : {}),
+      ...(parsed.clientSecret ? { googleCalendarSecret: parsed.clientSecret } : {}),
+      ...(parsed.refreshToken ? { googleRefreshToken: parsed.refreshToken } : {}),
+    }));
+    const parts: string[] = [];
+    if (parsed.clientId) parts.push("Client ID");
+    if (parsed.clientSecret) parts.push("Client Secret");
+    if (parsed.refreshToken) parts.push("Refresh token");
+    setFeedback({
+      text: parts.length
+        ? `Alanlar dolduruldu: ${parts.join(", ")}. Kontrol edip «Tüm ayarları kaydet» deyin.`
+        : "JSON geçerli ama güncellenecek alan yok.",
+      error: false,
+    });
   }
 
   function patchFooterStrip(patch: Partial<NonNullable<ThemeTokens["siteFooterStrip"]>>) {
@@ -712,6 +738,66 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
                 buraya koymayın.
               </li>
             </ul>
+          </div>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50/90 p-3 text-xs dark:border-zinc-700 dark:bg-zinc-900/60">
+            <p className="font-medium text-zinc-800 dark:text-zinc-200">
+              Tek seferde yükle (önerilir)
+            </p>
+            <p className="mt-1 leading-relaxed text-zinc-600 dark:text-zinc-400">
+              Aşağıdaki gibi bir <code className="rounded bg-white px-1 dark:bg-black/40">.json</code> dosyası
+              seçin veya yapıştırıp uygulayın. Dosya tarayıcıda okunur; yalnızca alanları doldurur, sunucuya
+              ayrı dosya yüklenmez. Ardından mutlaka{" "}
+              <strong className="text-zinc-800 dark:text-zinc-200">Tüm ayarları kaydet</strong> deyin.
+            </p>
+            <pre className="mt-2 max-h-32 overflow-auto rounded border border-zinc-200 bg-white p-2 text-[10px] leading-relaxed dark:border-zinc-700 dark:bg-zinc-950">
+{`{
+  "client_id": "…apps.googleusercontent.com",
+  "client_secret": "GOCSPX-…",
+  "refresh_token": "1//…"
+}`}
+            </pre>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900">
+                JSON dosyası seç
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      applyGoogleCalendarImportJson(String(reader.result ?? ""));
+                      e.target.value = "";
+                    };
+                    reader.onerror = () => {
+                      setFeedback({ text: "Dosya okunamadı.", error: true });
+                      e.target.value = "";
+                    };
+                    reader.readAsText(f, "UTF-8");
+                  }}
+                />
+              </label>
+            </div>
+            <label className="mt-2 grid gap-1">
+              <span className="text-[11px] text-zinc-600 dark:text-zinc-400">Veya JSON’u yapıştırın</span>
+              <textarea
+                rows={4}
+                className="rounded border border-zinc-300 bg-white px-2 py-1 font-mono text-[11px] dark:border-zinc-600 dark:bg-zinc-950"
+                placeholder='{"client_id":"…","client_secret":"…","refresh_token":"…"}'
+                value={googleCalendarJsonDraft}
+                onChange={(e) => setGoogleCalendarJsonDraft(e.target.value)}
+                spellCheck={false}
+              />
+            </label>
+            <button
+              type="button"
+              className="mt-2 rounded-full border border-zinc-400 bg-white px-4 py-1.5 text-xs font-medium text-zinc-900 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+              onClick={() => applyGoogleCalendarImportJson(googleCalendarJsonDraft)}
+            >
+              JSON’dan alanları doldur
+            </button>
           </div>
           <label className="grid gap-1 text-sm font-mono text-[11px]">
             Google OAuth Client ID
