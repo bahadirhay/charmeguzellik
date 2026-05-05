@@ -211,7 +211,8 @@ export function ContactFormBlock({
 
   async function onSubmitContact(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
     const body = {
       name: String(fd.get("name") ?? ""),
       email: showContactEmail ? String(fd.get("email") ?? "") : "",
@@ -224,14 +225,15 @@ export function ContactFormBlock({
       body: JSON.stringify(body),
     });
     setStatus(res.ok ? "ok" : "err");
-    if (res.ok) e.currentTarget.reset();
+    if (res.ok) form.reset();
   }
 
   async function onSubmitAppointment(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const form = e.currentTarget;
     setCalendarNote(null);
     setSubmitError(null);
-    const fd = new FormData(e.currentTarget);
+    const fd = new FormData(form);
     const name = String(fd.get("clientName") ?? "").trim();
     const date = String(fd.get("apptDate") ?? "").trim();
     const time = String(fd.get("apptTime") ?? "").trim();
@@ -309,7 +311,7 @@ export function ContactFormBlock({
         : null,
     );
     setStatus("ok");
-    e.currentTarget.reset();
+    form.reset();
     setApptDate("");
     setApptTime("");
   }
