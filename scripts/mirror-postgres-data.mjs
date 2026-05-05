@@ -18,7 +18,7 @@ import { PrismaClient } from "@prisma/client";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
 
-loadEnv({ path: resolve(root, ".env") });
+loadEnv({ path: resolve(root, ".env"), override: true });
 loadEnv({ path: resolve(root, ".env.local"), override: true });
 
 /** Aynı DB tespiti için (sorgu parametre sırası farkını yumuşatır). */

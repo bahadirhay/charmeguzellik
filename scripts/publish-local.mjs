@@ -63,7 +63,7 @@ function run(cmd, args, opts = {}) {
 function loadStack(usePulled) {
   const envPath = resolve(root, ".env");
   const localPath = resolve(root, ".env.local");
-  if (existsSync(envPath)) loadEnv({ path: envPath });
+  if (existsSync(envPath)) loadEnv({ path: envPath, override: true });
   if (existsSync(localPath)) loadEnv({ path: localPath, override: true });
   if (usePulled && existsSync(pulledPath)) {
     loadEnv({ path: pulledPath, override: true });
@@ -121,6 +121,10 @@ publish:local — şema + admin şifresi + (isteğe) Vercel env + Git
 
   process.stdout.write("\n=== Prisma db push ===\n");
   c = run(node, [prismaCli, "db", "push"], { dry: args.dryRun });
+  if (c !== 0) process.exit(c);
+
+  process.stdout.write("\n=== Prisma db seed ===\n");
+  c = run(node, [prismaCli, "db", "seed"], { dry: args.dryRun });
   if (c !== 0) process.exit(c);
 
   process.stdout.write("\n=== Panel kullanıcısı (ADMIN_PASSWORD) ===\n");
