@@ -1,4 +1,5 @@
 import type { PageBlock } from "@/lib/blocks/schema";
+import { normalizePublicMediaUrl } from "@/lib/media-url";
 
 type GalleryProps = Extract<PageBlock, { type: "imageGallery" }>["props"];
 
@@ -21,7 +22,9 @@ export function ImageGalleryBlock({ props }: { props: GalleryProps }) {
   const grid = colsClass[cols];
   const rounded = props.rounded !== false;
   const imgShape = imageClassName(props.imageAspect ?? "video");
-  const valid = props.images.filter((im) => im.src?.trim());
+  const valid = props.images
+    .map((im) => ({ ...im, src: normalizePublicMediaUrl(im.src) }))
+    .filter((im) => im.src?.trim());
   if (valid.length === 0) {
     return (
       <p className="rounded-xl border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-600">

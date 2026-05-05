@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { normalizePublicMediaUrl } from "@/lib/media-url";
 
 export type HeroSliderSlide = {
   id: string;
@@ -70,12 +71,14 @@ export function HeroSlider({
   const [i, setI] = useState(0);
 
   const safeSlides = useMemo(() => {
-    return slides.filter(
-      (s): s is HeroSliderSlide =>
+    return slides
+      .filter(
+        (s): s is HeroSliderSlide =>
         s != null &&
         typeof s === "object" &&
         typeof s.imageUrl === "string",
-    );
+      )
+      .map((s) => ({ ...s, imageUrl: normalizePublicMediaUrl(s.imageUrl) }));
   }, [slides]);
 
   const n = safeSlides.length;

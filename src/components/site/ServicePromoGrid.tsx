@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { normalizePublicMediaUrl } from "@/lib/media-url";
 
 export type PromoItem = {
   id: string;
@@ -21,12 +22,13 @@ export function ServicePromoGrid({ items }: Props) {
   return (
     <div className="site-service-promo-grid grid gap-4 md:grid-cols-3">
       {items.map((item) => {
+        const imageUrl = normalizePublicMediaUrl(item.imageUrl);
         const from = item.gradientFrom ?? "#e8ddd8";
         const to = item.gradientTo ?? "#d4c4bc";
-        const style: CSSProperties = item.imageUrl
+        const style: CSSProperties = imageUrl
           ? {}
           : { background: `linear-gradient(145deg, ${from}, ${to})` };
-        const textLight = item.lightOnDark ?? Boolean(item.imageUrl);
+        const textLight = item.lightOnDark ?? Boolean(imageUrl);
 
         return (
           <div
@@ -34,11 +36,11 @@ export function ServicePromoGrid({ items }: Props) {
             className="site-service-promo-tile relative min-h-[260px] overflow-hidden rounded-2xl shadow-md sm:min-h-[300px]"
             style={style}
           >
-            {item.imageUrl ? (
+            {imageUrl ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={item.imageUrl}
+                  src={imageUrl}
                   alt=""
                   className="absolute inset-0 h-full w-full object-cover"
                 />

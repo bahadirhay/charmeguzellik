@@ -15,6 +15,7 @@ import { PublicSiteMenu } from "@/components/site/PublicSiteMenu";
 import { getPublishedNavTree } from "@/lib/navigation";
 import { getSiteSettings } from "@/lib/site-settings";
 import { resolveWaDigits } from "@/lib/whatsapp-url";
+import { normalizePublicMediaUrl } from "@/lib/media-url";
 
 function layoutClass(
   desktop: "left" | "center" | "right" | undefined,
@@ -150,6 +151,7 @@ function BlockView({
     case "hero": {
       const { headline, subline, imageUrl, ctaLabel, ctaHref, desktopLayout, mobileLayout } =
         block.props;
+      const normalizedImageUrl = normalizePublicMediaUrl(imageUrl);
       return (
         <section
           className={`rounded-2xl bg-gradient-to-br from-rose-50 to-amber-50 px-6 py-14 dark:from-rose-950/40 dark:to-amber-950/30 ${layoutClass(desktopLayout, mobileLayout)}`}
@@ -171,10 +173,10 @@ function BlockView({
                 </a>
               ) : null}
             </div>
-            {imageUrl ? (
+            {normalizedImageUrl ? (
               <div className="mx-auto w-full max-w-md overflow-hidden rounded-xl shadow-lg md:mx-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imageUrl} alt="" className="aspect-[4/3] h-auto w-full object-cover" />
+                <img src={normalizedImageUrl} alt="" className="aspect-[4/3] h-auto w-full object-cover" />
               </div>
             ) : null}
           </div>
