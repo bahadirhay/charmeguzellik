@@ -25,6 +25,9 @@ export async function POST(req: Request) {
   if (!body.clientName?.trim() || !body.startAt) {
     return NextResponse.json({ error: "Eksik alan" }, { status: 400 });
   }
+  if (!body.clientPhone?.trim()) {
+    return NextResponse.json({ error: "Telefon boş bırakılamaz." }, { status: 400 });
+  }
   let row;
   try {
     row = await prisma.$transaction(async (tx) =>
@@ -48,6 +51,9 @@ export async function POST(req: Request) {
         },
         { status: 409 },
       );
+    }
+    if (e instanceof Error && e.message === "phone_required") {
+      return NextResponse.json({ error: "Telefon boş bırakılamaz." }, { status: 400 });
     }
     throw e;
   }

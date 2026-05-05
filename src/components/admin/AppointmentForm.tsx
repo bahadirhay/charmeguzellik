@@ -84,12 +84,17 @@ export function AppointmentForm({ serviceOptions = [], schedule = null }: Props)
     setFeedback(null);
     const fd = new FormData(e.currentTarget);
     const name = String(fd.get("clientName") ?? "").trim();
+    const phone = String(fd.get("clientPhone") ?? "").trim();
     const date = String(fd.get("apptDate") ?? "").trim();
     const time = String(fd.get("apptTime") ?? "").trim();
     const preferredIso = naiveLocalToAppointmentIso(date, time, tz);
     const start = new Date(preferredIso);
     if (!name || !date || !time || Number.isNaN(start.getTime())) {
       setFeedback({ text: "Tarih ve saat seçin.", error: true });
+      return;
+    }
+    if (!phone) {
+      setFeedback({ text: "Telefon boş bırakılamaz.", error: true });
       return;
     }
     if (!timeSlotLabels.includes(time)) {
@@ -120,7 +125,7 @@ export function AppointmentForm({ serviceOptions = [], schedule = null }: Props)
       serviceName,
       clientName: name,
       clientEmail: String(fd.get("clientEmail") ?? "").trim() || null,
-      clientPhone: String(fd.get("clientPhone") ?? "").trim() || null,
+      clientPhone: phone,
       notes: String(fd.get("notes") ?? "").trim() || null,
     };
     const res = await fetch("/api/admin/appointments", {
@@ -252,6 +257,9 @@ export function AppointmentForm({ serviceOptions = [], schedule = null }: Props)
         <input
           name="clientPhone"
           type="tel"
+          required
+          onInvalid={(e) => e.currentTarget.setCustomValidity("Telefon boş bırakılamaz.")}
+          onInput={(e) => e.currentTarget.setCustomValidity("")}
           onBlur={onClientPhoneBlur}
           className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
         />

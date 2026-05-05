@@ -84,7 +84,6 @@ export function ContactFormBlock({
 }: Props) {
   const pathname = usePathname();
   const [status, setStatus] = useState<"idle" | "ok" | "err">("idle");
-  const [calendarNote, setCalendarNote] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [navTree, setNavTree] = useState<NavNode[]>([]);
   const [navLoading, setNavLoading] = useState(false);
@@ -232,15 +231,24 @@ export function ContactFormBlock({
   async function onSubmitAppointment(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
-    setCalendarNote(null);
     setSubmitError(null);
     const fd = new FormData(form);
     const name = String(fd.get("clientName") ?? "").trim();
+    const phoneInput = form.elements.namedItem("clientPhone") as HTMLInputElement | null;
+    const phone = String(fd.get("clientPhone") ?? "").trim();
     const date = String(fd.get("apptDate") ?? "").trim();
     const time = String(fd.get("apptTime") ?? "").trim();
+    if (phoneInput && !phone) {
+      phoneInput.setCustomValidity("Telefon boş bırakılamaz.");
+      phoneInput.reportValidity();
+      return;
+    }
+    if (phoneInput) {
+      phoneInput.setCustomValidity("");
+    }
     const preferredIso = naiveLocalToAppointmentIso(date, time, tz);
     const start = new Date(preferredIso);
-    if (!name || !date || !time || Number.isNaN(start.getTime())) {
+    if (!name || !phone || !date || !time || Number.isNaN(start.getTime())) {
       setStatus("err");
       return;
     }
@@ -305,12 +313,6 @@ export function ContactFormBlock({
       setStatus("err");
       return;
     }
-    const cal = j.calendarSynced ?? null;
-    setCalendarNote(
-      cal === false
-        ? "Kayıt alındı. Google Takvim’e yazılamadı — Ayarlar’da API bilgilerini kontrol edin."
-        : null,
-    );
     setStatus("ok");
     form.reset();
     setApptDate("");
@@ -343,7 +345,6 @@ export function ContactFormBlock({
                 ? "Randevu talebiniz alındı. Onay için sizinle iletişime geçeceğiz."
                 : "Mesajınız alındı. En kısa sürede dönüş yapacağız.")}
           </p>
-          {calendarNote ? <p className="text-sm text-amber-700 dark:text-amber-300">{calendarNote}</p> : null}
         </div>
       ) : isAppointment ? (
         <form className="flex flex-col gap-3 text-left" onSubmit={onSubmitAppointment}>
@@ -451,6 +452,8 @@ export function ContactFormBlock({
                 name="clientPhone"
                 type="tel"
                 required
+                onInvalid={(e) => e.currentTarget.setCustomValidity("Telefon boş bırakılamaz.")}
+                onInput={(e) => e.currentTarget.setCustomValidity("")}
                 onBlur={onClientPhoneBlur}
                 className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
               />

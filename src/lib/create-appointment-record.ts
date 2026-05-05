@@ -29,8 +29,12 @@ export async function createAppointmentRecord(
   input: CreateAppointmentRecordInput,
 ): Promise<Appointment> {
   const trimName = input.clientName.trim();
+  const trimPhone = input.clientPhone?.trim() || "";
+  if (!trimPhone) {
+    throw new Error("phone_required");
+  }
   const nameKey = normalizeClientNameKey(trimName);
-  const phoneKey = normalizePhoneKey(input.clientPhone);
+  const phoneKey = normalizePhoneKey(trimPhone);
   const dup = await appointmentDuplicateExists(tx, {
     startAt: input.startAt,
     serviceName: input.serviceName,
@@ -56,7 +60,7 @@ export async function createAppointmentRecord(
       serviceName: input.serviceName,
       clientName: trimName,
       clientEmail: input.clientEmail?.trim() || null,
-      clientPhone: input.clientPhone?.trim() || null,
+      clientPhone: trimPhone,
       clientNameKey: nameKey,
       clientPhoneKey: phoneKey,
       notes: input.notes,

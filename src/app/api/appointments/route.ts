@@ -101,6 +101,9 @@ export async function POST(req: Request) {
         { status: 409 },
       );
     }
+    if (e instanceof Error && e.message === "phone_required") {
+      return NextResponse.json({ ok: false, error: "Telefon boş bırakılamaz." }, { status: 400 });
+    }
     throw e;
   }
 
