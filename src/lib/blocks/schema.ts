@@ -100,6 +100,8 @@ const contactFormProps = z.object({
   contactShowMessage: z.boolean().optional(),
   /** Form altındaki onay kutuları */
   appointmentConsentItems: z.array(consentItemSchema).max(8).optional(),
+  /** Randevu: zorunlu gizlilik onayı bağlantısı (boşsa bileşen varsayılanı) */
+  appointmentPrivacyPolicyHref: z.string().max(500).optional(),
   contactConsentItems: z.array(consentItemSchema).max(8).optional(),
   /** IANA; çalışma saati ve tarih listesi için (varsayılan Europe/Istanbul) */
   appointmentTimeZone: z.string().max(80).optional(),

@@ -18,6 +18,8 @@ import {
   isValidTurkeyMobileAppointmentPhone,
 } from "@/lib/appointment-phone";
 
+const DEFAULT_APPOINTMENT_PRIVACY_HREF = "https://charmeguzellik.com/gizlilik-sozlesmesi";
+
 type ServiceOption = { id: string; label: string };
 type ConsentItem = {
   id: string;
@@ -47,6 +49,8 @@ type Props = {
   contactShowPhone?: boolean;
   contactShowMessage?: boolean;
   appointmentConsentItems?: ConsentItem[];
+  /** Boşsa varsayılan canlı gizlilik sayfası */
+  appointmentPrivacyPolicyHref?: string;
   contactConsentItems?: ConsentItem[];
   appointmentTimeZone?: string;
   appointmentDays?: AppointmentDaySchedule[];
@@ -90,6 +94,7 @@ export function ContactFormBlock({
   contactShowPhone,
   contactShowMessage,
   appointmentConsentItems = [],
+  appointmentPrivacyPolicyHref,
   contactConsentItems = [],
   appointmentTimeZone,
   appointmentDays,
@@ -117,6 +122,7 @@ export function ContactFormBlock({
   const showContactPhone = !isAppointment && on(contactShowPhone);
   const showContactMessage = !isAppointment && on(contactShowMessage);
   const currentConsentItems = isAppointment ? appointmentConsentItems : contactConsentItems;
+  const appointmentPrivacyHref = (appointmentPrivacyPolicyHref?.trim() || DEFAULT_APPOINTMENT_PRIVACY_HREF).trim();
 
   const useAutoNav = serviceNavUseAuto !== false;
 
@@ -270,12 +276,20 @@ export function ContactFormBlock({
     if (phoneInput) {
       phoneInput.setCustomValidity("");
     }
+    if (fd.get("privacyPolicyAccepted") !== "yes") {
+      setSubmitError("Randevu talebi göndermek için gizlilik sözleşmesini okuyup kabul etmelisiniz.");
+      setStatus("err");
+      return;
+    }
     const preferredIso = naiveLocalToAppointmentIso(date, time, tz);
     const consentAccepted = fd.getAll("consentAccepted").map((x) => String(x));
-    const acceptedLabels = currentConsentItems
-      .filter((c) => consentAccepted.includes(c.id))
-      .map((c) => c.label.trim())
-      .filter(Boolean);
+    const acceptedLabels = [
+      ...currentConsentItems
+        .filter((c) => consentAccepted.includes(c.id))
+        .map((c) => c.label.trim())
+        .filter(Boolean),
+      "Gizlilik sözleşmesi kabul edildi",
+    ];
     const start = new Date(preferredIso);
     if (!name || !phone || !date || !time || Number.isNaN(start.getTime())) {
       setStatus("err");
@@ -542,6 +556,28 @@ export function ContactFormBlock({
               ))}
             </div>
           ) : null}
+          <div className="space-y-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-left text-xs dark:border-zinc-700 dark:bg-zinc-900">
+            <p>
+              <a
+                href={appointmentPrivacyHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-rose-600 underline decoration-rose-400 underline-offset-2 hover:text-rose-700"
+              >
+                Gizlilik sözleşmesi
+              </a>
+            </p>
+            <label className="flex cursor-pointer items-start gap-2 text-zinc-800 dark:text-zinc-200">
+              <input
+                type="checkbox"
+                name="privacyPolicyAccepted"
+                value="yes"
+                defaultChecked
+                className="mt-0.5 shrink-0"
+              />
+              <span>Yukarıdaki gizlilik sözleşmesini okudum ve kabul ediyorum.</span>
+            </label>
+          </div>
           {status === "err" ? (
             <div className="space-y-1 rounded-lg border border-red-200 bg-red-50/90 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-100">
               <p className="font-medium">Gönderilemedi</p>

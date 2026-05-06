@@ -1703,6 +1703,18 @@ function BlockFields({
                     }
                   }}
                 />
+                <label className="mt-2 grid gap-1 text-[11px] text-zinc-500">
+                  Gizlilik sözleşmesi linki (randevu zorunlu onay — boşsa charmeguzellik.com kullanılır)
+                  <input
+                    className="rounded border border-zinc-300 bg-white px-2 py-1 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50"
+                    placeholder="https://charmeguzellik.com/gizlilik-sozlesmesi"
+                    defaultValue={cf.appointmentPrivacyPolicyHref ?? ""}
+                    onBlur={(e) => {
+                      const v = e.target.value.trim();
+                      setProps({ appointmentPrivacyPolicyHref: v ? v : undefined });
+                    }}
+                  />
+                </label>
               </div>
               <div className="rounded-lg border border-amber-900/25 bg-amber-950/15 p-2 dark:border-amber-800/35">
                 <p className="mb-2 text-[11px] font-medium text-amber-100/90">
