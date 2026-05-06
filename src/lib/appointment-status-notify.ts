@@ -27,9 +27,9 @@ export function buildAppointmentNotifyCopy(
 
   if (decision === "approved") {
     const cancelTail = cancelInfo
-      ? `\nİptal için kodunuz: ${cancelInfo.cancelCode}\nİptal bağlantısı: ${cancelInfo.cancelUrl}`
+      ? `\n\nRandevuyu iptal etmek için güvenlik kodunuz: ${cancelInfo.cancelCode}\nİptal sayfası: ${cancelInfo.cancelUrl}\n(Kodu üçüncü kişilerle paylaşmayın.)`
       : "";
-    const smsText = `Merhaba ${name}, ${siteName} — ${when} tarihindeki "${svc}" randevu talebiniz onaylanmıştır. Görüşmek üzere.${cancelTail}`;
+    const smsText = `Merhaba ${name}, ${siteName} — ${when} tarihindeki "${svc}" randevu talebiniz onaylanmıştır.${cancelTail}\n\nGörüşmek üzere.`;
     const emailSubject = `${siteName} — Randevunuz onaylandı`;
     const emailText = `${smsText}\n\nİyi günler,\n${siteName}`;
     return { smsText, emailSubject, emailText };
@@ -53,8 +53,9 @@ export function buildNotifyLinks(
   row: Pick<Appointment, "clientName" | "clientPhone" | "clientEmail" | "serviceName" | "startAt">,
   decision: AppointmentDecision,
   siteName: string,
+  cancelInfo?: AppointmentCancelInfo,
 ): { whatsappUrl: string | null; mailtoUrl: string | null; waDigits: string | null } {
-  const { smsText, emailSubject, emailText } = buildAppointmentNotifyCopy(row, decision, siteName);
+  const { smsText, emailSubject, emailText } = buildAppointmentNotifyCopy(row, decision, siteName, cancelInfo);
   const waDigits = phoneDigitsForWaMe(row.clientPhone);
   const whatsappUrl = waDigits ? whatsappUrlToCustomer(waDigits, smsText) : null;
   const email = row.clientEmail?.trim();

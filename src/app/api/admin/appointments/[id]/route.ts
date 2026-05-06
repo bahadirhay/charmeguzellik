@@ -127,7 +127,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
       updated;
     const decision = statusRaw as "approved" | "rejected";
     const { emailSubject, emailText } = buildAppointmentNotifyCopy(rowPick, decision, siteName, cancelInfo);
-    const links = buildNotifyLinks(rowPick, decision, siteName);
+    const links = buildNotifyLinks(rowPick, decision, siteName, cancelInfo);
 
     let emailSent = false;
     let emailError: string | null = null;

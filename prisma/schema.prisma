@@ -79,6 +79,10 @@ model SiteSettings {
   transactionalMailFrom  String?
   /// Çerez banner metni/aksiyon ayarı (JSON)
   cookieConsentJson      String?
+  /// Yeni randevu talebi: admin bilgilendirme e-postaları (virgül veya alt satır ile çoklu; ENV ile birleştirilir)
+  appointmentNotifyAdminEmails    String?
+  /// Yeni randevu talebi: operatör bilgilendirme e-postaları (virgül veya alt satır ile çoklu; ENV ile birleştirilir)
+  appointmentNotifyOperatorEmails String?
   updatedAt              DateTime @updatedAt
 }
 

@@ -675,6 +675,37 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
             />
           </label>
           <label className="grid gap-1 text-sm">
+            Randevu bildirimi — admin e-postaları (virgül veya satır ile çoklu)
+            <span className="text-xs text-zinc-500">
+              Yeni randevu talebi geldiğinde buradaki adreslere posta gider. Ortam değişkeni{" "}
+              <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">APPOINTMENT_NOTIFY_TO</code> ile birleşir (
+              tekrar gönderilmez).
+            </span>
+            <textarea
+              rows={3}
+              className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-600 dark:bg-zinc-950"
+              placeholder={"admin@orneksalon.com, yardim@orneksalon.com"}
+              value={strForInput(row.appointmentNotifyAdminEmails)}
+              onChange={(e) => field("appointmentNotifyAdminEmails", e.target.value || null)}
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
+            Randevu bildirimi — operatör e-postaları (virgül veya satır ile çoklu)
+            <span className="text-xs text-zinc-500">
+              Ortam değişkeni{" "}
+              <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">APPOINTMENT_OPERATOR_NOTIFY_TO</code> ile birleşir.
+              Gönderen adres <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">MAIL_FROM</code> veya SMTP
+              gönderenidir; alıcı listesine eklemeyin.
+            </span>
+            <textarea
+              rows={3}
+              className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-600 dark:bg-zinc-950"
+              placeholder={"oper@orneksalon.com"}
+              value={strForInput(row.appointmentNotifyOperatorEmails)}
+              onChange={(e) => field("appointmentNotifyOperatorEmails", e.target.value || null)}
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
             Çerez bilgilendirme JSON (opsiyonel)
             <span className="text-xs text-zinc-500">
               Başlık, metin, kategori özeti/detayı (`summary` / `detail`), kişisel veri listesi

@@ -6,6 +6,8 @@ import {
 } from "@/lib/appointment-schedule";
 import { resolvePublishedContactFormBlock, type ContactFormContext } from "@/lib/contact-form-resolve";
 import { createAppointmentRecord, AppointmentDuplicateError } from "@/lib/create-appointment-record";
+import { appointmentInboundNotifyRecipients } from "@/lib/appointment-inbound-notify";
+import { getSiteSettings } from "@/lib/site-settings";
 import { prisma } from "@/lib/prisma";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
 import {
@@ -127,28 +129,20 @@ export async function POST(req: Request) {
     throw e;
   }
 
-  // Operatör + admin bilgilendirmesi (varsa) — ENV: APPOINTMENT_NOTIFY_TO, APPOINTMENT_OPERATOR_NOTIFY_TO
+  if (!created) {
+    return NextResponse.json({ ok: false, error: "Kayıt oluşturulamadı." }, { status: 500 });
+  }
+
+  // Operatör + admin bilgilendirmesi — ENV ve/veya Ayarlar’daki liste (MAIL_FROM gönderici; alıcı değildir).
   try {
-    const toRaw = [
-      process.env.APPOINTMENT_NOTIFY_TO,
-      process.env.APPOINTMENT_OPERATOR_NOTIFY_TO,
-      process.env.MAIL_FROM,
-    ]
-      .filter(Boolean)
-      .join(",");
-    const toList = Array.from(
-      new Set(
-        toRaw
-          .split(",")
-          .map((x) => x.trim())
-          .filter((x) => x.includes("@")),
-      ),
-    );
-    if (created && toList.length) {
-      const when = created.startAt.toLocaleString("tr-TR");
+    const settings = await getSiteSettings();
+    const toList = appointmentInboundNotifyRecipients(settings);
+    if (toList.length) {
+      const when = created.startAt.toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" });
       const subject = `Yeni randevu talebi — ${created.clientName}`;
+      const notesLine = created.notes?.trim() ? [`Notlar:`, created.notes.trim(), ""].join("\n") : "";
       const text = [
-        "Yeni randevu talebi alındı.",
+        "Yeni randevu talebi alındı — panelden onaylamanız gerekiyor.",
         "",
         `Tarih/Saat: ${when}`,
         `Müşteri: ${created.clientName}`,
@@ -156,12 +150,28 @@ export async function POST(req: Request) {
         `E-posta: ${created.clientEmail ?? "-"}`,
         `Hizmet: ${created.serviceName ?? "-"}`,
         "",
-        "Panel: /admin/appointments",
-      ].join("\n");
-      await Promise.all(toList.map((to) => sendTransactionalEmail({ to, subject, text })));
+        notesLine,
+        "Yönetim: /admin/appointments",
+      ]
+        .filter(Boolean)
+        .join("\n");
+      const results = await Promise.all(
+        toList.map((to) => sendTransactionalEmail({ to, subject, text }).then((r) => ({ to, r }))),
+      );
+      const failed = results.filter((x) => !x.r.ok);
+      if (failed.length) {
+        console.warn(
+          "appointment inbound notify failures",
+          failed.map((x) => ({ to: x.to, error: x.r.ok ? null : x.r.error })),
+        );
+      }
+    } else {
+      console.warn(
+        "Yeni randevu bildirimi atlandı: alıcı yok. ENV APPOINTMENT_NOTIFY_TO / APPOINTMENT_OPERATOR_NOTIFY_TO veya Ayarlar → Randevu bildirim e-postaları doldurun.",
+      );
     }
   } catch (e) {
-    console.warn("appointment operator notify", e);
+    console.warn("appointment inbound notify", e);
   }
 
   return NextResponse.json({ ok: true });
