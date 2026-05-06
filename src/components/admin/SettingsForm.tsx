@@ -654,17 +654,6 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <h2 className="font-medium">İletişim</h2>
-        <p className="mt-1 text-xs text-zinc-500">
-          WhatsApp numarası site genelinde kullanılır; ayrıca{" "}
-          <a className="font-medium text-rose-600 underline" href="/admin/whatsapp">
-            WhatsApp
-          </a>{" "}
-          sayfasından da kaydedebilirsiniz. Randevu takvimi yalnızca{" "}
-          <a className="font-medium text-rose-600 underline" href="/admin/appointments">
-            Admin → Randevular
-          </a>{" "}
-          ekranındadır (harici takvim entegrasyonu yok).
-        </p>
         <div className="mt-4 grid gap-3">
           <label className="grid gap-1 text-sm">
             WhatsApp (ülke kodu ile, örn. 90555...)

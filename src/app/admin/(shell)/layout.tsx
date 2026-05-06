@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { requireStaffPage } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  manifest: "/admin-manifest.json",
+  appleWebApp: { capable: true, title: "Charme Yönetim" },
+};
 
 export default async function AdminShellLayout({
   children,

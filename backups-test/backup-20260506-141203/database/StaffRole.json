@@ -1,0 +1,23 @@
+[
+  {
+    "id": "cmorqwlzt001eui3swiczs91p",
+    "slug": "admin",
+    "label": "Yönetici",
+    "permissionsJson": "[\"site.settings\",\"site.theme\",\"content.pages\",\"content.regions\",\"content.nav\",\"content.sitemap\",\"social.instagram\",\"social.youtube\",\"social.tiktok\",\"crm.leads\",\"crm.appointments\",\"users.manage\"]",
+    "createdAt": "2026-05-04T22:02:44.442Z"
+  },
+  {
+    "id": "cmorqwm3u001fui3se4ut9znk",
+    "slug": "editor",
+    "label": "Editör",
+    "permissionsJson": "[\"content.pages\",\"content.regions\",\"content.nav\"]",
+    "createdAt": "2026-05-04T22:02:44.586Z"
+  },
+  {
+    "id": "cmorqwm5x001gui3szcw3wmb3",
+    "slug": "scheduler",
+    "label": "Randevu operatörü",
+    "permissionsJson": "[\"crm.appointments\"]",
+    "createdAt": "2026-05-04T22:02:44.661Z"
+  }
+]

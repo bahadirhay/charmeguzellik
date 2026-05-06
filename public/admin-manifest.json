@@ -1,0 +1,11 @@
+{
+  "name": "Charme Yönetim",
+  "short_name": "Yönetim",
+  "description": "Randevu ve site yönetimi",
+  "start_url": "/admin/dashboard",
+  "scope": "/admin",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#e11d48",
+  "icons": []
+}

@@ -218,6 +218,22 @@ model StaffUser {
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  pushSubscriptions StaffPushSubscription[]
+}
+
+/// Web Push (VAPID): yeni randevu gibi olaylarda tarayıcı bildirimi
+model StaffPushSubscription {
+  id               String    @id @default(cuid())
+  staffId          String
+  staff            StaffUser @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  endpoint         String    @unique
+  /// PushSubscription.toJSON() tam metni (endpoint + keys)
+  subscriptionJson String    @db.Text
+  userAgent        String?
+  createdAt        DateTime  @default(now())
+
+  @@index([staffId])
 }
 
 model CookieConsentLog {

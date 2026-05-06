@@ -7,6 +7,7 @@ import {
 import { resolvePublishedContactFormBlock, type ContactFormContext } from "@/lib/contact-form-resolve";
 import { createAppointmentRecord, AppointmentDuplicateError } from "@/lib/create-appointment-record";
 import { appointmentInboundNotifyRecipients } from "@/lib/appointment-inbound-notify";
+import { notifyStaffPushNewAppointment } from "@/lib/appointment-push-notify";
 import { getSiteSettings } from "@/lib/site-settings";
 import { prisma } from "@/lib/prisma";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
@@ -172,6 +173,12 @@ export async function POST(req: Request) {
     }
   } catch (e) {
     console.warn("appointment inbound notify", e);
+  }
+
+  try {
+    await notifyStaffPushNewAppointment(created);
+  } catch (e) {
+    console.warn("appointment push notify", e);
   }
 
   return NextResponse.json({ ok: true });

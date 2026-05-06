@@ -265,9 +265,7 @@ function PreviewBlock({
       const title = block.props.title?.trim();
       const body =
         block.props.body?.trim() ||
-        (block.props.url?.trim()
-          ? "Önizleme: harici takvim kaldırıldı; yayında metin + buton gösterilir."
-          : "Randevu bilgisi — metin ve CTA (düzenleyicide ayarlayın).");
+        (block.props.url?.trim() ? "Önizleme metni düzenleyicide ayarlı değil; yayında blok ayarları geçerlidir." : "Randevu bilgisi — metin ve CTA (düzenleyicide ayarlayın).");
       const ctaLabel = block.props.ctaLabel?.trim() || "İletişim";
       const ctaHref = block.props.ctaHref?.trim() || "/iletisim";
       return (

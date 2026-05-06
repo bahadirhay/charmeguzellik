@@ -20,24 +20,38 @@ export function buildAppointmentNotifyCopy(
   decision: AppointmentDecision,
   siteName: string,
   cancelInfo?: AppointmentCancelInfo,
-): { smsText: string; emailSubject: string; emailText: string } {
+): { whatsappPrefill: string; emailSubject: string; emailText: string } {
   const when = formatStartTr(new Date(row.startAt));
   const svc = row.serviceName?.trim() || "Randevu";
   const name = row.clientName.trim() || "Merhaba";
 
   if (decision === "approved") {
-    const cancelTail = cancelInfo
-      ? `\n\nRandevuyu iptal etmek için güvenlik kodunuz: ${cancelInfo.cancelCode}\nİptal sayfası: ${cancelInfo.cancelUrl}\n(Kodu üçüncü kişilerle paylaşmayın.)`
+    /**
+     * WhatsApp yalnızca tam adresleri (örn. https://…) otomatik tıklanabilir yapar; “tıklayın” gibi düz yazı için
+     * özel bağlantı metni oluşturmak — wa.me/sohbet hazır metnine mümkün değildir.
+     * En iyi pratik: *kalın tek satır başlık* + hemen altında yalın URL + kod.
+     * @see https://faq.whatsapp.com/539178204879377/
+     */
+    const waCancelBlock = cancelInfo
+      ? `\n\n*Randevunu iptal için tıklayıp kullanacağınız bağlantı*\n${cancelInfo.cancelUrl}\n\n*İptal kodunuz:* ${cancelInfo.cancelCode}\n⚠ Kodu paylaşmayın.`
       : "";
-    const smsText = `Merhaba ${name}, ${siteName} — ${when} tarihindeki "${svc}" randevu talebiniz onaylanmıştır.${cancelTail}\n\nGörüşmek üzere.`;
+
+    /** E-posta: kod + bağlantı ayrı satırlarda. */
+    const emailCancelBlock = cancelInfo
+      ? `\n\nRandevuyu iptal etmek için güvenlik kodunuz: ${cancelInfo.cancelCode}\nİptal bağlantısı:\n${cancelInfo.cancelUrl}\n(Kodu başkalarıyla paylaşmayın.)`
+      : "";
+
+    const intro = `Merhaba ${name}, ${siteName} — ${when} tarihindeki "${svc}" randevu talebiniz onaylanmıştır.`;
+    const whatsappPrefill = `${intro}${waCancelBlock}\n\nGörüşmek üzere.`;
     const emailSubject = `${siteName} — Randevunuz onaylandı`;
-    const emailText = `${smsText}\n\nİyi günler,\n${siteName}`;
-    return { smsText, emailSubject, emailText };
+    const emailText = `${intro}${emailCancelBlock}\n\nGörüşmek üzere.\n\nİyi günler,\n${siteName}`;
+    return { whatsappPrefill, emailSubject, emailText };
   }
-  const smsText = `Merhaba ${name}, ${siteName} — ${when} tarihindeki "${svc}" randevu talebiniz maalesef uygun bulunmamıştır. Başka bir zaman için iletişime geçebilirsiniz.`;
+
+  const body = `Merhaba ${name}, ${siteName} — ${when} tarihindeki "${svc}" randevu talebiniz maalesef uygun bulunmamıştır. Başka bir zaman için iletişime geçebilirsiniz.`;
   const emailSubject = `${siteName} — Randevu talebiniz`;
-  const emailText = `${smsText}\n\nİyi günler,\n${siteName}`;
-  return { smsText, emailSubject, emailText };
+  const emailText = `${body}\n\nİyi günler,\n${siteName}`;
+  return { whatsappPrefill: body, emailSubject, emailText };
 }
 
 export function whatsappUrlToCustomer(phoneDigits: string, text: string): string {
@@ -55,9 +69,9 @@ export function buildNotifyLinks(
   siteName: string,
   cancelInfo?: AppointmentCancelInfo,
 ): { whatsappUrl: string | null; mailtoUrl: string | null; waDigits: string | null } {
-  const { smsText, emailSubject, emailText } = buildAppointmentNotifyCopy(row, decision, siteName, cancelInfo);
+  const { whatsappPrefill, emailSubject, emailText } = buildAppointmentNotifyCopy(row, decision, siteName, cancelInfo);
   const waDigits = phoneDigitsForWaMe(row.clientPhone);
-  const whatsappUrl = waDigits ? whatsappUrlToCustomer(waDigits, smsText) : null;
+  const whatsappUrl = waDigits ? whatsappUrlToCustomer(waDigits, whatsappPrefill) : null;
   const email = row.clientEmail?.trim();
   const mailtoUrl = email ? mailtoNotifyUrl(email, emailSubject, emailText) : null;
   return { whatsappUrl, mailtoUrl, waDigits };

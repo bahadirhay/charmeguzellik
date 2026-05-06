@@ -1,3 +1,4 @@
+import { AdminAppointmentPushBanner } from "@/components/admin/AdminAppointmentPushBanner";
 import { AppointmentForm } from "@/components/admin/AppointmentForm";
 import { AppointmentRowActions } from "@/components/admin/AppointmentRowActions";
 import { ReservationWeekCalendar } from "@/components/admin/ReservationWeekCalendar";
@@ -5,6 +6,9 @@ import { requirePagePermission } from "@/lib/auth";
 import { buildNavTree, collectServiceLabelsFromNav } from "@/lib/navigation";
 import { getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
 import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function AppointmentsPage() {
   await requirePagePermission("crm.appointments");
@@ -33,19 +37,10 @@ export default async function AppointmentsPage() {
   const archivedRows = rows.filter((r) => r.status === "rejected" || r.status === "cancelled");
   return (
     <div className="min-w-0 max-w-full space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold">Randevular</h1>
-        <p className="text-sm text-zinc-500">
-          Bu ekran <strong>rezervasyon merkeziniz</strong>: tüm kayıtlar bu projede ve veritabanında tutulur; haftalık
-          takvimde yalnızca <strong>aktif</strong> (bekleyen/onaylı) randevular görünür. Red/iptaller otomatik olarak
-          ana takvimden düşer ve alttaki ayrı listede tutulur. Yetkili personel <strong>Düzenle</strong> ile tarih ve
-          müşteri bilgilerini güncelleyebilir; <strong>Onayla / Reddet</strong> bekleyen talepler içindir. Müşteriye
-          e-posta için ortamda{" "}
-          <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">RESEND_API_KEY</code> ve{" "}
-          <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">MAIL_FROM</code>; WhatsApp için numaraya hazır
-          mesaj yeni sekmede açılır.
-        </p>
-      </div>
+      <header className="min-w-0">
+        <h1 className="text-2xl font-semibold tracking-tight">Randevular</h1>
+      </header>
+      <AdminAppointmentPushBanner />
       <ReservationWeekCalendar
         appointments={activeRows.map((r) => ({
           id: r.id,

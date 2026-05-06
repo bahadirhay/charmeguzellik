@@ -4,6 +4,20 @@ import { useEffect, useState } from "react";
 
 type Mode = "all" | "pages" | "contents" | "database" | "files";
 
+async function parseBackupJson<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (!text.trim()) {
+    throw new Error(`Sunucu yanıtı boş (HTTP ${res.status}).`);
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(
+      text.length > 400 ? `${text.slice(0, 400)}…` : text,
+    );
+  }
+}
+
 export function BackupCenter() {
   const [items, setItems] = useState<string[]>([]);
   const [mode, setMode] = useState<Mode>("all");
@@ -11,13 +25,49 @@ export function BackupCenter() {
   const [applyRestore, setApplyRestore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState("");
+  const [restoreAllowed, setRestoreAllowed] = useState(true);
+  /** null = ilk yükleme öncesi */
+  const [diskBackupAvailable, setDiskBackupAvailable] = useState<boolean | null>(null);
+
+  function triggerDownload(payload: unknown, filename: string) {
+    try {
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      /* no-op — log zaten metin olarak dolacak */
+    }
+  }
 
   async function refresh() {
-    const res = await fetch("/api/admin/backups", { cache: "no-store" });
-    const j = (await res.json()) as { ok?: boolean; items?: string[] };
-    if (j.ok && Array.isArray(j.items)) {
-      setItems(j.items);
-      if (!restoreFrom && j.items[0]) setRestoreFrom(j.items[0]);
+    try {
+      const res = await fetch("/api/admin/backups", { cache: "no-store" });
+      const j = await parseBackupJson<{
+        ok?: boolean;
+        items?: string[];
+        restoreAllowed?: boolean;
+        diskBackupAvailable?: boolean;
+        error?: string;
+      }>(res);
+      if (typeof j.restoreAllowed === "boolean") setRestoreAllowed(j.restoreAllowed);
+      if (typeof j.diskBackupAvailable === "boolean") setDiskBackupAvailable(j.diskBackupAvailable);
+      if (!res.ok || !j.ok) {
+        setLog(j.error ?? `Liste alınamadı (HTTP ${res.status}).`);
+        return;
+      }
+      if (Array.isArray(j.items)) {
+        setItems(j.items);
+        setRestoreFrom((prev) => (prev ? prev : j.items![0] ?? ""));
+      }
+    } catch (e) {
+      setLog(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -35,20 +85,41 @@ export function BackupCenter() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "create", mode }),
       });
-      const j = (await res.json()) as { stdout?: string; stderr?: string; error?: string; items?: string[] };
-      if (!res.ok) {
+      type CreateJson = {
+        ok?: boolean;
+        stdout?: string;
+        stderr?: string;
+        error?: string;
+        items?: string[];
+        download?: unknown;
+        downloadFilename?: string;
+        serverlessExport?: boolean;
+      };
+      const j = await parseBackupJson<CreateJson>(res);
+      if (!res.ok || !j.ok) {
         setLog(j.error ?? "Yedekleme başarısız.");
         return;
       }
       setLog([j.stdout, j.stderr].filter(Boolean).join("\n"));
       if (Array.isArray(j.items)) setItems(j.items);
+      if (
+        j.serverlessExport &&
+        j.download != null &&
+        typeof j.downloadFilename === "string" &&
+        j.downloadFilename.length > 0
+      ) {
+        triggerDownload(j.download, j.downloadFilename);
+        setLog((prev) => `${prev}\n\nİndirme başlatıldı: ${j.downloadFilename}`);
+      }
+    } catch (e) {
+      setLog(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
   }
 
   async function restoreBackup() {
-    if (!restoreFrom) return;
+    if (!restoreFrom || !restoreAllowed) return;
     setBusy(true);
     setLog("");
     try {
@@ -62,12 +133,15 @@ export function BackupCenter() {
           apply: applyRestore,
         }),
       });
-      const j = (await res.json()) as { stdout?: string; stderr?: string; error?: string };
-      if (!res.ok) {
+      type RestoreJson = { ok?: boolean; stdout?: string; stderr?: string; error?: string };
+      const j = await parseBackupJson<RestoreJson>(res);
+      if (!res.ok || !j.ok) {
         setLog(j.error ?? "Geri yükleme başarısız.");
         return;
       }
       setLog([j.stdout, j.stderr].filter(Boolean).join("\n"));
+    } catch (e) {
+      setLog(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
@@ -80,6 +154,13 @@ export function BackupCenter() {
         <p className="mt-1 text-xs text-zinc-500">
           Seçenekli yedek ve geri yükleme. <strong>all</strong> seçimi sayfalar + içerikler + veritabanı + dosyaları kapsar.
         </p>
+        {diskBackupAvailable === false ? (
+          <p className="mt-2 text-xs leading-relaxed text-amber-900 dark:text-amber-100">
+            Sunucuya kalıcı <code className="rounded bg-amber-100 px-1 dark:bg-amber-950/90">backups/</code> yazılamıyor
+            (ör. Vercel). Veritabanı yedeği oluşturulunca tarayıcıya <strong>JSON</strong> inecek; tam klasör yedeği için
+            yerelde <code className="rounded bg-amber-100 px-1 dark:bg-amber-950/90">npm run backup:create</code>.
+          </p>
+        ) : null}
         <div className="mt-3 flex flex-wrap items-end gap-3">
           <label className="grid gap-1 text-sm">
             Mod
@@ -116,11 +197,18 @@ export function BackupCenter() {
 
       <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <h3 className="text-sm font-semibold">Geri yükleme</h3>
+        {!restoreAllowed ? (
+          <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-50">
+            Canlı ortamda (ör. Vercel) klasöre yazan geri yükleme güvenilir olmadığı için kapalıdır. Yerel bilgisayar veya SSH
+            erişiminiz varsa <code className="rounded bg-white/80 px-1 dark:bg-black/30">npm run backup:restore</code> kullanın.
+          </p>
+        ) : null}
         <div className="mt-3 flex flex-wrap items-end gap-3">
           <label className="grid gap-1 text-sm min-w-64">
             Yedek klasörü
             <select
               className="rounded border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-600 dark:bg-zinc-950"
+              disabled={!restoreAllowed}
               value={restoreFrom}
               onChange={(e) => setRestoreFrom(e.target.value)}
             >
@@ -133,12 +221,17 @@ export function BackupCenter() {
             </select>
           </label>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={applyRestore} onChange={(e) => setApplyRestore(e.target.checked)} />
+            <input
+              type="checkbox"
+              disabled={!restoreAllowed}
+              checked={applyRestore}
+              onChange={(e) => setApplyRestore(e.target.checked)}
+            />
             Uygula (işaretli değilse dry-run)
           </label>
           <button
             type="button"
-            disabled={busy || !restoreFrom}
+            disabled={busy || !restoreFrom || !restoreAllowed}
             onClick={() => void restoreBackup()}
             className="rounded-full border border-amber-400 px-4 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950/30"
           >

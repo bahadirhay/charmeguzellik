@@ -1,0 +1,112 @@
+[
+  {
+    "id": "cmseednav001",
+    "menuSlug": "header",
+    "parentId": null,
+    "label": "ANASAYFA",
+    "href": "/",
+    "sortOrder": 0,
+    "published": true,
+    "openInNewTab": false
+  },
+  {
+    "id": "cmseednav006",
+    "menuSlug": "header",
+    "parentId": null,
+    "label": "HİZMETLERİMİZ",
+    "href": "/hizmetler",
+    "sortOrder": 3,
+    "published": true,
+    "openInNewTab": false
+  },
+  {
+    "id": "cmseednav007",
+    "menuSlug": "header",
+    "parentId": "cmseednav006",
+    "label": "Altın bakım — Lüks deneyim",
+    "href": "/altin-bakim",
+    "sortOrder": 0,
+    "published": true,
+    "openInNewTab": false
+  },
+  {
+    "id": "cmseednav008",
+    "menuSlug": "header",
+    "parentId": "cmseednav006",
+    "label": "Gıdı eritme — Keskin hatlar",
+    "href": "/gidi-eritme",
+    "sortOrder": 1,
+    "published": true,
+    "openInNewTab": false
+  },
+  {
+    "id": "cmseednav009",
+    "menuSlug": "header",
+    "parentId": "cmseednav006",
+    "label": "Hydrafacial — Işıltınız",
+    "href": "/hydrafacial",
+    "sortOrder": 2,
+    "published": true,
+    "openInNewTab": false
+  },
+  {
+    "id": "cmseednav010",
+    "menuSlug": "header",
+    "parentId": "cmseednav006",
+    "label": "Cilt bakımı",
+    "href": "/cilt-bakimi",
+    "sortOrder": 3,
+    "published": true,
+    "openInNewTab": false
+  },
+  {
+    "id": "cmseednav011",
+    "menuSlug": "header",
+    "parentId": "cmseednav006",
+    "label": "Diode BUZ lazer — Kadın & erkek",
+    "href": "/lazer-epilasyon",
+    "sortOrder": 4,
+    "published": true,
+    "openInNewTab": false
+  },
+  {
+    "id": "cmseednav012",
+    "menuSlug": "header",
+    "parentId": "cmseednav006",
+    "label": "G5 · EMS · Slimbody",
+    "href": "/g5-masaj",
+    "sortOrder": 5,
+    "published": true,
+    "openInNewTab": false
+  },
+  {
+    "id": "cmseednav015",
+    "menuSlug": "header",
+    "parentId": null,
+    "label": "HAKKIMIZDA",
+    "href": "/hakkimizda",
+    "sortOrder": 4,
+    "published": true,
+    "openInNewTab": false
+  },
+  {
+    "id": "cmseednav017",
+    "menuSlug": "header",
+    "parentId": null,
+    "label": "SSS",
+    "href": "/sss",
+    "sortOrder": 6,
+    "published": true,
+    "openInNewTab": false
+  },
+  {
+    "id": "cmseednav018",
+    "menuSlug": "header",
+    "parentId": null,
+    "label": "İLETİŞİM",
+    "href": "/iletisim",
+    "sortOrder": 7,
+    "published": true,
+    "openInNewTab": false
+  }
+]

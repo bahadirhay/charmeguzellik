@@ -1,0 +1,45 @@
+{
+  "createdAt": "2026-05-06T11:12:12.481Z",
+  "project": "web-page",
+  "selected": {
+    "all": true,
+    "pages": false,
+    "contents": false,
+    "database": false,
+    "files": false
+  },
+  "dbTables": [
+    "Page",
+    "SiteSettings",
+    "SiteInstagramPost",
+    "SiteYoutubeVideo",
+    "SiteTiktokVideo",
+    "Lead",
+    "CrmContact",
+    "Appointment",
+    "NavItem",
+    "StaffRole",
+    "StaffUser"
+  ],
+  "dbCounts": {
+    "Page": 13,
+    "SiteSettings": 1,
+    "SiteInstagramPost": 4,
+    "SiteYoutubeVideo": 0,
+    "SiteTiktokVideo": 0,
+    "Lead": 0,
+    "CrmContact": 2,
+    "Appointment": 11,
+    "NavItem": 11,
+    "StaffRole": 3,
+    "StaffUser": 3
+  },
+  "fileFolders": [
+    "uploads",
+    "webpace-mirror"
+  ],
+  "restoreHint": [
+    "npm run backup:restore -- --from <backup-klasoru> --all",
+    "veya: --pages --contents --database --files kombinasyonu"
+  ]
+}

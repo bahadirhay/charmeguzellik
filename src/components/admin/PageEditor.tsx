@@ -1827,9 +1827,6 @@ function BlockFields({
                   </button>
                 </div>
               </div>
-              <p className="text-[11px] leading-relaxed text-zinc-500">
-                Talepler <strong>Admin → Randevular</strong> ekranında ve veritabanında tutulur; harici takvim yok.
-              </p>
             </>
           ) : null}
           {mode === "contact" ? (

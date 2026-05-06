@@ -1,0 +1,32 @@
+[
+  {
+    "id": "cmorqwmor001iui3smacf4ubs",
+    "username": "admin",
+    "passwordHash": "$2b$12$zD1AfHAcfpfaQbbl.EHJHeJT5y91NhfDtOPZ3tck.iybAR4.lCbWq",
+    "displayName": "Yönetici",
+    "roleId": "cmorqwlzt001eui3swiczs91p",
+    "active": true,
+    "createdAt": "2026-05-04T22:02:45.340Z",
+    "updatedAt": "2026-05-05T13:43:09.220Z"
+  },
+  {
+    "id": "cmosoxn6r000bi8042bmnryh3",
+    "username": "randevu",
+    "passwordHash": "$2b$12$KaclAWuPfVL2xJldfs/7BOAbocjqvEEpnp5C2NuPbzKt7qdz9AE6y",
+    "displayName": "randevu charmen",
+    "roleId": "cmorqwm5x001gui3szcw3wmb3",
+    "active": true,
+    "createdAt": "2026-05-05T13:55:19.588Z",
+    "updatedAt": "2026-05-05T13:55:19.588Z"
+  },
+  {
+    "id": "cmossd4rl0002ui508n6rstqn",
+    "username": "operator",
+    "passwordHash": "$2b$12$h10p9eMFKAazpQOHmz9Le.9QCADk3tR36i7D.I29kwL9LuvKLMzf6",
+    "displayName": "Randevu Operatörü",
+    "roleId": "cmorqwm5x001gui3szcw3wmb3",
+    "active": true,
+    "createdAt": "2026-05-05T15:31:21.055Z",
+    "updatedAt": "2026-05-05T15:31:21.055Z"
+  }
+]

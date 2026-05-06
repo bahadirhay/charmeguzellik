@@ -1,0 +1,45 @@
+{
+    "name": "Cherry Güzellik Salonu | Güzelliğe Dair Herşey",
+    "short_name": "Cherry Güzellik Salonu | Güzelliğe Dair Herşey",
+    "description": "",
+    "icons": [
+        {
+            "src": "https:\/\/www.cherryguzelliksalonu.com\/wp-content\/uploads\/2022\/09\/cherry-logo-1.png",
+            "sizes": "192x192",
+            "type": "image\/png",
+            "purpose": "any"
+        },
+        {
+            "src": "https:\/\/www.cherryguzelliksalonu.com\/wp-content\/uploads\/2017\/12\/ikon.png",
+            "sizes": "192x192",
+            "type": "image\/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "https:\/\/www.cherryguzelliksalonu.com\/wp-content\/uploads\/2020\/02\/Cherry_app-icon-512px.png",
+            "sizes": "512x512",
+            "type": "image\/png",
+            "purpose": "any"
+        },
+        {
+            "src": "https:\/\/www.cherryguzelliksalonu.com\/wp-content\/uploads\/2022\/09\/cherry-logo-1.png",
+            "sizes": "512x512",
+            "type": "image\/png",
+            "purpose": "monochrome"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "https:\/\/www.cherryguzelliksalonu.com\/wp-content\/uploads\/2020\/02\/Cherry_app-icon.png",
+            "sizes": "512x512",
+            "type": "image\/png",
+            "purpose": "maskable",
+            "form_factor": "wide"
+        }
+    ],
+    "background_color": "#ffa8bd",
+    "theme_color": "#ffa8bd",
+    "display": "standalone",
+    "start_url": "https:\/\/www.cherryguzelliksalonu.com\/",
+    "scope": "https:\/\/www.cherryguzelliksalonu.com\/"
+}
