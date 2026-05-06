@@ -1,6 +1,8 @@
 import { AdminShell } from "@/components/admin/AdminShell";
 import { requireStaffPage } from "@/lib/staff-auth";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminShellLayout({
   children,
 }: {
