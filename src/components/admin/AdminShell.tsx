@@ -125,7 +125,7 @@ export function AdminShell({
   const roleLine = isLegacy ? "Tam yetki (ortam girişi)" : roleSlug ? `Rol: ${roleSlug}` : "Panel";
 
   return (
-    <div className="flex min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">
+    <div className="flex min-h-screen min-w-0 overflow-x-hidden bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">
       <aside className="hidden w-60 shrink-0 border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 md:block">
         <div className="p-4 text-sm font-semibold text-rose-600 dark:text-rose-400">Yönetim</div>
         <nav className="flex flex-col gap-1 px-2 pb-4">
@@ -151,7 +151,7 @@ export function AdminShell({
           <LogoutButton />
         </div>
       </aside>
-      <div className="flex min-h-screen flex-1 flex-col">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col overflow-x-hidden">
         <header className="max-h-[50vh] overflow-y-auto border-b border-zinc-200 bg-white px-3 py-3 dark:border-zinc-800 dark:bg-zinc-900 md:hidden">
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-sm font-medium">Admin</span>
@@ -167,7 +167,7 @@ export function AdminShell({
             ))}
           </div>
         </header>
-        <div className="flex-1 p-4 md:p-8">{children}</div>
+        <div className="min-w-0 flex-1 p-4 md:p-8">{children}</div>
       </div>
     </div>
   );

@@ -141,20 +141,27 @@ export function ReservationWeekCalendar({ appointments }: { appointments: Reserv
       </div>
 
       <div className="mt-4 grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-        <div className="min-w-0 max-w-full overflow-hidden rounded-lg border border-zinc-200 p-1.5 sm:p-3 dark:border-zinc-700">
-          {/* min-w-0: 7 sütun dar ekranda içerik genişliği yüzünden taşmasın (Safari/Chrome grid) */}
-          <div className="mb-1.5 grid min-w-0 grid-cols-7 gap-px sm:mb-2 sm:gap-1">
-            {dayLabelsTr.map((d) => (
-              <span
-                key={d}
-                className="min-w-0 truncate text-center text-[10px] font-medium tabular-nums text-zinc-500 sm:text-[11px]"
-                title={d}
-              >
-                {d}
-              </span>
-            ))}
-          </div>
-          <div className="grid min-w-0 grid-cols-7 gap-px sm:gap-1">
+        <div className="min-w-0 max-w-full rounded-lg border border-zinc-200 p-1.5 sm:p-3 dark:border-zinc-700">
+          {/*
+            flex üstünde min-w-0 şart; ayrıca Safari grid + minmax(0,1fr) ve gerekirse yatay kaydırma.
+          */}
+          <p className="mb-1.5 text-[10px] text-zinc-500 md:hidden">
+            Tüm günleri görmek için takvimi yana kaydırabilirsiniz.
+          </p>
+          <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+            <div className="mx-auto w-full min-w-0 max-w-full sm:min-w-0">
+              <div className="mb-1.5 grid w-full min-w-0 [grid-template-columns:repeat(7,minmax(0,1fr))] gap-px sm:mb-2 sm:gap-1">
+                {dayLabelsTr.map((d) => (
+                  <span
+                    key={d}
+                    className="min-w-0 truncate text-center text-[9px] font-medium tabular-nums text-zinc-500 sm:text-[11px]"
+                    title={d}
+                  >
+                    {d}
+                  </span>
+                ))}
+              </div>
+              <div className="grid w-full min-w-0 [grid-template-columns:repeat(7,minmax(0,1fr))] gap-px sm:gap-1">
             {gridDays.map((d) => {
               const key = ymdKey(d);
               const list = byDayKey.get(key) ?? [];
@@ -198,6 +205,8 @@ export function ReservationWeekCalendar({ appointments }: { appointments: Reserv
                 </button>
               );
             })}
+              </div>
+            </div>
           </div>
         </div>
 
