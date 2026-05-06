@@ -210,7 +210,7 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
               />
               <span>
                 <strong>Aktif temaya uygun dahili örnek slayt görsellerini indir</strong> (Unsplash
-                demo paketi; Cherry 4, Default 2 görsel).
+                demo paketi; Charmen 4, Default 2 görsel).
               </span>
             </label>
             <label className="mt-2 flex cursor-pointer items-start gap-2 text-sm text-zinc-800 dark:text-zinc-200">
@@ -247,12 +247,12 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
               onChange={(e) => field("showHeaderTopBar", e.target.checked)}
             />
             <span>
-              <strong>Üst bilgi şeridini göster</strong> (Cherry: kampanya, adres, sosyal, telefon —
+              <strong>Üst bilgi şeridini göster</strong> (Charmen: kampanya, adres, sosyal, telefon —
               kapatırsanız yalnız beyaz menü çubuğu kalır)
             </span>
           </label>
           <label className="grid gap-1 text-sm md:col-span-2">
-            Üst şerit kampanya metni (Cherry teması — örn. fiyat)
+            Üst şerit kampanya metni (Charmen teması — örn. fiyat)
             <input
               className="rounded border border-zinc-300 px-2 py-1 dark:border-zinc-600 dark:bg-zinc-950"
               value={strForInput(row.headerPromoLine)}

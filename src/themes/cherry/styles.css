@@ -33,7 +33,7 @@
   color: var(--site-footer-link-hover, #fff);
 }
 
-/* Tam genişlik slayt — Cherry marka tonları */
+/* Tam genişlik slayt — Charmen marka tonları */
 [data-site-theme="cherry"] .site-hero-slider-cta {
   background: rgba(255, 254, 252, 0.96);
   color: var(--site-brand);

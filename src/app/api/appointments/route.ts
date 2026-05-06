@@ -7,6 +7,7 @@ import {
 import { resolvePublishedContactFormBlock, type ContactFormContext } from "@/lib/contact-form-resolve";
 import { createAppointmentRecord, AppointmentDuplicateError } from "@/lib/create-appointment-record";
 import { prisma } from "@/lib/prisma";
+import { sendTransactionalEmail } from "@/lib/transactional-email";
 import {
   APPOINTMENT_PHONE_INPUT_MAX_LENGTH,
   appointmentPhoneTurkeyHint,
@@ -91,8 +92,9 @@ export async function POST(req: Request) {
   if (body.clientPhone?.trim()) notesParts.unshift(`Telefon: ${body.clientPhone.trim()}`);
   const notes = notesParts.length ? notesParts.join("\n") : null;
 
+  let created: Awaited<ReturnType<typeof createAppointmentRecord>> | null = null;
   try {
-    await prisma.$transaction(async (tx) =>
+    created = await prisma.$transaction(async (tx) =>
       createAppointmentRecord(tx, {
         startAt: start,
         endAt: end,
@@ -119,6 +121,43 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Telefon boş bırakılamaz." }, { status: 400 });
     }
     throw e;
+  }
+
+  // Operatör + admin bilgilendirmesi (varsa) — ENV: APPOINTMENT_NOTIFY_TO, APPOINTMENT_OPERATOR_NOTIFY_TO
+  try {
+    const toRaw = [
+      process.env.APPOINTMENT_NOTIFY_TO,
+      process.env.APPOINTMENT_OPERATOR_NOTIFY_TO,
+      process.env.MAIL_FROM,
+    ]
+      .filter(Boolean)
+      .join(",");
+    const toList = Array.from(
+      new Set(
+        toRaw
+          .split(",")
+          .map((x) => x.trim())
+          .filter((x) => x.includes("@")),
+      ),
+    );
+    if (created && toList.length) {
+      const when = created.startAt.toLocaleString("tr-TR");
+      const subject = `Yeni randevu talebi — ${created.clientName}`;
+      const text = [
+        "Yeni randevu talebi alındı.",
+        "",
+        `Tarih/Saat: ${when}`,
+        `Müşteri: ${created.clientName}`,
+        `Telefon: ${created.clientPhone ?? "-"}`,
+        `E-posta: ${created.clientEmail ?? "-"}`,
+        `Hizmet: ${created.serviceName ?? "-"}`,
+        "",
+        "Panel: /admin/appointments",
+      ].join("\n");
+      await Promise.all(toList.map((to) => sendTransactionalEmail({ to, subject, text })));
+    }
+  } catch (e) {
+    console.warn("appointment operator notify", e);
   }
 
   return NextResponse.json({ ok: true });

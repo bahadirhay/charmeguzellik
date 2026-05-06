@@ -2,7 +2,7 @@ import type { ThemeDefinition } from "../types";
 
 export const cherryTheme: ThemeDefinition = {
   id: "cherry",
-  label: "Cherry (güzellik salonu)",
+  label: "Charmen (güzellik salonu)",
   description:
     "Sıcak tonlar, üst kampanya/adres/telefon şeridi — cherryguzelliksalonu.com tarzı yerleşim.",
   topBar: true,
