@@ -27,6 +27,7 @@ const postSchema = z.object({
   serviceLabel: z.string().max(160).optional().nullable(),
   preferredStart: z.string().min(4).max(120),
   message: z.string().max(4000).optional().nullable(),
+  consentAccepted: z.array(z.string().max(500)).max(8).optional(),
   durationMinutes: z.coerce.number().int().min(15).max(240).optional(),
   /** Honeypot — doldurulursa bot */
   website: z.string().max(200).optional(),
@@ -88,6 +89,9 @@ export async function POST(req: Request) {
   const serviceName = body.serviceLabel?.trim() || body.serviceId?.trim() || null;
 
   const notesParts = [body.message?.trim()].filter(Boolean) as string[];
+  if (body.consentAccepted?.length) {
+    notesParts.push(`Onaylar: ${body.consentAccepted.join(" | ")}`);
+  }
   if (body.clientEmail?.trim()) notesParts.unshift(`E-posta: ${body.clientEmail.trim()}`);
   if (body.clientPhone?.trim()) notesParts.unshift(`Telefon: ${body.clientPhone.trim()}`);
   const notes = notesParts.length ? notesParts.join("\n") : null;

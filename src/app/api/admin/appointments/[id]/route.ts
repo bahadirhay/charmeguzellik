@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
 import { getSiteSettings } from "@/lib/site-settings";
 import { updateAppointmentRecord } from "@/lib/update-appointment-record";
+import { generateAppointmentCancelSecret } from "@/lib/appointment-cancel-token";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -68,7 +69,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
       );
     }
 
-    const updated = await prisma.appointment.update({
+    let updated = await prisma.appointment.update({
       where: { id },
       data: { status: statusRaw },
     });
@@ -83,11 +84,36 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
     const settings = await getSiteSettings();
     const siteName = settings.siteName?.trim() || "Salon";
+    let cancelInfo:
+      | {
+          cancelCode: string;
+          cancelUrl: string;
+        }
+      | undefined;
+
+    if (statusRaw === "approved") {
+      const sec = generateAppointmentCancelSecret();
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "";
+      const cancelUrlBase = siteUrl ? `${siteUrl}/randevu/iptal` : "/randevu/iptal";
+      cancelInfo = {
+        cancelCode: sec.code,
+        cancelUrl: `${cancelUrlBase}?t=${encodeURIComponent(sec.token)}`,
+      };
+      updated = await prisma.appointment.update({
+        where: { id: updated.id },
+        data: {
+          cancelCodeHash: sec.codeHash,
+          cancelCodeLast4: sec.codeLast4,
+          cancelTokenHash: sec.tokenHash,
+          cancelTokenExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+        },
+      });
+    }
 
     const rowPick: Pick<Appointment, "clientName" | "clientPhone" | "clientEmail" | "serviceName" | "startAt"> =
       updated;
     const decision = statusRaw as "approved" | "rejected";
-    const { emailSubject, emailText } = buildAppointmentNotifyCopy(rowPick, decision, siteName);
+    const { emailSubject, emailText } = buildAppointmentNotifyCopy(rowPick, decision, siteName, cancelInfo);
     const links = buildNotifyLinks(rowPick, decision, siteName);
 
     let emailSent = false;

@@ -28,6 +28,7 @@ const SETTINGS_PUT_KEYS = [
   "smtpHost",
   "smtpUser",
   "transactionalMailFrom",
+  "cookieConsentJson",
 ] as const;
 
 function collectSettingsPutKeys(body: Record<string, unknown>): string[] {

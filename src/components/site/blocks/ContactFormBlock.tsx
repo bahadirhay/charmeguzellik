@@ -19,6 +19,14 @@ import {
 } from "@/lib/appointment-phone";
 
 type ServiceOption = { id: string; label: string };
+type ConsentItem = {
+  id: string;
+  label: string;
+  href?: string;
+  openInNewTab?: boolean;
+  required?: boolean;
+  checkedByDefault?: boolean;
+};
 
 type Props = {
   title?: string;
@@ -38,6 +46,8 @@ type Props = {
   contactShowEmail?: boolean;
   contactShowPhone?: boolean;
   contactShowMessage?: boolean;
+  appointmentConsentItems?: ConsentItem[];
+  contactConsentItems?: ConsentItem[];
   appointmentTimeZone?: string;
   appointmentDays?: AppointmentDaySchedule[];
   blockId?: string;
@@ -79,6 +89,8 @@ export function ContactFormBlock({
   contactShowEmail,
   contactShowPhone,
   contactShowMessage,
+  appointmentConsentItems = [],
+  contactConsentItems = [],
   appointmentTimeZone,
   appointmentDays,
   blockId,
@@ -104,6 +116,7 @@ export function ContactFormBlock({
   const showContactEmail = !isAppointment && on(contactShowEmail);
   const showContactPhone = !isAppointment && on(contactShowPhone);
   const showContactMessage = !isAppointment && on(contactShowMessage);
+  const currentConsentItems = isAppointment ? appointmentConsentItems : contactConsentItems;
 
   const useAutoNav = serviceNavUseAuto !== false;
 
@@ -223,6 +236,7 @@ export function ContactFormBlock({
       email: showContactEmail ? String(fd.get("email") ?? "") : "",
       phone: showContactPhone ? String(fd.get("phone") ?? "") : "",
       message: showContactMessage ? String(fd.get("message") ?? "") : "",
+      consentAccepted: fd.getAll("consentAccepted").map((x) => String(x)),
     };
     const res = await fetch("/api/leads", {
       method: "POST",
@@ -257,6 +271,11 @@ export function ContactFormBlock({
       phoneInput.setCustomValidity("");
     }
     const preferredIso = naiveLocalToAppointmentIso(date, time, tz);
+    const consentAccepted = fd.getAll("consentAccepted").map((x) => String(x));
+    const acceptedLabels = currentConsentItems
+      .filter((c) => consentAccepted.includes(c.id))
+      .map((c) => c.label.trim())
+      .filter(Boolean);
     const start = new Date(preferredIso);
     if (!name || !phone || !date || !time || Number.isNaN(start.getTime())) {
       setStatus("err");
@@ -299,6 +318,7 @@ export function ContactFormBlock({
         serviceLabel,
         preferredStart: start.toISOString(),
         message: showApptMessage ? String(fd.get("message") ?? "").trim() || null : null,
+        consentAccepted: acceptedLabels,
         durationMinutes: slotDurationMinutes,
         website: String(fd.get("website") ?? ""),
         formContext,
@@ -491,6 +511,37 @@ export function ContactFormBlock({
               />
             </label>
           ) : null}
+          {currentConsentItems.length > 0 ? (
+            <div className="space-y-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs dark:border-zinc-700 dark:bg-zinc-900">
+              {currentConsentItems.map((c) => (
+                <label key={c.id} className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    name="consentAccepted"
+                    value={c.id}
+                    required={c.required === true}
+                    defaultChecked={c.checkedByDefault !== false}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    {c.label}
+                    {c.href ? (
+                      <>
+                        {" "}
+                        <a
+                          href={c.href}
+                          className="text-rose-600 underline"
+                          {...(c.openInNewTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                        >
+                          bağlantı
+                        </a>
+                      </>
+                    ) : null}
+                  </span>
+                </label>
+              ))}
+            </div>
+          ) : null}
           {status === "err" ? (
             <div className="space-y-1 rounded-lg border border-red-200 bg-red-50/90 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-100">
               <p className="font-medium">Gönderilemedi</p>
@@ -546,6 +597,37 @@ export function ContactFormBlock({
                 className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
               />
             </label>
+          ) : null}
+          {currentConsentItems.length > 0 ? (
+            <div className="space-y-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs dark:border-zinc-700 dark:bg-zinc-900">
+              {currentConsentItems.map((c) => (
+                <label key={c.id} className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    name="consentAccepted"
+                    value={c.id}
+                    required={c.required === true}
+                    defaultChecked={c.checkedByDefault !== false}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    {c.label}
+                    {c.href ? (
+                      <>
+                        {" "}
+                        <a
+                          href={c.href}
+                          className="text-rose-600 underline"
+                          {...(c.openInNewTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                        >
+                          bağlantı
+                        </a>
+                      </>
+                    ) : null}
+                  </span>
+                </label>
+              ))}
+            </div>
           ) : null}
           {status === "err" ? (
             <p className="text-sm text-red-600">Gönderilemedi. Lütfen tekrar deneyin.</p>

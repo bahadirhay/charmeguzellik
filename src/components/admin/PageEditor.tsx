@@ -1680,6 +1680,30 @@ function BlockFields({
                   </label>
                 </div>
               </div>
+              <div className="rounded-lg border border-zinc-200 p-2 dark:border-zinc-700">
+                <p className="mb-2 text-[11px] font-medium text-zinc-500">
+                  Onay kutuları (randevu) — varsayılan işaretli. Link ve yeni sekme ayarı JSON ile yönetilir.
+                </p>
+                <textarea
+                  rows={5}
+                  className="w-full rounded border border-zinc-300 bg-white px-2 py-1 font-mono text-[11px] dark:border-zinc-600 dark:bg-zinc-950"
+                  defaultValue={JSON.stringify(cf.appointmentConsentItems ?? [], null, 2)}
+                  onBlur={(e) => {
+                    const raw = e.target.value.trim();
+                    if (!raw) {
+                      setProps({ appointmentConsentItems: undefined });
+                      return;
+                    }
+                    try {
+                      const parsed = JSON.parse(raw) as unknown;
+                      if (!Array.isArray(parsed)) return;
+                      setProps({ appointmentConsentItems: parsed as typeof cf.appointmentConsentItems });
+                    } catch {
+                      /* ignore invalid draft */
+                    }
+                  }}
+                />
+              </div>
               <div className="rounded-lg border border-amber-900/25 bg-amber-950/15 p-2 dark:border-amber-800/35">
                 <p className="mb-2 text-[11px] font-medium text-amber-100/90">
                   Haftalık çalışma saatleri (yalnızca bu aralıkta saat seçilir)
@@ -1831,6 +1855,26 @@ function BlockFields({
                   Mesaj
                 </label>
               </div>
+              <p className="mt-2 mb-1 text-[11px] font-medium text-zinc-500">Onay kutuları (iletişim) JSON</p>
+              <textarea
+                rows={5}
+                className="w-full rounded border border-zinc-300 bg-white px-2 py-1 font-mono text-[11px] dark:border-zinc-600 dark:bg-zinc-950"
+                defaultValue={JSON.stringify(cf.contactConsentItems ?? [], null, 2)}
+                onBlur={(e) => {
+                  const raw = e.target.value.trim();
+                  if (!raw) {
+                    setProps({ contactConsentItems: undefined });
+                    return;
+                  }
+                  try {
+                    const parsed = JSON.parse(raw) as unknown;
+                    if (!Array.isArray(parsed)) return;
+                    setProps({ contactConsentItems: parsed as typeof cf.contactConsentItems });
+                  } catch {
+                    /* ignore invalid draft */
+                  }
+                }}
+              />
             </div>
           ) : null}
         </div>

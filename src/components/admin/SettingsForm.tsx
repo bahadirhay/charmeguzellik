@@ -674,6 +674,16 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
               onChange={(e) => field("whatsappNumber", e.target.value || null)}
             />
           </label>
+          <label className="grid gap-1 text-sm">
+            Çerez bilgilendirme JSON (opsiyonel)
+            <textarea
+              rows={7}
+              className="rounded border border-zinc-300 bg-white px-2 py-1 font-mono text-xs dark:border-zinc-600 dark:bg-zinc-950"
+              value={strForInput(row.cookieConsentJson)}
+              onChange={(e) => field("cookieConsentJson", e.target.value || null)}
+              placeholder={`{"enabled":true,"title":"Çerez kullanıyoruz.","body":"...","policyHref":"/cerez-aydinlatma","acceptLabel":"Hepsini Kabul Et","rejectLabel":"Hepsini Reddet","settingsLabel":"Ayarlar"}`}
+            />
+          </label>
         </div>
       </section>
 

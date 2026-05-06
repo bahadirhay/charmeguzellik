@@ -58,6 +58,15 @@ const contactFormServiceOptionSchema = z.object({
   label: z.string(),
 });
 
+const consentItemSchema = z.object({
+  id: z.string(),
+  label: z.string().max(500),
+  href: z.string().max(1000).optional(),
+  openInNewTab: z.boolean().optional(),
+  required: z.boolean().optional(),
+  checkedByDefault: z.boolean().optional(),
+});
+
 const appointmentDayScheduleSchema = z.object({
   /** 0=Pazar … 6=Cumartesi (Date.getDay) */
   day: z.number().int().min(0).max(6),
@@ -89,6 +98,9 @@ const contactFormProps = z.object({
   contactShowEmail: z.boolean().optional(),
   contactShowPhone: z.boolean().optional(),
   contactShowMessage: z.boolean().optional(),
+  /** Form altındaki onay kutuları */
+  appointmentConsentItems: z.array(consentItemSchema).max(8).optional(),
+  contactConsentItems: z.array(consentItemSchema).max(8).optional(),
   /** IANA; çalışma saati ve tarih listesi için (varsayılan Europe/Istanbul) */
   appointmentTimeZone: z.string().max(80).optional(),
   /** Boşsa uygulama varsayılanı (Pzts–Cmt) */

@@ -77,6 +77,8 @@ model SiteSettings {
   smtpSecure               Boolean  @default(false)
   /// Gönderen (örn. "Salon <randevu@alanadiniz.com>"); SPF/DKIM alan adınızda ayarlanmalı
   transactionalMailFrom  String?
+  /// Çerez banner metni/aksiyon ayarı (JSON)
+  cookieConsentJson      String?
   updatedAt              DateTime @updatedAt
 }
 
@@ -160,6 +162,14 @@ model Appointment {
   clientNameKey  String?
   notes          String?
   status         String      @default("pending")
+  /// Müşteri iptal kodu (hash) — düz kod saklanmaz
+  cancelCodeHash String?
+  /// Destek amaçlı yalnız son 4 hane
+  cancelCodeLast4 String?
+  /// Müşteri iptal bağlantı token hash
+  cancelTokenHash String?
+  /// Token son geçerlilik zamanı
+  cancelTokenExpiresAt DateTime?
   createdAt      DateTime    @default(now())
   crmContactId   String?
   crmContact     CrmContact? @relation(fields: [crmContactId], references: [id], onDelete: SetNull)

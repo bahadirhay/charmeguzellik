@@ -2,6 +2,10 @@ import type { Appointment } from "@prisma/client";
 import { phoneDigitsForWaMe } from "@/lib/customer-phone";
 
 export type AppointmentDecision = "approved" | "rejected";
+export type AppointmentCancelInfo = {
+  cancelCode: string;
+  cancelUrl: string;
+};
 
 function formatStartTr(startAt: Date): string {
   return new Intl.DateTimeFormat("tr-TR", {
@@ -15,13 +19,17 @@ export function buildAppointmentNotifyCopy(
   row: Pick<Appointment, "clientName" | "serviceName" | "startAt">,
   decision: AppointmentDecision,
   siteName: string,
+  cancelInfo?: AppointmentCancelInfo,
 ): { smsText: string; emailSubject: string; emailText: string } {
   const when = formatStartTr(new Date(row.startAt));
   const svc = row.serviceName?.trim() || "Randevu";
   const name = row.clientName.trim() || "Merhaba";
 
   if (decision === "approved") {
-    const smsText = `Merhaba ${name}, ${siteName} — ${when} tarihindeki "${svc}" randevu talebiniz onaylanmıştır. Görüşmek üzere.`;
+    const cancelTail = cancelInfo
+      ? `\nİptal için kodunuz: ${cancelInfo.cancelCode}\nİptal bağlantısı: ${cancelInfo.cancelUrl}`
+      : "";
+    const smsText = `Merhaba ${name}, ${siteName} — ${when} tarihindeki "${svc}" randevu talebiniz onaylanmıştır. Görüşmek üzere.${cancelTail}`;
     const emailSubject = `${siteName} — Randevunuz onaylandı`;
     const emailText = `${smsText}\n\nİyi günler,\n${siteName}`;
     return { smsText, emailSubject, emailText };

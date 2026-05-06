@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AnalyticsScripts } from "@/components/site/AnalyticsScripts";
+import { CookieConsentBanner } from "@/components/site/CookieConsentBanner";
 import { JsonLdLocalBusiness } from "@/components/site/JsonLd";
 import { PublicBlocks } from "@/components/site/PublicBlocks";
 import { SiteHeader } from "@/components/site/SiteHeader";
@@ -151,6 +152,7 @@ export default async function SiteLayout({
           ) : null}
         </div>
       </div>
+      <CookieConsentBanner rawConfig={settings.cookieConsentJson} />
     </>
   );
 }
