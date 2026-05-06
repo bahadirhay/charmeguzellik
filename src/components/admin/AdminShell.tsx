@@ -118,7 +118,6 @@ export function AdminShell({
   permissions: readonly string[];
 }) {
   const top = filterItems(permissions, TOP_NAV);
-  const bottom = filterItems(permissions, BOTTOM_NAV);
   const groups = NAV_GROUPS.map((g) => ({ title: g.title, items: filterItems(permissions, g.items) })).filter(
     (g) => g.items.length > 0,
   );

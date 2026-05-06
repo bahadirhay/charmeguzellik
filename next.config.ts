@@ -9,6 +9,21 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /** Prisma native engine’in Turbopack ile tek kopyada yüklenmesi (Engine is not yet connected). */
   serverExternalPackages: ["@prisma/client", ".prisma/client"],
+  /**
+   * Admin paneli ve yönetim API’si asla edge/CDN’de önbelleğe alınmasın;
+   * aksi halde eski menü / eski JS paketi canlıda kalabiliyor.
+   */
+  async headers() {
+    const noStore = [
+      { key: "Cache-Control", value: "private, no-store, max-age=0, must-revalidate" },
+      { key: "CDN-Cache-Control", value: "no-store" },
+      { key: "Vercel-CDN-Cache-Control", value: "no-store" },
+    ] as const;
+    return [
+      { source: "/admin/:path*", headers: [...noStore] },
+      { source: "/api/admin/:path*", headers: [...noStore] },
+    ];
+  },
   async rewrites() {
     return [
       {
