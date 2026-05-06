@@ -98,34 +98,38 @@ export function ReservationWeekCalendar({ appointments }: { appointments: Reserv
   const selectedDate = new Date(selectedYmd);
 
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+    <section className="min-w-0 max-w-full rounded-xl border border-zinc-200 bg-white p-3 sm:p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Rezervasyon takvimi</h2>
           <p className="text-xs text-zinc-500">
             Kaynak: bu panel ve veritabanı — harici takvim servisi yok. Randevular yalnızca bu projede saklanır; onay ve
             düzenleme alttaki tablodan yapılır.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+          <div className="grid min-w-0 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1.5 sm:w-auto sm:gap-2">
+            <button
+              type="button"
+              className="shrink-0 rounded-full border border-zinc-300 px-2.5 py-1 text-[11px] font-medium text-zinc-800 hover:bg-zinc-50 sm:px-3 sm:text-xs dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              onClick={() => setMonthOffset((m) => m - 1)}
+            >
+              ← Önceki
+            </button>
+            <span className="min-w-0 truncate text-center text-sm font-medium tabular-nums text-zinc-700 dark:text-zinc-300">
+              {rangeLabel}
+            </span>
+            <button
+              type="button"
+              className="shrink-0 rounded-full border border-zinc-300 px-2.5 py-1 text-[11px] font-medium text-zinc-800 hover:bg-zinc-50 sm:px-3 sm:text-xs dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              onClick={() => setMonthOffset((m) => m + 1)}
+            >
+              Sonraki →
+            </button>
+          </div>
           <button
             type="button"
-            className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            onClick={() => setMonthOffset((m) => m - 1)}
-          >
-            ← Önceki ay
-          </button>
-          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{rangeLabel}</span>
-          <button
-            type="button"
-            className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            onClick={() => setMonthOffset((m) => m + 1)}
-          >
-            Sonraki ay →
-          </button>
-          <button
-            type="button"
-            className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100"
+            className="w-full shrink-0 rounded-full bg-zinc-100 px-3 py-1 text-[11px] font-medium text-zinc-800 sm:w-auto sm:text-xs dark:bg-zinc-800 dark:text-zinc-100"
             onClick={() => {
               setMonthOffset(0);
               setSelectedYmd(ymdKey(new Date()));
@@ -136,14 +140,21 @@ export function ReservationWeekCalendar({ appointments }: { appointments: Reserv
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
-        <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
-          <div className="mb-2 grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-zinc-500">
+      <div className="mt-4 grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+        <div className="min-w-0 max-w-full overflow-hidden rounded-lg border border-zinc-200 p-1.5 sm:p-3 dark:border-zinc-700">
+          {/* min-w-0: 7 sütun dar ekranda içerik genişliği yüzünden taşmasın (Safari/Chrome grid) */}
+          <div className="mb-1.5 grid min-w-0 grid-cols-7 gap-px sm:mb-2 sm:gap-1">
             {dayLabelsTr.map((d) => (
-              <span key={d}>{d}</span>
+              <span
+                key={d}
+                className="min-w-0 truncate text-center text-[10px] font-medium tabular-nums text-zinc-500 sm:text-[11px]"
+                title={d}
+              >
+                {d}
+              </span>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid min-w-0 grid-cols-7 gap-px sm:gap-1">
             {gridDays.map((d) => {
               const key = ymdKey(d);
               const list = byDayKey.get(key) ?? [];
@@ -157,7 +168,7 @@ export function ReservationWeekCalendar({ appointments }: { appointments: Reserv
                   key={key}
                   type="button"
                   onClick={() => setSelectedYmd(key)}
-                  className={`min-h-[68px] rounded-md border p-1.5 text-left transition ${
+                  className={`flex min-h-[52px] min-w-0 flex-col overflow-hidden rounded border p-1 text-left align-top transition sm:min-h-[68px] sm:rounded-md sm:p-1.5 ${
                     isSelected
                       ? "border-rose-500 bg-rose-50 dark:border-rose-700 dark:bg-rose-950/30"
                       : isToday
@@ -165,11 +176,23 @@ export function ReservationWeekCalendar({ appointments }: { appointments: Reserv
                         : "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
                   } ${inCurrentMonth ? "" : "opacity-45"}`}
                 >
-                  <div className="text-xs font-semibold text-zinc-800 dark:text-zinc-100">{d.getDate()}</div>
+                  <div className="shrink-0 text-[11px] font-semibold tabular-nums leading-none text-zinc-800 dark:text-zinc-100 sm:text-xs">
+                    {d.getDate()}
+                  </div>
                   {list.length > 0 ? (
-                    <div className="mt-1 space-y-0.5 text-[10px]">
-                      {pendingCount > 0 ? <div className="text-amber-700 dark:text-amber-300">{pendingCount} bek.</div> : null}
-                      {approvedCount > 0 ? <div className="text-emerald-600 dark:text-emerald-400">{approvedCount} onay</div> : null}
+                    <div className="mt-0.5 min-w-0 space-y-px text-[9px] leading-tight sm:mt-1 sm:space-y-0.5 sm:text-[10px]">
+                      {pendingCount > 0 ? (
+                        <div className="truncate text-amber-700 dark:text-amber-300" title={`${pendingCount} bekliyor`}>
+                          <span className="sm:hidden">{pendingCount}b</span>
+                          <span className="hidden sm:inline">{pendingCount} bek.</span>
+                        </div>
+                      ) : null}
+                      {approvedCount > 0 ? (
+                        <div className="truncate text-emerald-600 dark:text-emerald-400" title={`${approvedCount} onaylı`}>
+                          <span className="sm:hidden">{approvedCount}o</span>
+                          <span className="hidden sm:inline">{approvedCount} onay</span>
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </button>

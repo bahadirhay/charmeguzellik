@@ -32,7 +32,7 @@ export default async function AppointmentsPage() {
   const cancelRequestRows = rows.filter((r) => r.status === "cancel_request");
   const archivedRows = rows.filter((r) => r.status === "rejected" || r.status === "cancelled");
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 max-w-full space-y-8">
       <div>
         <h1 className="text-2xl font-semibold">Randevular</h1>
         <p className="text-sm text-zinc-500">
