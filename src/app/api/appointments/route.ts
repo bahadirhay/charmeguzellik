@@ -6,7 +6,6 @@ import {
 } from "@/lib/appointment-schedule";
 import { resolvePublishedContactFormBlock, type ContactFormContext } from "@/lib/contact-form-resolve";
 import { createAppointmentRecord, AppointmentDuplicateError } from "@/lib/create-appointment-record";
-import { insertPrimaryCalendarEvent, refreshGoogleAccessToken } from "@/lib/google-calendar";
 import { prisma } from "@/lib/prisma";
 import {
   APPOINTMENT_PHONE_INPUT_MAX_LENGTH,
@@ -92,9 +91,8 @@ export async function POST(req: Request) {
   if (body.clientPhone?.trim()) notesParts.unshift(`Telefon: ${body.clientPhone.trim()}`);
   const notes = notesParts.length ? notesParts.join("\n") : null;
 
-  let row;
   try {
-    row = await prisma.$transaction(async (tx) =>
+    await prisma.$transaction(async (tx) =>
       createAppointmentRecord(tx, {
         startAt: start,
         endAt: end,
@@ -123,43 +121,5 @@ export async function POST(req: Request) {
     throw e;
   }
 
-  let googleEventId: string | null = null;
-  try {
-    const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
-    const cid = settings?.googleCalendarClientId?.trim();
-    const sec = settings?.googleCalendarSecret?.trim();
-    const rt = settings?.googleRefreshToken?.trim();
-    if (cid && sec && rt) {
-      const access = await refreshGoogleAccessToken({
-        clientId: cid,
-        clientSecret: sec,
-        refreshToken: rt,
-      });
-      if (access) {
-        const summary = serviceName
-          ? `Randevu: ${serviceName} — ${row.clientName}`
-          : `Randevu — ${row.clientName}`;
-        const description = [notes, `Kayıt id: ${row.id}`].filter(Boolean).join("\n\n");
-        googleEventId = await insertPrimaryCalendarEvent(access, {
-          summary,
-          description: description || undefined,
-          start,
-          end,
-        });
-        if (googleEventId) {
-          await prisma.appointment.update({
-            where: { id: row.id },
-            data: { googleEventId },
-          });
-        }
-      }
-    }
-  } catch (e) {
-    console.warn("appointment calendar sync", e);
-  }
-
-  return NextResponse.json({
-    ok: true,
-    calendarSynced: Boolean(googleEventId),
-  });
+  return NextResponse.json({ ok: true });
 }

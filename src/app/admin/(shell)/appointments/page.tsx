@@ -1,5 +1,6 @@
 import { AppointmentForm } from "@/components/admin/AppointmentForm";
 import { AppointmentRowActions } from "@/components/admin/AppointmentRowActions";
+import { ReservationWeekCalendar } from "@/components/admin/ReservationWeekCalendar";
 import { requirePagePermission } from "@/lib/auth";
 import { buildNavTree, collectServiceLabelsFromNav } from "@/lib/navigation";
 import { getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
@@ -32,13 +33,23 @@ export default async function AppointmentsPage() {
       <div>
         <h1 className="text-2xl font-semibold">Randevular</h1>
         <p className="text-sm text-zinc-500">
-          Web sitesindeki <strong>Randevu formu</strong> talepleri burada listelenir. <strong>Onayla / Reddet</strong>{" "}
-          durumu günceller; müşteriye otomatik e-posta için ortamda{" "}
+          Bu ekran <strong>rezervasyon merkeziniz</strong>: tüm kayıtlar bu projede ve veritabanında tutulur; haftalık
+          takvim ve tablo ile görüntülenir. Yetkili personel <strong>Düzenle</strong> ile tarih ve müşteri bilgilerini
+          güncelleyebilir; <strong>Onayla / Reddet</strong> bekleyen talepler içindir. Müşteriye e-posta için ortamda{" "}
           <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">RESEND_API_KEY</code> ve{" "}
-          <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">MAIL_FROM</code> tanımlayın (Resend). WhatsApp
-          için müşteri numarasına hazır mesaj yeni sekmede açılır.
+          <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">MAIL_FROM</code>; WhatsApp için numaraya hazır
+          mesaj yeni sekmede açılır.
         </p>
       </div>
+      <ReservationWeekCalendar
+        appointments={rows.map((r) => ({
+          id: r.id,
+          startAt: r.startAt.toISOString(),
+          clientName: r.clientName,
+          serviceName: r.serviceName,
+          status: r.status,
+        }))}
+      />
       <AppointmentForm serviceOptions={serviceOptions} schedule={appointmentSchedule} />
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <table className="min-w-full text-left text-sm">
@@ -47,7 +58,6 @@ export default async function AppointmentsPage() {
               <th className="px-3 py-2">Başlangıç</th>
               <th className="px-3 py-2">Hizmet</th>
               <th className="px-3 py-2">Müşteri</th>
-              <th className="px-3 py-2">Takvim</th>
               <th className="px-3 py-2">Durum / işlem</th>
             </tr>
           </thead>
@@ -63,17 +73,17 @@ export default async function AppointmentsPage() {
                   <div className="text-xs text-zinc-500">{r.clientPhone}</div>
                   {r.clientEmail ? <div className="text-xs text-zinc-500">{r.clientEmail}</div> : null}
                 </td>
-                <td className="px-3 py-2 text-xs text-zinc-500">
-                  {r.googleEventId ? <span className="text-emerald-600">Google ✓</span> : "—"}
-                </td>
                 <td className="px-3 py-2 align-top">
                   <AppointmentRowActions
                     id={r.id}
+                    startAtIso={r.startAt.toISOString()}
                     serviceName={r.serviceName}
                     clientName={r.clientName}
                     clientEmail={r.clientEmail}
                     clientPhone={r.clientPhone}
+                    notes={r.notes}
                     status={r.status}
+                    serviceOptions={serviceOptions}
                   />
                 </td>
               </tr>

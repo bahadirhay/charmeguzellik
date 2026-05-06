@@ -10,7 +10,6 @@ import {
   type SiteHeaderBrand,
   type ThemeTokens,
 } from "@/lib/theme-tokens";
-import { parseGoogleCalendarCredentialsJson } from "@/lib/google-calendar-credentials-import";
 
 /** DB'de yanlışlıkla "null" string olarak saklanmış alanları boş göster */
 function strForInput(v: string | null | undefined) {
@@ -30,7 +29,6 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
   const [importPresetImages, setImportPresetImages] = useState(false);
   const [importCustomUrls, setImportCustomUrls] = useState(false);
   const [customUrlsJson, setCustomUrlsJson] = useState("");
-  const [googleCalendarJsonDraft, setGoogleCalendarJsonDraft] = useState("");
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -112,30 +110,6 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
 
   function field<K extends keyof SettingsRow>(key: K, value: SettingsRow[K]) {
     setRow((r) => ({ ...r, [key]: value }));
-  }
-
-  function applyGoogleCalendarImportJson(text: string) {
-    const parsed = parseGoogleCalendarCredentialsJson(text);
-    if ("error" in parsed) {
-      setFeedback({ text: parsed.error, error: true });
-      return;
-    }
-    setRow((r) => ({
-      ...r,
-      ...(parsed.clientId ? { googleCalendarClientId: parsed.clientId } : {}),
-      ...(parsed.clientSecret ? { googleCalendarSecret: parsed.clientSecret } : {}),
-      ...(parsed.refreshToken ? { googleRefreshToken: parsed.refreshToken } : {}),
-    }));
-    const parts: string[] = [];
-    if (parsed.clientId) parts.push("Client ID");
-    if (parsed.clientSecret) parts.push("Client Secret");
-    if (parsed.refreshToken) parts.push("Refresh token");
-    setFeedback({
-      text: parts.length
-        ? `Alanlar dolduruldu: ${parts.join(", ")}. Kontrol edip «Tüm ayarları kaydet» deyin.`
-        : "JSON geçerli ama güncellenecek alan yok.",
-      error: false,
-    });
   }
 
   function patchFooterStrip(patch: Partial<NonNullable<ThemeTokens["siteFooterStrip"]>>) {
@@ -679,13 +653,17 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
       </section>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="font-medium">İletişim & takvim</h2>
+        <h2 className="font-medium">İletişim</h2>
         <p className="mt-1 text-xs text-zinc-500">
           WhatsApp numarası site genelinde kullanılır; ayrıca{" "}
           <a className="font-medium text-rose-600 underline" href="/admin/whatsapp">
             WhatsApp
           </a>{" "}
-          sayfasından da kaydedebilirsiniz.
+          sayfasından da kaydedebilirsiniz. Randevu takvimi yalnızca{" "}
+          <a className="font-medium text-rose-600 underline" href="/admin/appointments">
+            Admin → Randevular
+          </a>{" "}
+          ekranındadır (harici takvim entegrasyonu yok).
         </p>
         <div className="mt-4 grid gap-3">
           <label className="grid gap-1 text-sm">
@@ -694,149 +672,6 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
               className="rounded border border-zinc-300 px-2 py-1 dark:border-zinc-600 dark:bg-zinc-950"
               value={strForInput(row.whatsappNumber)}
               onChange={(e) => field("whatsappNumber", e.target.value || null)}
-            />
-          </label>
-          <label className="grid gap-1 text-sm">
-            Google Takvim embed URL
-            <input
-              className="rounded border border-zinc-300 px-2 py-1 dark:border-zinc-600 dark:bg-zinc-950"
-              value={strForInput(row.googleCalendarEmbedUrl)}
-              onChange={(e) => field("googleCalendarEmbedUrl", e.target.value || null)}
-            />
-          </label>
-          <label className="grid gap-1 text-sm">
-            Takvim ICS abonelik bağlantısı (opsiyonel)
-            <input
-              className="rounded border border-zinc-300 px-2 py-1 dark:border-zinc-600 dark:bg-zinc-950"
-              value={strForInput(row.googleCalendarIcsUrl)}
-              onChange={(e) => field("googleCalendarIcsUrl", e.target.value || null)}
-            />
-          </label>
-          <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/25 dark:text-amber-100">
-            <p className="font-medium">Randevu formu → Google Takvim (isteğe bağlı)</p>
-            <p className="mt-1 leading-relaxed opacity-90">
-              Google Cloud Console’da Calendar API açın; OAuth ile refresh token alıp alanları doldurun. Doldurulduğunda
-              randevular, bu token için yetki verdiğiniz{" "}
-              <strong className="font-medium">aynı Google hesabının ana (primary) takvimine</strong> yazılır. Kontrol için
-              bilgisayarınızdan{" "}
-              <a className="font-medium underline" href="https://calendar.google.com" target="_blank" rel="noreferrer">
-                calendar.google.com
-              </a>{" "}
-              açın — etkinlik o hesabın ana takvim listesinde görünür.
-            </p>
-            <p className="mt-2 leading-relaxed opacity-90">
-              Panele mi bakacaksınız? Burada doğrudan bağlantı yok; bunun yerine{" "}
-              <strong>Randevular</strong> sayfasındaki <strong>Takvim</strong> sütununa bakın:
-              <strong> Google ✓</strong> ise Google’a yazılmıştır (boş ise sunucuya kayıtlıdır ama Google senkronu
-              olmamıştır — Client ID / Secret / Refresh yanlış veya süresiz geçerlilik sorunu olabilir).
-            </p>
-            <ul className="mt-2 list-inside list-disc space-y-1 leading-relaxed opacity-95">
-              <li>
-                <strong>Client ID</strong> — Cloud Console’da «İstemci kimliği»; genelde{" "}
-                <code className="rounded bg-white/80 px-1 dark:bg-black/30">…apps.googleusercontent.com</code> ile biter.
-                Yalnızca üstteki alana yazın.
-              </li>
-              <li>
-                <strong>Client Secret</strong> — «İstemci gizli anahtarı»; Refresh token alanına değil, ortadaki şifre
-                alanına yapıştırın.
-              </li>
-              <li>
-                <strong>Refresh token</strong> — OAuth akışıyla (ör. masaüstü uygulaması + yetkilendirme) üretilen
-                ayrı uzun metin. Client ID ile aynı şey değildir;{" "}
-                <code className="rounded bg-white/80 px-1 dark:bg-black/30">.googleusercontent.com</code> içeren satırı
-                buraya koymayın.
-              </li>
-            </ul>
-          </div>
-          <div className="rounded-lg border border-zinc-200 bg-zinc-50/90 p-3 text-xs dark:border-zinc-700 dark:bg-zinc-900/60">
-            <p className="font-medium text-zinc-800 dark:text-zinc-200">
-              Tek seferde yükle (önerilir)
-            </p>
-            <p className="mt-1 leading-relaxed text-zinc-600 dark:text-zinc-400">
-              Aşağıdaki gibi bir <code className="rounded bg-white px-1 dark:bg-black/40">.json</code> dosyası
-              seçin veya yapıştırıp uygulayın. Dosya tarayıcıda okunur; yalnızca alanları doldurur, sunucuya
-              ayrı dosya yüklenmez. Ardından mutlaka{" "}
-              <strong className="text-zinc-800 dark:text-zinc-200">Tüm ayarları kaydet</strong> deyin.
-            </p>
-            <pre className="mt-2 max-h-32 overflow-auto rounded border border-zinc-200 bg-white p-2 text-[10px] leading-relaxed dark:border-zinc-700 dark:bg-zinc-950">
-{`{
-  "client_id": "…apps.googleusercontent.com",
-  "client_secret": "GOCSPX-…",
-  "refresh_token": "1//…"
-}`}
-            </pre>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900">
-                JSON dosyası seç
-                <input
-                  type="file"
-                  accept="application/json,.json"
-                  className="sr-only"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (!f) return;
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      applyGoogleCalendarImportJson(String(reader.result ?? ""));
-                      e.target.value = "";
-                    };
-                    reader.onerror = () => {
-                      setFeedback({ text: "Dosya okunamadı.", error: true });
-                      e.target.value = "";
-                    };
-                    reader.readAsText(f, "UTF-8");
-                  }}
-                />
-              </label>
-            </div>
-            <label className="mt-2 grid gap-1">
-              <span className="text-[11px] text-zinc-600 dark:text-zinc-400">Veya JSON’u yapıştırın</span>
-              <textarea
-                rows={4}
-                className="rounded border border-zinc-300 bg-white px-2 py-1 font-mono text-[11px] dark:border-zinc-600 dark:bg-zinc-950"
-                placeholder='{"client_id":"…","client_secret":"…","refresh_token":"…"}'
-                value={googleCalendarJsonDraft}
-                onChange={(e) => setGoogleCalendarJsonDraft(e.target.value)}
-                spellCheck={false}
-              />
-            </label>
-            <button
-              type="button"
-              className="mt-2 rounded-full border border-zinc-400 bg-white px-4 py-1.5 text-xs font-medium text-zinc-900 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
-              onClick={() => applyGoogleCalendarImportJson(googleCalendarJsonDraft)}
-            >
-              JSON’dan alanları doldur
-            </button>
-          </div>
-          <label className="grid gap-1 text-sm font-mono text-[11px]">
-            Google OAuth Client ID
-            <input
-              className="rounded border border-zinc-300 px-2 py-1 text-sm font-sans dark:border-zinc-600 dark:bg-zinc-950"
-              value={strForInput(row.googleCalendarClientId)}
-              onChange={(e) => field("googleCalendarClientId", e.target.value || null)}
-              autoComplete="off"
-              placeholder="…apps.googleusercontent.com"
-            />
-          </label>
-          <label className="grid gap-1 text-sm font-mono text-[11px]">
-            Google OAuth Client Secret
-            <input
-              type="password"
-              className="rounded border border-zinc-300 px-2 py-1 text-sm font-sans dark:border-zinc-600 dark:bg-zinc-950"
-              value={strForInput(row.googleCalendarSecret)}
-              onChange={(e) => field("googleCalendarSecret", e.target.value || null)}
-              autoComplete="new-password"
-              placeholder="Gizli anahtar (Refresh token değil)"
-            />
-          </label>
-          <label className="grid gap-1 text-sm font-mono text-[11px] md:col-span-2">
-            Refresh token (Calendar erişimi)
-            <input
-              className="rounded border border-zinc-300 px-2 py-1 text-sm font-sans dark:border-zinc-600 dark:bg-zinc-950"
-              value={strForInput(row.googleRefreshToken)}
-              onChange={(e) => field("googleRefreshToken", e.target.value || null)}
-              autoComplete="off"
-              placeholder="OAuth ile alınan token (Client ID satırı değil)"
             />
           </label>
         </div>

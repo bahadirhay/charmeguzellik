@@ -23,6 +23,8 @@ export async function appointmentDuplicateExists(
     serviceName: string | null;
     nameKey: string;
     phoneKey: string | null;
+    /** Güncellemede aynı kaydı hariç tut */
+    excludeAppointmentId?: string;
   },
 ): Promise<boolean> {
   const rows = await db.appointment.findMany({
@@ -30,6 +32,9 @@ export async function appointmentDuplicateExists(
       startAt: params.startAt,
       serviceName: params.serviceName,
       status: { in: ["pending", "approved"] },
+      ...(params.excludeAppointmentId
+        ? { NOT: { id: params.excludeAppointmentId } }
+        : {}),
     },
     select: {
       clientName: true,

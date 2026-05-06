@@ -306,7 +306,7 @@ export function ContactFormBlock({
         blockId: blockId ?? "",
       }),
     });
-    let j: { ok?: boolean; calendarSynced?: boolean; error?: string } = {};
+    let j: { ok?: boolean; error?: string } = {};
     try {
       j = (await res.json()) as typeof j;
     } catch {

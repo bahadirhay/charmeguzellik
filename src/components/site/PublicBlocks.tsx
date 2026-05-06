@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import type { PageBlock } from "@/lib/blocks/schema";
 import { toVideoIframeSrc } from "@/lib/video-embed";
 import { BrandedIntro } from "@/components/site/BrandedIntro";
@@ -345,18 +346,30 @@ function BlockView({
       return <div style={{ height: block.props.height }} />;
     }
     case "calendarEmbed": {
-      const url = block.props.url;
-      if (!url) return null;
+      const title = block.props.title?.trim();
+      const body =
+        block.props.body?.trim() ||
+        (block.props.url?.trim()
+          ? "Randevular artık doğrudan bu sitede yönetilmektedir. Müsaitlik ve kesin saat için aşağıdaki bağlantıyı veya sayfadaki randevu formunu kullanın."
+          : "Randevu talebinizi iletmek için sayfadaki randevu formunu veya iletişim bölümünü kullanabilirsiniz.");
+      const ctaLabel = block.props.ctaLabel?.trim() || "İletişim / randevu";
+      const ctaHref = block.props.ctaHref?.trim() || "/iletisim";
       return (
-        <section className="mx-auto w-full max-w-4xl space-y-3">
-          {block.props.title ? (
-            <h2 className="text-center text-xl font-semibold text-zinc-900 dark:text-zinc-50 md:text-left">
-              {block.props.title}
-            </h2>
+        <section className="mx-auto w-full max-w-2xl space-y-4 rounded-2xl border border-zinc-200 bg-zinc-50/80 p-6 text-center dark:border-zinc-800 dark:bg-zinc-950/40 md:text-left">
+          {title ? (
+            <h2 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{title}</h2>
           ) : null}
-          <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800">
-            <iframe title="Takvim" src={url} className="h-[600px] w-full" loading="lazy" />
-          </div>
+          <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">{body}</p>
+          {ctaHref ? (
+            <div className="flex justify-center md:justify-start">
+              <Link
+                href={ctaHref}
+                className="inline-flex rounded-full bg-rose-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-rose-700"
+              >
+                {ctaLabel}
+              </Link>
+            </div>
+          ) : null}
         </section>
       );
     }

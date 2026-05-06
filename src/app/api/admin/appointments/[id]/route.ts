@@ -2,81 +2,194 @@ import { NextResponse } from "next/server";
 import type { Appointment } from "@prisma/client";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
 import { buildAppointmentNotifyCopy, buildNotifyLinks } from "@/lib/appointment-status-notify";
+import { AppointmentDuplicateError } from "@/lib/create-appointment-record";
+import {
+  APPOINTMENT_PHONE_INPUT_MAX_LENGTH,
+  appointmentPhoneTurkeyHint,
+  isValidTurkeyMobileAppointmentPhone,
+} from "@/lib/appointment-phone";
 import { prisma } from "@/lib/prisma";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
 import { getSiteSettings } from "@/lib/site-settings";
+import { updateAppointmentRecord } from "@/lib/update-appointment-record";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 const DECISIONS = new Set(["approved", "rejected"]);
+
+const DETAIL_KEYS = [
+  "startAt",
+  "endAt",
+  "serviceName",
+  "clientName",
+  "clientEmail",
+  "clientPhone",
+  "notes",
+] as const;
 
 export async function PATCH(req: Request, ctx: Ctx) {
   const auth = await requireStaffApiPerm("crm.appointments");
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await ctx.params;
-  let body: { status?: string };
+  let body: Record<string, unknown>;
   try {
-    body = (await req.json()) as { status?: string };
+    body = (await req.json()) as Record<string, unknown>;
   } catch {
     return NextResponse.json({ error: "Geçersiz JSON" }, { status: 400 });
   }
 
-  const next = body.status?.trim().toLowerCase();
-  if (!next || !DECISIONS.has(next)) {
-    return NextResponse.json({ error: "status: approved veya rejected olmalı" }, { status: 400 });
+  const statusRaw = typeof body.status === "string" ? body.status.trim().toLowerCase() : "";
+
+  if (statusRaw) {
+    if (!DECISIONS.has(statusRaw)) {
+      return NextResponse.json({ error: "status: approved veya rejected olmalı" }, { status: 400 });
+    }
+    const mixed = DETAIL_KEYS.some((k) => k in body && body[k] !== undefined);
+    if (mixed) {
+      return NextResponse.json(
+        { error: "Onay/red ile randevu alanlarını aynı istekte göndermeyin." },
+        { status: 400 },
+      );
+    }
+
+    const existing = await prisma.appointment.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
+    }
+    if (existing.status !== "pending") {
+      return NextResponse.json(
+        { error: "Yalnızca «bekleyen» (pending) talepler onaylanır veya reddedilir." },
+        { status: 400 },
+      );
+    }
+
+    const updated = await prisma.appointment.update({
+      where: { id },
+      data: { status: statusRaw },
+    });
+
+    const settings = await getSiteSettings();
+    const siteName = settings.siteName?.trim() || "Salon";
+
+    const rowPick: Pick<Appointment, "clientName" | "clientPhone" | "clientEmail" | "serviceName" | "startAt"> =
+      updated;
+    const decision = statusRaw as "approved" | "rejected";
+    const { emailSubject, emailText } = buildAppointmentNotifyCopy(rowPick, decision, siteName);
+    const links = buildNotifyLinks(rowPick, decision, siteName);
+
+    let emailSent = false;
+    let emailError: string | null = null;
+    const emailTo = updated.clientEmail?.trim();
+    if (emailTo) {
+      const sent = await sendTransactionalEmail({
+        to: emailTo,
+        subject: emailSubject,
+        text: emailText,
+      });
+      if (sent.ok) {
+        emailSent = true;
+      } else {
+        emailError = sent.error;
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      appointment: updated,
+      notifications: {
+        emailSent,
+        emailError,
+        emailSkipped: !emailTo,
+        whatsappUrl: links.whatsappUrl,
+        mailtoUrl: links.mailtoUrl,
+      },
+    });
+  }
+
+  if (!DETAIL_KEYS.some((k) => k in body)) {
+    return NextResponse.json({ error: "Güncellenecek alan yok" }, { status: 400 });
   }
 
   const existing = await prisma.appointment.findUnique({ where: { id } });
   if (!existing) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
   }
-  if (existing.status !== "pending") {
-    return NextResponse.json(
-      { error: "Yalnızca «bekleyen» (pending) talepler onaylanır veya reddedilir." },
-      { status: 400 },
-    );
+
+  const input: Parameters<typeof updateAppointmentRecord>[2] = {};
+
+  if (typeof body.startAt === "string") {
+    const d = new Date(body.startAt);
+    if (Number.isNaN(d.getTime())) {
+      return NextResponse.json({ error: "Geçersiz başlangıç tarihi" }, { status: 400 });
+    }
+    input.startAt = d;
   }
 
-  const updated = await prisma.appointment.update({
-    where: { id },
-    data: { status: next },
-  });
-
-  const settings = await getSiteSettings();
-  const siteName = settings.siteName?.trim() || "Salon";
-
-  const rowPick: Pick<Appointment, "clientName" | "clientPhone" | "clientEmail" | "serviceName" | "startAt"> =
-    updated;
-  const decision = next as "approved" | "rejected";
-  const { emailSubject, emailText } = buildAppointmentNotifyCopy(rowPick, decision, siteName);
-  const links = buildNotifyLinks(rowPick, decision, siteName);
-
-  let emailSent = false;
-  let emailError: string | null = null;
-  const emailTo = updated.clientEmail?.trim();
-  if (emailTo) {
-    const sent = await sendTransactionalEmail({
-      to: emailTo,
-      subject: emailSubject,
-      text: emailText,
-    });
-    if (sent.ok) {
-      emailSent = true;
+  if (body.endAt !== undefined) {
+    if (body.endAt === null || body.endAt === "") {
+      input.endAt = null;
+    } else if (typeof body.endAt === "string") {
+      const d = new Date(body.endAt);
+      if (Number.isNaN(d.getTime())) {
+        return NextResponse.json({ error: "Geçersiz bitiş tarihi" }, { status: 400 });
+      }
+      input.endAt = d;
     } else {
-      emailError = sent.error;
+      return NextResponse.json({ error: "endAt metin veya null olmalı" }, { status: 400 });
     }
   }
 
-  return NextResponse.json({
-    ok: true,
-    appointment: updated,
-    notifications: {
-      emailSent,
-      emailError,
-      emailSkipped: !emailTo,
-      whatsappUrl: links.whatsappUrl,
-      mailtoUrl: links.mailtoUrl,
-    },
-  });
+  if (typeof body.serviceName === "string") {
+    input.serviceName = body.serviceName.trim() || null;
+  } else if (body.serviceName === null) {
+    input.serviceName = null;
+  }
+
+  if (typeof body.clientName === "string") {
+    const s = body.clientName.trim();
+    if (!s) {
+      return NextResponse.json({ error: "Müşteri adı boş olamaz" }, { status: 400 });
+    }
+    input.clientName = s;
+  }
+
+  if (typeof body.clientEmail === "string") {
+    input.clientEmail = body.clientEmail.trim() || null;
+  } else if (body.clientEmail === null) {
+    input.clientEmail = null;
+  }
+
+  if (typeof body.clientPhone === "string") {
+    const p = body.clientPhone.trim();
+    if (p.length > APPOINTMENT_PHONE_INPUT_MAX_LENGTH) {
+      return NextResponse.json({ error: appointmentPhoneTurkeyHint() }, { status: 400 });
+    }
+    if (!isValidTurkeyMobileAppointmentPhone(p)) {
+      return NextResponse.json({ error: appointmentPhoneTurkeyHint() }, { status: 400 });
+    }
+    input.clientPhone = p;
+  }
+
+  if (typeof body.notes === "string") {
+    input.notes = body.notes.trim() || null;
+  } else if (body.notes === null) {
+    input.notes = null;
+  }
+
+  try {
+    const updated = await prisma.$transaction(async (tx) => updateAppointmentRecord(tx, id, input));
+    return NextResponse.json({ ok: true, appointment: updated });
+  } catch (e) {
+    if (e instanceof AppointmentDuplicateError) {
+      return NextResponse.json(
+        { error: "Bu bilgilerle aynı hizmet ve saatte başka kayıt var." },
+        { status: 409 },
+      );
+    }
+    if (e instanceof Error && e.message === "phone_required") {
+      return NextResponse.json({ error: "Telefon boş bırakılamaz." }, { status: 400 });
+    }
+    throw e;
+  }
 }

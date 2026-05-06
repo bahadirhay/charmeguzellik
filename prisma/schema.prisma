@@ -52,11 +52,6 @@ model SiteSettings {
   facebookPixelId        String?
   customHeadHtml         String?
   whatsappNumber         String?
-  googleCalendarEmbedUrl String?
-  googleCalendarIcsUrl   String?
-  googleCalendarClientId String?
-  googleCalendarSecret   String?
-  googleRefreshToken     String?
   seoKeywords            String?
   /// Instagram Graph API: İşletme IG kullanıcı id (içe aktarma için)
   instagramGraphUserId   String?
@@ -164,7 +159,6 @@ model Appointment {
   /// normalizeClientNameKey(clientName)
   clientNameKey  String?
   notes          String?
-  googleEventId  String?
   status         String      @default("pending")
   createdAt      DateTime    @default(now())
   crmContactId   String?

@@ -76,7 +76,7 @@ const contactFormProps = z.object({
   /** false ise yalnızca serviceNavParentId ile seçilen öğenin alt linkleri kullanılır */
   serviceNavUseAuto: z.boolean().optional(),
   serviceNavParentId: z.string().optional(),
-  /** Google Takvim etkinliği bitişi = başlangıç + dakika */
+  /** Randevu aralığı (dakika); bitiş = başlangıç + bu süre */
   slotDurationMinutes: z.number().int().min(15).max(240).optional(),
   submitLabel: z.string().optional(),
   /** Randevu: hizmet seçimi (varsayılan açık). Kapalıysa hizmet «Belirtilmedi» kaydedilir. */
@@ -110,7 +110,11 @@ const spacerProps = z.object({
 
 const calendarEmbedProps = z.object({
   title: z.string().optional(),
+  /** Eski sayfalar: harici iframe kaldırıldı; site metin + CTA gösterir */
   url: z.string().optional(),
+  body: z.string().max(4000).optional(),
+  ctaLabel: z.string().max(120).optional(),
+  ctaHref: z.string().max(500).optional(),
 });
 
 const chatSnippetProps = z.object({

@@ -262,18 +262,24 @@ function PreviewBlock({
       return <div style={{ height: block.props.height }} />;
     }
     case "calendarEmbed": {
-      const url = block.props.url;
-      if (!url) return null;
+      const title = block.props.title?.trim();
+      const body =
+        block.props.body?.trim() ||
+        (block.props.url?.trim()
+          ? "Önizleme: harici takvim kaldırıldı; yayında metin + buton gösterilir."
+          : "Randevu bilgisi — metin ve CTA (düzenleyicide ayarlayın).");
+      const ctaLabel = block.props.ctaLabel?.trim() || "İletişim";
+      const ctaHref = block.props.ctaHref?.trim() || "/iletisim";
       return (
-        <section className="mx-auto w-full max-w-4xl space-y-3">
-          {block.props.title ? (
-            <h2 className="text-center text-xl font-semibold text-zinc-900 dark:text-zinc-50 md:text-left">
-              {block.props.title}
-            </h2>
-          ) : null}
-          <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800">
-            <iframe title="Takvim" src={url} className="h-[600px] w-full" loading="lazy" />
-          </div>
+        <section className="mx-auto w-full max-w-2xl space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50/80 p-4 text-center text-sm dark:border-zinc-800 dark:bg-zinc-950/40 md:text-left">
+          {title ? <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">{title}</h2> : null}
+          <p className="text-zinc-700 dark:text-zinc-300">{body}</p>
+          <a
+            href={ctaHref}
+            className="inline-flex rounded-full bg-rose-600 px-4 py-2 text-xs font-medium text-white"
+          >
+            {ctaLabel}
+          </a>
         </section>
       );
     }

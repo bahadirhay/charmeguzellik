@@ -687,12 +687,17 @@ const PALETTE: PaletteItem[] = [
     }),
   },
   {
-    label: "Takvim gömme",
+    label: "Randevu bilgisi",
     icon: "📅",
     factory: () => ({
       id: nanoid(),
       type: "calendarEmbed",
-      props: { title: "Müsaitlik", url: "" },
+      props: {
+        title: "Randevu",
+        body: "Randevu ve müsaitlik taleplerinizi iletebilirsiniz; kesin saat salon onayıyla netleşir.",
+        ctaLabel: "Randevu formuna git",
+        ctaHref: "/iletisim",
+      },
     }),
   },
   {
@@ -850,7 +855,7 @@ const WIDGET_CATEGORY_ORDER: { title: string; labels: string[] }[] = [
   { title: "Güven & pazarlama", labels: ["Yorum şeridi (kart carousel)"] },
   {
     title: "İletişim & gömme",
-    labels: ["Harita", "İletişim formu", "Randevu formu (hizmet + tarih)", "WhatsApp", "Takvim gömme", "Sohbet notu"],
+    labels: ["Harita", "İletişim formu", "Randevu formu (hizmet + tarih)", "WhatsApp", "Randevu bilgisi", "Sohbet notu"],
   },
   {
     title: "Forum & sohbet",
@@ -1034,6 +1039,13 @@ function BlockSummary({ block }: { block: PageBlock }) {
         </span>
       );
     }
+    case "calendarEmbed":
+      return (
+        <span className="truncate text-sm">
+          Randevu bilgisi · {block.props.title?.trim() || "başlıksız"}
+          {block.props.ctaHref ? ` → ${block.props.ctaHref.slice(0, 28)}` : ""}
+        </span>
+      );
     default:
       return <span className="text-sm capitalize">{block.type}</span>;
   }
@@ -1600,7 +1612,7 @@ function BlockFields({
                 </p>
               )}
               <label className="grid gap-1 text-xs">
-                Randevu süresi (Google Takvim etkinlik uzunluğu, dakika)
+                Randevu süresi (dakika; bitiş = başlangıç + bu süre)
                 <input
                   type="number"
                   min={15}
@@ -1780,8 +1792,7 @@ function BlockFields({
                 </div>
               </div>
               <p className="text-[11px] leading-relaxed text-zinc-500">
-                Google Takvim: <strong>Ayarlar → İletişim &amp; takvim</strong> bölümünde OAuth alanlarını doldurun.
-                Talepler <strong>Admin → Randevular</strong> listesine düşer.
+                Talepler <strong>Admin → Randevular</strong> ekranında ve veritabanında tutulur; harici takvim yok.
               </p>
             </>
           ) : null}
@@ -1866,12 +1877,40 @@ function BlockFields({
     case "calendarEmbed":
       return (
         <div className="mt-3 grid gap-2 text-sm">
+          <p className="text-xs text-zinc-500">
+            Yayında harici iframe yok; ziyaretçiye kısa metin ve bir buton gösterilir (randevu formuna yönlendirme).
+          </p>
           <label className="grid gap-1">
-            Google Takvim embed URL
+            Başlık
             <input
               className="rounded border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-600 dark:bg-zinc-950"
-              value={block.props.url ?? ""}
-              onChange={(e) => setProps({ url: e.target.value })}
+              value={block.props.title ?? ""}
+              onChange={(e) => setProps({ title: e.target.value || undefined })}
+            />
+          </label>
+          <label className="grid gap-1">
+            Metin
+            <textarea
+              rows={3}
+              className="rounded border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-600 dark:bg-zinc-950"
+              value={block.props.body ?? ""}
+              onChange={(e) => setProps({ body: e.target.value || undefined })}
+            />
+          </label>
+          <label className="grid gap-1">
+            Buton metni
+            <input
+              className="rounded border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-600 dark:bg-zinc-950"
+              value={block.props.ctaLabel ?? ""}
+              onChange={(e) => setProps({ ctaLabel: e.target.value || undefined })}
+            />
+          </label>
+          <label className="grid gap-1">
+            Buton bağlantısı (site içi yol, örn. /iletisim)
+            <input
+              className="rounded border border-zinc-300 bg-white px-2 py-1 font-mono text-xs dark:border-zinc-600 dark:bg-zinc-950"
+              value={block.props.ctaHref ?? ""}
+              onChange={(e) => setProps({ ctaHref: e.target.value || undefined })}
             />
           </label>
         </div>
