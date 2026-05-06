@@ -16,7 +16,7 @@ import { generateAppointmentCancelSecret } from "@/lib/appointment-cancel-token"
 
 type Ctx = { params: Promise<{ id: string }> };
 
-const DECISIONS = new Set(["approved", "rejected", "cancelled"]);
+const DECISIONS = new Set(["approved", "rejected", "cancelled", "cancel_request"]);
 
 const DETAIL_KEYS = [
   "startAt",
@@ -44,7 +44,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
   if (statusRaw) {
     if (!DECISIONS.has(statusRaw)) {
-      return NextResponse.json({ error: "status: approved | rejected | cancelled olmalı" }, { status: 400 });
+      return NextResponse.json({ error: "status: approved | rejected | cancelled | cancel_request olmalı" }, { status: 400 });
     }
     const mixed = DETAIL_KEYS.some((k) => k in body && body[k] !== undefined);
     if (mixed) {
@@ -62,6 +62,19 @@ export async function PATCH(req: Request, ctx: Ctx) {
       if (existing.status === "cancelled" || existing.status === "rejected") {
         return NextResponse.json({ error: "Bu kayıt zaten kapatılmış (iptal/red)." }, { status: 400 });
       }
+      if (existing.status !== "cancel_request") {
+        return NextResponse.json(
+          { error: "Doğrudan iptal için önce müşteri iptal talebi (cancel_request) olmalı." },
+          { status: 400 },
+        );
+      }
+    } else if (statusRaw === "cancel_request") {
+      if (existing.status !== "approved") {
+        return NextResponse.json(
+          { error: "İptal talebi yalnızca onaylı randevu için başlatılır." },
+          { status: 400 },
+        );
+      }
     } else if (existing.status !== "pending") {
       return NextResponse.json(
         { error: "Yalnızca «bekleyen» (pending) talepler onaylanır veya reddedilir." },
@@ -74,7 +87,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
       data: { status: statusRaw },
     });
 
-    if (statusRaw === "cancelled") {
+    if (statusRaw === "cancelled" || statusRaw === "cancel_request") {
       return NextResponse.json({
         ok: true,
         appointment: updated,

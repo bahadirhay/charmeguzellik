@@ -42,8 +42,8 @@ export async function POST(req: Request) {
   const updated = await prisma.appointment.update({
     where: { id: appt.id },
     data: {
-      status: "cancelled",
-      notes: [appt.notes, `Müşteri iptal (kodlu): ${new Date().toLocaleString("tr-TR")}`]
+      status: "cancel_request",
+      notes: [appt.notes, `Müşteri iptal talebi (kodlu): ${new Date().toLocaleString("tr-TR")}`]
         .filter(Boolean)
         .join("\n"),
       cancelTokenHash: null,
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
 
   const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
   const waDigits = resolveWaDigits(settings?.whatsappNumber ?? null);
-  const waText = `İptal onayı: ${updated.clientName} - ${new Date(updated.startAt).toLocaleString("tr-TR")} randevumu kod ile iptal ettim.`;
+  const waText = `İptal onayı talebi: ${updated.clientName} - ${new Date(updated.startAt).toLocaleString("tr-TR")} randevumu kod ile iptal etmek istiyorum. Lütfen onaylayın.`;
   const whatsappUrl = waDigits ? `https://wa.me/${waDigits}?text=${encodeURIComponent(waText)}` : null;
 
   return NextResponse.json({ ok: true, whatsappUrl });

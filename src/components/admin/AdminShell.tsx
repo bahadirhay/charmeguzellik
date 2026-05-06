@@ -15,6 +15,8 @@ const NAV_LINKS: { href: string; label: string; perm: string | null }[] = [
   { href: "/admin/crm", label: "CRM", perm: "crm.leads" },
   { href: "/admin/appointments", label: "Randevular", perm: "crm.appointments" },
   { href: "/admin/whatsapp", label: "WhatsApp", perm: "site.settings" },
+  { href: "/admin/cookie-consents", label: "Çerez Kayıtları", perm: "site.settings" },
+  { href: "/admin/backups", label: "Yedekleme Merkezi", perm: "site.settings" },
   { href: "/admin/settings", label: "Ayarlar & SEO", perm: "site.settings" },
   { href: "/admin/staff", label: "Personel & roller", perm: "users.manage" },
 ];

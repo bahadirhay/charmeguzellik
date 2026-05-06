@@ -29,6 +29,7 @@ export default async function AppointmentsPage() {
         ? fromFooter
         : [];
   const activeRows = rows.filter((r) => r.status === "pending" || r.status === "approved");
+  const cancelRequestRows = rows.filter((r) => r.status === "cancel_request");
   const archivedRows = rows.filter((r) => r.status === "rejected" || r.status === "cancelled");
   return (
     <div className="space-y-8">
@@ -111,6 +112,55 @@ export default async function AppointmentsPage() {
           </tbody>
         </table>
       </div>
+      <details className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
+        <summary className="cursor-pointer text-sm font-semibold text-amber-900 dark:text-amber-100">
+          Müşteri iptal talepleri ({cancelRequestRows.length})
+        </summary>
+        <div className="mt-3 overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="border-b border-amber-200 bg-amber-100/50 dark:border-amber-900/40 dark:bg-amber-950/30">
+              <tr>
+                <th className="px-3 py-2">Başlangıç</th>
+                <th className="px-3 py-2">Hizmet</th>
+                <th className="px-3 py-2">Müşteri</th>
+                <th className="px-3 py-2">Durum / işlem</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cancelRequestRows.map((r) => (
+                <tr key={r.id} className="border-b border-amber-100/70 dark:border-amber-900/20">
+                  <td className="px-3 py-2 whitespace-nowrap">{new Date(r.startAt).toLocaleString("tr-TR")}</td>
+                  <td className="px-3 py-2">{r.serviceName}</td>
+                  <td className="px-3 py-2">
+                    {r.clientName}
+                    <div className="text-xs text-zinc-500">{r.clientPhone}</div>
+                  </td>
+                  <td className="px-3 py-2 align-top">
+                    <AppointmentRowActions
+                      id={r.id}
+                      startAtIso={r.startAt.toISOString()}
+                      serviceName={r.serviceName}
+                      clientName={r.clientName}
+                      clientEmail={r.clientEmail}
+                      clientPhone={r.clientPhone}
+                      notes={r.notes}
+                      status={r.status}
+                      serviceOptions={serviceOptions}
+                    />
+                  </td>
+                </tr>
+              ))}
+              {cancelRequestRows.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-3 py-6 text-center text-sm text-zinc-500">
+                    Bekleyen müşteri iptal talebi yok.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </details>
       <details className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <summary className="cursor-pointer text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           İptal / red geçmişi ({archivedRows.length})

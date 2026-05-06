@@ -11,6 +11,7 @@ import {
 function statusLabelTr(status: string): string {
   if (status === "pending") return "Bekliyor";
   if (status === "approved") return "Onaylı";
+  if (status === "cancel_request") return "İptal talebi";
   if (status === "rejected") return "Reddedildi";
   if (status === "cancelled") return "İptal";
   return status;
@@ -74,7 +75,7 @@ export function AppointmentRowActions(props: {
     setEditing(true);
   }
 
-  async function decide(status: "approved" | "rejected" | "cancelled") {
+  async function decide(status: "approved" | "rejected" | "cancelled" | "cancel_request") {
     setBusy(true);
     setFeedback(null);
     setNotify(null);
@@ -202,10 +203,20 @@ export function AppointmentRowActions(props: {
           <button
             type="button"
             disabled={busy}
-            onClick={() => void decide("cancelled")}
+            onClick={() => void decide("cancel_request")}
             className="rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800 dark:bg-zinc-900 dark:text-amber-300 dark:hover:bg-amber-950/40"
           >
-            İptal et
+            İptal talebi başlat
+          </button>
+        ) : null}
+        {localStatus === "cancel_request" ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void decide("cancelled")}
+            className="rounded-full border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950/40"
+          >
+            İptali onayla
           </button>
         ) : null}
         <button
