@@ -8,7 +8,6 @@ const TOP_NAV: NavItem[] = [
   { href: "/admin/dashboard", label: "Özet", perm: null },
   { href: "/admin/pages", label: "Sayfalar", perm: "content.pages" },
   { href: "/admin/navigation", label: "Menü", perm: "content.nav" },
-  { href: "/admin/sitemap", label: "Site haritası", perm: "content.sitemap" },
   { href: "/admin/crm", label: "CRM", perm: "crm.leads" },
   { href: "/admin/appointments", label: "Randevular", perm: "crm.appointments" },
 ];
@@ -34,13 +33,13 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Ayarlar & SEO",
     items: [
       { href: "/admin/settings", label: "Genel ayarlar & SEO", perm: "site.settings" },
+      { href: "/admin/sitemap", label: "Site haritası", perm: "content.sitemap" },
       { href: "/admin/cookie-consents", label: "Çerez kayıtları", perm: "site.settings" },
       { href: "/admin/backups", label: "Yedekleme merkezi", perm: "site.settings" },
+      { href: "/admin/staff", label: "Personel & roller", perm: "users.manage" },
     ],
   },
 ];
-
-const BOTTOM_NAV: NavItem[] = [{ href: "/admin/staff", label: "Personel & roller", perm: "users.manage" }];
 
 function itemVisible(permissions: readonly string[], item: NavItem): boolean {
   if (!item.perm) return true;
@@ -144,16 +143,6 @@ export function AdminShell({
           {groups.map((g) => (
             <NavGroup key={g.title} title={g.title} items={g.items} variant="aside" />
           ))}
-          <div className="my-1 border-t border-zinc-100 dark:border-zinc-800" />
-          {bottom.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className="rounded-lg px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            >
-              {l.label}
-            </Link>
-          ))}
         </nav>
         <div className="border-t border-zinc-200 px-3 py-2 text-[10px] text-zinc-500 dark:border-zinc-800">
           <p className="truncate font-medium text-zinc-700 dark:text-zinc-300">{username}</p>
@@ -176,11 +165,6 @@ export function AdminShell({
             ))}
             {groups.map((g) => (
               <NavGroup key={g.title} title={g.title} items={g.items} variant="mobile" />
-            ))}
-            {bottom.map((l) => (
-              <Link key={l.href} href={l.href} className="text-xs text-rose-600">
-                {l.label}
-              </Link>
             ))}
           </div>
         </header>

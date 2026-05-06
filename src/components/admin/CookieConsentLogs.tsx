@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 type ConsentRow = {
   id: string;
@@ -12,10 +12,34 @@ type ConsentRow = {
   createdAt: string;
 };
 
+function formatPreferencesPreview(raw: string | null): string {
+  if (!raw?.trim()) return "-";
+  try {
+    const obj = JSON.parse(raw) as Record<string, boolean>;
+    const parts = Object.entries(obj)
+      .filter(([, v]) => v)
+      .map(([k]) => k);
+    if (parts.length === 0) return "Kapalı";
+    return parts.join(", ");
+  } catch {
+    return raw.length > 48 ? `${raw.slice(0, 45)}…` : raw;
+  }
+}
+
+function prettyPreferences(raw: string | null): string {
+  if (!raw?.trim()) return "(Yok)";
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
+
 export function CookieConsentLogs() {
   const [rows, setRows] = useState<ConsentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -59,19 +83,65 @@ export function CookieConsentLogs() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="border-t border-zinc-200 dark:border-zinc-800">
-                  <td className="px-2 py-2">{new Date(row.createdAt).toLocaleString("tr-TR")}</td>
-                  <td className="px-2 py-2">{row.decision}</td>
-                  <td className="px-2 py-2">{row.ipAddress || "-"}</td>
-                  <td className="max-w-[260px] truncate px-2 py-2" title={row.userAgent || ""}>
-                    {row.userAgent || "-"}
-                  </td>
-                  <td className="max-w-[260px] truncate px-2 py-2" title={row.preferencesJson || ""}>
-                    {row.preferencesJson || "-"}
-                  </td>
-                </tr>
-              ))}
+              {rows.map((row) => {
+                const isOpen = expandedId === row.id;
+                const hasPrefs = !!row.preferencesJson?.trim();
+                return (
+                  <Fragment key={row.id}>
+                    <tr className="border-t border-zinc-200 dark:border-zinc-800">
+                      <td className="px-2 py-2 whitespace-nowrap">
+                        {new Date(row.createdAt).toLocaleString("tr-TR")}
+                      </td>
+                      <td className="px-2 py-2">{row.decision}</td>
+                      <td className="px-2 py-2 whitespace-nowrap">{row.ipAddress || "-"}</td>
+                      <td className="max-w-[200px] truncate px-2 py-2 text-zinc-600 dark:text-zinc-400">
+                        {row.userAgent || "-"}
+                      </td>
+                      <td className="px-2 py-2">
+                        {hasPrefs ? (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedId(isOpen ? null : row.id)}
+                            className="max-w-[220px] truncate text-left text-rose-600 underline decoration-rose-300 underline-offset-2 hover:decoration-rose-600 dark:text-rose-400"
+                            title="Detayı göster"
+                          >
+                            {formatPreferencesPreview(row.preferencesJson)}
+                          </button>
+                        ) : (
+                          <span className="text-zinc-400">-</span>
+                        )}
+                      </td>
+                    </tr>
+                    {isOpen ? (
+                      <tr className="border-t border-zinc-100 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950/50">
+                        <td colSpan={5} className="px-3 py-3">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                                Tercihler (tam)
+                              </p>
+                              <pre className="mt-1 max-h-48 overflow-auto rounded-lg border border-zinc-200 bg-white p-3 text-xs leading-relaxed dark:border-zinc-700 dark:bg-zinc-900">
+                                {prettyPreferences(row.preferencesJson)}
+                              </pre>
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                                Tarayıcı (tam)
+                              </p>
+                              <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-zinc-200 bg-white p-3 text-xs leading-relaxed dark:border-zinc-700 dark:bg-zinc-900">
+                                {row.userAgent || "(Yok)"}
+                              </pre>
+                              <p className="mt-2 text-xs text-zinc-500">
+                                Cihaz anahtarı: <code className="rounded bg-zinc-200 px-1 dark:bg-zinc-800">{row.consentKey}</code>
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
