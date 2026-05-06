@@ -15,7 +15,7 @@ import { updateAppointmentRecord } from "@/lib/update-appointment-record";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-const DECISIONS = new Set(["approved", "rejected"]);
+const DECISIONS = new Set(["approved", "rejected", "cancelled"]);
 
 const DETAIL_KEYS = [
   "startAt",
@@ -43,12 +43,12 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
   if (statusRaw) {
     if (!DECISIONS.has(statusRaw)) {
-      return NextResponse.json({ error: "status: approved veya rejected olmalı" }, { status: 400 });
+      return NextResponse.json({ error: "status: approved | rejected | cancelled olmalı" }, { status: 400 });
     }
     const mixed = DETAIL_KEYS.some((k) => k in body && body[k] !== undefined);
     if (mixed) {
       return NextResponse.json(
-        { error: "Onay/red ile randevu alanlarını aynı istekte göndermeyin." },
+        { error: "Durum güncelleme ile randevu alanlarını aynı istekte göndermeyin." },
         { status: 400 },
       );
     }
@@ -57,7 +57,11 @@ export async function PATCH(req: Request, ctx: Ctx) {
     if (!existing) {
       return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
     }
-    if (existing.status !== "pending") {
+    if (statusRaw === "cancelled") {
+      if (existing.status === "cancelled" || existing.status === "rejected") {
+        return NextResponse.json({ error: "Bu kayıt zaten kapatılmış (iptal/red)." }, { status: 400 });
+      }
+    } else if (existing.status !== "pending") {
       return NextResponse.json(
         { error: "Yalnızca «bekleyen» (pending) talepler onaylanır veya reddedilir." },
         { status: 400 },
@@ -68,6 +72,14 @@ export async function PATCH(req: Request, ctx: Ctx) {
       where: { id },
       data: { status: statusRaw },
     });
+
+    if (statusRaw === "cancelled") {
+      return NextResponse.json({
+        ok: true,
+        appointment: updated,
+        notifications: null,
+      });
+    }
 
     const settings = await getSiteSettings();
     const siteName = settings.siteName?.trim() || "Salon";

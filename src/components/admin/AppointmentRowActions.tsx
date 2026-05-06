@@ -12,6 +12,7 @@ function statusLabelTr(status: string): string {
   if (status === "pending") return "Bekliyor";
   if (status === "approved") return "Onaylı";
   if (status === "rejected") return "Reddedildi";
+  if (status === "cancelled") return "İptal";
   return status;
 }
 
@@ -73,7 +74,7 @@ export function AppointmentRowActions(props: {
     setEditing(true);
   }
 
-  async function decide(status: "approved" | "rejected") {
+  async function decide(status: "approved" | "rejected" | "cancelled") {
     setBusy(true);
     setFeedback(null);
     setNotify(null);
@@ -196,6 +197,16 @@ export function AppointmentRowActions(props: {
               Reddet
             </button>
           </>
+        ) : null}
+        {localStatus === "approved" ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void decide("cancelled")}
+            className="rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800 dark:bg-zinc-900 dark:text-amber-300 dark:hover:bg-amber-950/40"
+          >
+            İptal et
+          </button>
         ) : null}
         <button
           type="button"

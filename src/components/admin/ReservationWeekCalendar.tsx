@@ -146,10 +146,18 @@ export function ReservationWeekCalendar({ appointments }: { appointments: Reserv
                               ? "text-emerald-600 dark:text-emerald-400"
                               : a.status === "rejected"
                                 ? "text-red-600 dark:text-red-400"
+                                : a.status === "cancelled"
+                                  ? "text-amber-700 dark:text-amber-300"
                                 : "text-amber-700 dark:text-amber-300"
                           }
                         >
-                          {a.status === "approved" ? "Onaylı" : a.status === "rejected" ? "Red" : "Bekliyor"}
+                          {a.status === "approved"
+                            ? "Onaylı"
+                            : a.status === "rejected"
+                              ? "Red"
+                              : a.status === "cancelled"
+                                ? "İptal"
+                                : "Bekliyor"}
                         </span>
                       </div>
                     </div>
