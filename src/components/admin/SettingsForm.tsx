@@ -677,18 +677,20 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
           <label className="grid gap-1 text-sm">
             Çerez bilgilendirme JSON (opsiyonel)
             <span className="text-xs text-zinc-500">
-              Başlık, metin, butonlar ve kategori ayarları buradan yönetilir. Kayıtları{" "}
+              Başlık, metin, kategori özeti/detayı (`summary` / `detail`), kişisel veri listesi
+              (`personalDataNoticeTitle`, `personalDataNoticeItems`) ve butonlar buradan yönetilir.
+              Kayıtları{" "}
               <a href="/admin/cookie-consents" className="underline">
                 Çerez Kayıtları
               </a>{" "}
               ekranında görebilirsiniz.
             </span>
             <textarea
-              rows={7}
+              rows={10}
               className="rounded border border-zinc-300 bg-white px-2 py-1 font-mono text-xs dark:border-zinc-600 dark:bg-zinc-950"
               value={strForInput(row.cookieConsentJson)}
               onChange={(e) => field("cookieConsentJson", e.target.value || null)}
-              placeholder={`{"enabled":true,"title":"Çerez Bildirimi","body":"...","policyHref":"/cerez-aydinlatma","acceptLabel":"Kabul Et","rejectLabel":"Reddet","settingsLabel":"Ayarlar","saveSettingsLabel":"Ayarları Kaydet","categories":[{"id":"functional","label":"Fonksiyonel","description":"Her zaman aktif","required":true},{"id":"analytics","label":"İstatistik","description":"Anonim analiz","defaultEnabled":false},{"id":"marketing","label":"Pazarlama","description":"Pazarlama çerezleri","defaultEnabled":false}]}`}
+              placeholder={`{"enabled":true,"title":"Çerez Bildirimi","personalDataNoticeTitle":"Çerezler aracılığıyla...","personalDataNoticeItems":["IP Adresi: ..."],"categories":[{"id":"functional","label":"Fonksiyonel","summary":"Her zaman aktif.","detail":"Uzun açıklama...","required":true},{"id":"analytics","label":"İstatistik","summary":"Anonim analiz.","detail":"Detay...","defaultEnabled":true},{"id":"marketing","label":"Pazarlama","summary":"Reklam çerezleri.","detail":"Detay...","defaultEnabled":true}]}`}
             />
           </label>
         </div>
