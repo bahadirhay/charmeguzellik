@@ -1,4 +1,5 @@
 import { LeadRow } from "@/components/admin/LeadRow";
+import { CrmContactRowActions } from "@/components/admin/CrmContactRowActions";
 import { requirePagePermission } from "@/lib/auth";
 import { hasStaffPermission } from "@/lib/staff-permissions";
 import { prisma } from "@/lib/prisma";
@@ -59,6 +60,7 @@ export default async function CrmPage() {
                   <th className="px-3 py-2">Telefon (anahtar)</th>
                   <th className="px-3 py-2">E-posta</th>
                   <th className="px-3 py-2">Son randevular</th>
+                  <th className="px-3 py-2">İşlem</th>
                 </tr>
               </thead>
               <tbody>
@@ -87,6 +89,9 @@ export default async function CrmPage() {
                           ))}
                         </ul>
                       )}
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      <CrmContactRowActions id={c.id} name={c.name} email={c.email} />
                     </td>
                   </tr>
                 ))}

@@ -54,7 +54,16 @@ export default async function AppointmentsPage() {
           status: r.status,
         }))}
       />
-      <AppointmentForm serviceOptions={serviceOptions} schedule={appointmentSchedule} />
+      <details className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <summary className="cursor-pointer list-none">
+          <span className="inline-flex rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white dark:bg-zinc-100 dark:text-zinc-900">
+            Randevu ekle
+          </span>
+        </summary>
+        <div className="mt-4">
+          <AppointmentForm serviceOptions={serviceOptions} schedule={appointmentSchedule} />
+        </div>
+      </details>
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
@@ -102,9 +111,11 @@ export default async function AppointmentsPage() {
           </tbody>
         </table>
       </div>
-      <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">İptal / red geçmişi</h3>
-        <p className="mt-1 text-xs text-zinc-500">
+      <details className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <summary className="cursor-pointer text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          İptal / red geçmişi ({archivedRows.length})
+        </summary>
+        <p className="mt-2 text-xs text-zinc-500">
           Bu kayıtlar slotu tekrar müsaite düşürdüğü için ana takvimde gösterilmez.
         </p>
         <div className="mt-3 overflow-x-auto">
@@ -145,7 +156,7 @@ export default async function AppointmentsPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      </details>
     </div>
   );
 }
