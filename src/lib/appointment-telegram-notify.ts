@@ -47,8 +47,6 @@ export async function notifyTelegramNewAppointment(
     `Telefon: ${row.clientPhone ?? "-"}`,
     `E-posta: ${row.clientEmail ?? "-"}`,
     `Hizmet: ${row.serviceName ?? "-"}`,
-    "",
-    "Panel: /admin/appointments",
   ].join("\n");
   const sent = await sendTelegramMessage(cfg.botToken, cfg.chatId, text);
   if (!sent.ok) return { ok: false, error: sent.error };
@@ -92,8 +90,6 @@ export async function notifyTelegramAppointmentAction(
     `Telefon: ${row.clientPhone ?? "-"}`,
     `E-posta: ${row.clientEmail ?? "-"}`,
     `Hizmet: ${row.serviceName ?? "-"}`,
-    "",
-    "Panel: /admin/appointments",
   ].join("\n");
   const sent = await sendTelegramMessage(cfg.botToken, cfg.chatId, text);
   if (!sent.ok) return { ok: false, error: sent.error };
