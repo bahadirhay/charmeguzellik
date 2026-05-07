@@ -7,6 +7,7 @@ import {
   appointmentPhoneTurkeyHint,
   isValidTurkeyMobileAppointmentPhone,
 } from "@/lib/appointment-phone";
+import { naiveLocalToAppointmentIso } from "@/lib/appointment-schedule";
 import { AdminWhatsAppButton } from "@/components/admin/AdminWhatsAppButton";
 import { waPrefillForAppointment } from "@/lib/admin-whatsapp-prefill";
 
@@ -30,8 +31,23 @@ type Notify = {
 function toDatetimeLocalValue(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Istanbul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  const y = get("year");
+  const m = get("month");
+  const da = get("day");
+  const h = get("hour");
+  const mi = get("minute");
+  if (!y || !m || !da || !h || !mi) return "";
+  return `${y}-${m}-${da}T${h}:${mi}`;
 }
 
 export function AppointmentRowActions(props: {
@@ -129,7 +145,10 @@ export function AppointmentRowActions(props: {
     setBusyEdit(true);
     setFeedback(null);
     try {
-      const start = new Date(draftStart);
+      const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/.exec(draftStart.trim());
+      const start = m
+        ? new Date(naiveLocalToAppointmentIso(m[1], m[2], "Europe/Istanbul"))
+        : new Date(draftStart);
       if (Number.isNaN(start.getTime())) {
         setFeedback("Geçerli bir başlangıç tarihi/saati seçin.");
         return;

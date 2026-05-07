@@ -19,6 +19,11 @@ type AppointmentsPageProps = {
 
 const CUSTOMER_RESCHEDULE_NOTE_PREFIX = "Müşteri takvim güncelledi (bağlantı):";
 const CUSTOMER_CANCEL_REQUEST_NOTE_PREFIX = "Müşteri iptal talebi (bağlantı):";
+const APPOINTMENT_TZ = "Europe/Istanbul";
+
+function formatAppointmentDateTime(d: Date): string {
+  return new Date(d).toLocaleString("tr-TR", { timeZone: APPOINTMENT_TZ });
+}
 
 export default async function AppointmentsPage({ searchParams }: AppointmentsPageProps) {
   await requirePagePermission("crm.appointments");
@@ -71,6 +76,13 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     <div className="min-w-0 max-w-full space-y-8">
       <header className="min-w-0">
         <h1 className="text-2xl font-semibold tracking-tight">Randevular</h1>
+        <p className="mt-2 text-xs text-zinc-500">
+          Calisma saatleri ve slot araligi icin{" "}
+          <Link href="/admin/pages" className="text-rose-600 hover:underline">
+            Sayfalar duzenleyici
+          </Link>{" "}
+          icindeki randevu formu blok ayarlarini guncelleyin.
+        </p>
       </header>
       <AdminAppointmentPushBanner />
       <ReservationWeekCalendar
@@ -129,7 +141,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
             {activeRows.map((r) => (
               <tr key={r.id} className="border-b border-zinc-100 dark:border-zinc-800">
                 <td className="px-3 py-2 whitespace-nowrap">
-                  {new Date(r.startAt).toLocaleString("tr-TR")}
+                  {formatAppointmentDateTime(r.startAt)}
                 </td>
                 <td className="px-3 py-2">{r.serviceName}</td>
                 <td className="px-3 py-2">
@@ -191,7 +203,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
             <tbody>
               {visibleCancelRequestRows.map((r) => (
                 <tr key={r.id} className="border-b border-amber-100/70 dark:border-amber-900/20">
-                  <td className="px-3 py-2 whitespace-nowrap">{new Date(r.startAt).toLocaleString("tr-TR")}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{formatAppointmentDateTime(r.startAt)}</td>
                   <td className="px-3 py-2">{r.serviceName}</td>
                   <td className="px-3 py-2">
                     <div className="font-medium">{r.clientName}</div>
@@ -255,7 +267,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
             <tbody>
               {archivedRows.map((r) => (
                 <tr key={r.id} className="border-b border-zinc-100 dark:border-zinc-800">
-                  <td className="px-3 py-2 whitespace-nowrap">{new Date(r.startAt).toLocaleString("tr-TR")}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{formatAppointmentDateTime(r.startAt)}</td>
                   <td className="px-3 py-2">{r.serviceName}</td>
                   <td className="px-3 py-2">
                     {r.clientName}
