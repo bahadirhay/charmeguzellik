@@ -127,14 +127,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Bu saat aralığı için uygun slot bulunamadı." }, { status: 400 });
     }
 
-    const occupied = await slotOccupiedExists(prisma, {
-      startAt: nextStart,
-      excludeAppointmentId: appt.id,
-    });
-    if (occupied) {
-      return NextResponse.json({ ok: false, error: "Seçtiğiniz saat dolu. Lütfen başka saat seçin." }, { status: 409 });
-    }
-
     const nameKey = normalizeClientNameKey(appt.clientName);
     const phoneKey = normalizePhoneKey(appt.clientPhone);
     const sameDayPending = await pendingSameDaySameServiceExists(prisma, {
@@ -172,9 +164,16 @@ export async function POST(req: Request) {
     });
     if (conflict) {
       return NextResponse.json(
-        { ok: false, error: "Seçtiğiniz gün/saat dolu. Lütfen başka saat seçin." },
+        { ok: false, error: "Aynı saatte başka randevunuz/talebiniz var. Lütfen farklı saat seçin." },
         { status: 409 },
       );
+    }
+    const occupied = await slotOccupiedExists(prisma, {
+      startAt: nextStart,
+      excludeAppointmentId: appt.id,
+    });
+    if (occupied) {
+      return NextResponse.json({ ok: false, error: "Seçtiğiniz saat dolu. Lütfen başka saat seçin." }, { status: 409 });
     }
 
     const currentDurationMs = Math.max(
