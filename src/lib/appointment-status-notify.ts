@@ -3,7 +3,6 @@ import { phoneDigitsForWaMe } from "@/lib/customer-phone";
 
 export type AppointmentDecision = "approved" | "rejected";
 export type AppointmentCancelInfo = {
-  cancelCode: string;
   cancelUrl: string;
 };
 
@@ -31,12 +30,12 @@ export function buildAppointmentNotifyCopy(
      * için düz metin + URL satırı kullanılır.
      */
     const waCancelBlock = cancelInfo
-      ? `\n\nRandevunu iptal için tıklayıp kullanacağınız bağlantı:\n${cancelInfo.cancelUrl}\n\nİptal kodunuz: ${cancelInfo.cancelCode}\n(Uyarı: kodu paylaşmayın.)`
+      ? `\n\nRandevu durumunu güncellemek için bağlantı:\n\n${cancelInfo.cancelUrl}`
       : "";
 
-    /** E-posta: kod + bağlantı ayrı satırlarda. */
+    /** E-posta: tek kullanımlık bağlantı ayrı satırda. */
     const emailCancelBlock = cancelInfo
-      ? `\n\nRandevuyu iptal etmek için güvenlik kodunuz: ${cancelInfo.cancelCode}\nİptal bağlantısı:\n${cancelInfo.cancelUrl}\n(Kodu başkalarıyla paylaşmayın.)`
+      ? `\n\nRandevu durumunu güncellemek için bağlantı:\n${cancelInfo.cancelUrl}`
       : "";
 
     const intro = `Merhaba ${name}, ${siteName} — ${when} tarihindeki "${svc}" randevu talebiniz onaylanmıştır.`;

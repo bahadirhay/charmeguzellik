@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SettingsForm } from "@/components/admin/SettingsForm";
 import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -22,7 +23,11 @@ export default async function SettingsPage() {
           <a className="text-rose-600 underline" href="/admin/sitemap">
             sitemap.xml
           </a>{" "}
-          içinde listeleneceğini Site haritası ekranından yönetebilirsiniz.
+          içinde listeleneceğini Site haritası ekranından yönetebilirsiniz.{" "}
+          <Link className="text-rose-600 underline" href="/admin/settings/mobil-uygulama">
+            Mobil Randevular uygulaması
+          </Link>{" "}
+          (Expo) yapılandırmasını buradan üretebilirsiniz.
         </p>
       </div>
       <SettingsForm initial={initial} />

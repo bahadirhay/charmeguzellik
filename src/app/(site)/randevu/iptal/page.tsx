@@ -11,7 +11,6 @@ export default function AppointmentCancelPage() {
   useEffect(() => {
     if (tokenFromUrl) setToken(tokenFromUrl);
   }, [tokenFromUrl]);
-  const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -27,7 +26,7 @@ export default function AppointmentCancelPage() {
       const res = await fetch("/api/appointments/cancel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, code }),
+        body: JSON.stringify({ token }),
       });
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -49,8 +48,7 @@ export default function AppointmentCancelPage() {
     <section className="mx-auto max-w-xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Randevu iptal doğrulama</h1>
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
-        Onay mesajınızdaki <strong>iptal kodunu</strong> girin. E-posta veya WhatsApp’taki bağlantıya tıkladıysanız güvenlik
-        anahtarı otomatik dolmuştur.
+        Onay mesajınızdaki bağlantıya tıkladıysanız güvenlik anahtarı otomatik dolmuştur.
       </p>
       <form className="mt-4 space-y-3" onSubmit={submit}>
         <label className="grid gap-1 text-sm">
@@ -62,16 +60,6 @@ export default function AppointmentCancelPage() {
             value={token}
             onChange={(e) => setToken(e.target.value)}
             placeholder="Bağlantıdan gelmediyse e-postadaki uzun değeri buraya yapıştırın"
-          />
-        </label>
-        <label className="grid gap-1 text-sm">
-          İptal kodu
-          <input
-            required
-            className="rounded border border-zinc-300 px-2 py-1 dark:border-zinc-600 dark:bg-zinc-900"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="Örn. 123456"
           />
         </label>
         <button

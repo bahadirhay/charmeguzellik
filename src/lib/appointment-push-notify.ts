@@ -1,12 +1,9 @@
 import webpush from "web-push";
 import type { Appointment } from "@prisma/client";
+import { getVapidPublicKey, isVapidSendConfigured } from "@/lib/vapid-config";
 import { prisma } from "@/lib/prisma";
 
-function isWebPushConfigured(): boolean {
-  const publicKey = process.env.VAPID_PUBLIC_KEY?.trim();
-  const privateKey = process.env.VAPID_PRIVATE_KEY?.trim();
-  return Boolean(publicKey && privateKey);
-}
+let warnedMissingVapidKeys = false;
 
 /** VAPID subject; push servisleri için zorunlu (mailto: veya https: URL). */
 function vapidSubject(): string {
@@ -16,8 +13,8 @@ function vapidSubject(): string {
 }
 
 function ensureWebPushConfigured(): boolean {
-  if (!isWebPushConfigured()) return false;
-  const publicKey = process.env.VAPID_PUBLIC_KEY!.trim();
+  if (!isVapidSendConfigured()) return false;
+  const publicKey = getVapidPublicKey()!;
   const privateKey = process.env.VAPID_PRIVATE_KEY!.trim();
   webpush.setVapidDetails(vapidSubject(), publicKey, privateKey);
   return true;
@@ -31,6 +28,12 @@ export async function notifyStaffPushNewAppointment(
   row: Pick<Appointment, "clientName" | "serviceName" | "startAt">,
 ): Promise<void> {
   if (!ensureWebPushConfigured()) {
+    if (!warnedMissingVapidKeys) {
+      warnedMissingVapidKeys = true;
+      console.warn(
+        "appointment push: gönderim için VAPID eksik. VAPID_PRIVATE_KEY ve açık anahtar (NEXT_PUBLIC_VAPID_PUBLIC_KEY veya VAPID_PUBLIC_KEY) tanımlı olmalı; abonelik ile aynı çift kullanın.",
+      );
+    }
     return;
   }
 
@@ -59,6 +62,11 @@ export async function notifyStaffPushNewAppointment(
       } catch (e: unknown) {
         const status = (e as { statusCode?: number }).statusCode;
         if (status === 410 || status === 404) deadIds.push(r.id);
+        else
+          console.warn(
+            "appointment push: gönderim hatası",
+            status ?? (e instanceof Error ? e.message : e),
+          );
       }
     }),
   );

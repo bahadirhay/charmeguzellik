@@ -33,6 +33,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Ayarlar & SEO",
     items: [
       { href: "/admin/settings", label: "Genel ayarlar & SEO", perm: "site.settings" },
+      { href: "/admin/settings/mobil-uygulama", label: "Mobil Randevular uygulaması", perm: "site.settings" },
       { href: "/admin/sitemap", label: "Site haritası", perm: "content.sitemap" },
       { href: "/admin/cookie-consents", label: "Çerez kayıtları", perm: "site.settings" },
       { href: "/admin/backups", label: "Yedekleme merkezi", perm: "site.settings" },

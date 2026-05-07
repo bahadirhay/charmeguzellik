@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import { getVapidPublicKey } from "@/lib/vapid-config";
 
 /**
  * Tarayıcı PushManager.subscribe için açık VAPID anahtarı (gizli tutulmaz).
  */
 export async function GET() {
-  const k = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim() || process.env.VAPID_PUBLIC_KEY?.trim();
+  const k = getVapidPublicKey();
   if (!k) {
     return NextResponse.json(
       { error: "Web bildirimi yapılandırılmamış (VAPID_PUBLIC_KEY / NEXT_PUBLIC_VAPID_PUBLIC_KEY)." },

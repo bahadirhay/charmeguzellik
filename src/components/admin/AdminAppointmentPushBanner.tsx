@@ -13,9 +13,12 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 type BannerState = "loading" | "unsupported" | "need_config" | "ready" | "subscribed" | "denied" | "error";
 
+type PushHealth = { sendReady: boolean; subscriptionCount: number };
+
 export function AdminAppointmentPushBanner() {
   const [state, setState] = useState<BannerState>("loading");
   const [hint, setHint] = useState<string | null>(null);
+  const [pushHealth, setPushHealth] = useState<PushHealth | null>(null);
 
   const refresh = useCallback(async () => {
     if (typeof window === "undefined") return;
@@ -31,7 +34,8 @@ export function AdminAppointmentPushBanner() {
     setState("ready");
     try {
       const reg = await navigator.serviceWorker.getRegistration();
-      if (!reg?.pushManager) return;
+      const active = reg?.active ?? reg?.installing ?? reg?.waiting;
+      if (!reg?.pushManager || !active) return;
       const sub = await reg.pushManager.getSubscription();
       if (sub) setState("subscribed");
     } catch {
@@ -47,6 +51,17 @@ export function AdminAppointmentPushBanner() {
     if (typeof Notification === "undefined") return;
     if (Notification.permission === "denied") setState("denied");
   }, []);
+
+  useEffect(() => {
+    if (state === "loading" || state === "unsupported" || state === "need_config") {
+      setPushHealth(null);
+      return;
+    }
+    void fetch("/api/admin/push/health", { credentials: "same-origin", cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => setPushHealth(j as PushHealth))
+      .catch(() => setPushHealth(null));
+  }, [state]);
 
   async function enablePush() {
     setHint(null);
@@ -64,9 +79,9 @@ export function AdminAppointmentPushBanner() {
         setHint("Bildirim izni verilmedi.");
         return;
       }
-      const reg =
-        (await navigator.serviceWorker.getRegistration()) ||
-        (await navigator.serviceWorker.register("/sw.js", { scope: "/" }));
+      /** Önce kayıt; PushManager etkin bir Service Worker olmadan subscribe etmez. */
+      await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+      const reg = await navigator.serviceWorker.ready;
 
       const key = urlBase64ToUint8Array(j.publicKey);
       const sub = await reg.pushManager.subscribe({
@@ -121,9 +136,35 @@ export function AdminAppointmentPushBanner() {
   }
 
   if (state === "unsupported") {
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+    const isIOS =
+      /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const isStandalone =
+      typeof window !== "undefined" &&
+      (window.matchMedia("(display-mode: standalone)").matches ||
+        Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
+
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
-        Bu tarayıcı Web Push desteklemiyor. Yeni randevu uyarıları için e-posta bildirimleri kullanılmaya devam eder.
+        <p>
+          Bu ortamda Web Push kullanılamıyor. Yeni randevu uyarıları için e-posta bildirimleri kullanılmaya devam eder.
+        </p>
+        {isIOS && !isStandalone ? (
+          <p className="mt-2 border-t border-amber-300/60 pt-2 dark:border-amber-700/60">
+            <span className="font-medium">iPhone / iPad:</span> Bu ekranda uyarı varken tarayıcı bildirimi{" "}
+            <strong>açılamaz</strong> — sunucuya abonelik kaydı gitmez; yeni randevuda push da gelmez (e-posta devam
+            eder). <strong>iOS’ta Chrome Web Push desteklemez</strong>;{" "}
+            <strong>Safari</strong> kullanın. Paylaş menüsünde &quot;Ana Ekrana Ekle&quot; listede{" "}
+            <strong>altta</strong> kalabilir — aşağı kaydırın. Siteyi ana ekrana ekleyip{" "}
+            <strong>o kısayoldan</strong> açın (iOS 16.4+), sonra bildirime izin verin.
+          </p>
+        ) : null}
+        {isIOS && isStandalone ? (
+          <p className="mt-2 border-t border-amber-300/60 pt-2 dark:border-amber-700/60">
+            Ana ekrandan açıkken hâlâ görünüyorsa iOS sürümünüzü kontrol edin (16.4+). Geçici olarak e-posta uyarılarını
+            kullanın veya Android / masaüstü Chrome ile panelden push açın.
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -133,12 +174,13 @@ export function AdminAppointmentPushBanner() {
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
         <p className="font-medium">Telefon bildirimleri henüz sunucuda açılmamış.</p>
         <p className="mt-1">
-          Vercel ortamına{" "}
-          <code className="rounded bg-white/80 px-1 dark:bg-black/30">VAPID_PUBLIC_KEY</code> ve{" "}
-          <code className="rounded bg-white/80 px-1 dark:bg-black/30">VAPID_PRIVATE_KEY</code> ekleyin; aynı public
-          anahtarı <code className="rounded bg-white/80 px-1 dark:bg-black/30">NEXT_PUBLIC_VAPID_PUBLIC_KEY</code>{" "}
-          olarak da tanımlayın. Üretmek için:{" "}
-          <code className="rounded bg-white/80 px-1 dark:bg-black/30">npx --yes web-push generate-vapid-keys</code>
+          Vercel ortamına <code className="rounded bg-white/80 px-1 dark:bg-black/30">VAPID_PRIVATE_KEY</code> (gizli) ve
+          açık anahtarı{" "}
+          <code className="rounded bg-white/80 px-1 dark:bg-black/30">NEXT_PUBLIC_VAPID_PUBLIC_KEY</code>{" "}
+          veya <code className="rounded bg-white/80 px-1 dark:bg-black/30">VAPID_PUBLIC_KEY</code>{" "}
+          olarak ekleyin — <strong>üçü aynı web-push çiftinden</strong> olmalı. Üretmek için:{" "}
+          <code className="rounded bg-white/80 px-1 dark:bg-black/30">npx --yes web-push generate-vapid-keys</code>{" "}
+          Sonra <strong>Redeploy</strong>.
         </p>
         {hint ? <p className="mt-1 text-amber-800 dark:text-amber-200">{hint}</p> : null}
       </div>
@@ -182,6 +224,26 @@ export function AdminAppointmentPushBanner() {
           </button>
         )}
       </div>
+      {pushHealth && !pushHealth.sendReady ? (
+        <p className="mt-3 border-t border-zinc-200 pt-2 text-xs text-amber-800 dark:border-zinc-700 dark:text-amber-200">
+          Sunucu tarafında push gönderimi kapalı (VAPID private veya eşleşen public anahtar eksik). Vercel ortam
+          değişkenlerini kontrol edin; özellikle sadece{" "}
+          <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">NEXT_PUBLIC_VAPID_PUBLIC_KEY</code> varken{" "}
+          <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">VAPID_PRIVATE_KEY</code>{" "}
+          tanımlı mı ve <strong>aynı çift</strong> mü — sonra Redeploy.
+        </p>
+      ) : null}
+      {pushHealth?.sendReady && pushHealth.subscriptionCount === 0 && state !== "subscribed" ? (
+        <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+          Veritabanında kayıtlı push cihazı yok; randevu gelince bildirim gidemez. Bu tarayıcıda &quot;Bu cihazda
+          bildirimleri aç&quot; ile kayıt oluşturun.
+        </p>
+      ) : null}
+      {pushHealth?.sendReady && state === "subscribed" ? (
+        <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+          Sunucu gönderimi hazır. Kayıtlı push cihazı: {pushHealth.subscriptionCount}
+        </p>
+      ) : null}
     </div>
   );
 }
