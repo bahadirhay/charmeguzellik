@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { prisma } from "@/lib/prisma";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
 
 const schema = z.object({
@@ -24,6 +25,34 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg }, { status: 400 });
   }
 
+  const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+  const smtpHost = settings?.smtpHost?.trim();
+  const smtpUser = settings?.smtpUser?.trim();
+  const smtpPass = settings?.smtpPass?.trim();
+  const fromDb = settings?.transactionalMailFrom?.trim();
+  const resendKey = process.env.RESEND_API_KEY?.trim();
+  const fromEnv = process.env.MAIL_FROM?.trim();
+  const from = fromDb || fromEnv;
+
+  const smtpConfigured = Boolean(smtpHost && smtpUser && smtpPass && from);
+  const resendConfigured = Boolean(resendKey && fromEnv);
+  if (!smtpConfigured && !resendConfigured) {
+    const details = [
+      `SMTP host: ${smtpHost ? "ok" : "eksik"}`,
+      `SMTP kullanıcı: ${smtpUser ? "ok" : "eksik"}`,
+      `SMTP şifre: ${smtpPass ? "ok" : "eksik"}`,
+      `Gönderen (From): ${from ? "ok" : "eksik"}`,
+      `RESEND_API_KEY: ${resendKey ? "ok" : "eksik"}`,
+      `MAIL_FROM: ${fromEnv ? "ok" : "eksik"}`,
+    ].join(" | ");
+    return NextResponse.json(
+      {
+        error: `Gönderim yapılandırması eksik. ${details}`,
+      },
+      { status: 400 },
+    );
+  }
+
   const now = new Date().toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" });
   const result = await sendTransactionalEmail({
     to: parsed.data.to.trim(),
@@ -32,9 +61,14 @@ export async function POST(req: Request) {
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 400 });
+    const channel = smtpConfigured ? "SMTP" : "Resend";
+    const fromHint = from ? `From: ${from}` : "From eksik";
+    return NextResponse.json(
+      { error: `${channel} test gönderimi başarısız. ${fromHint}. Detay: ${result.error}` },
+      { status: 400 },
+    );
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, via: smtpConfigured ? "SMTP" : "Resend" });
 }
 

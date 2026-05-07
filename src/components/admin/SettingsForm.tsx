@@ -28,6 +28,7 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [testMailTo, setTestMailTo] = useState("");
   const [testMailBusy, setTestMailBusy] = useState(false);
+  const [testMailFeedback, setTestMailFeedback] = useState<Feedback | null>(null);
   const [importPresetImages, setImportPresetImages] = useState(false);
   const [importCustomUrls, setImportCustomUrls] = useState(false);
   const [customUrlsJson, setCustomUrlsJson] = useState("");
@@ -117,23 +118,24 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
   async function sendTestMail() {
     const to = testMailTo.trim();
     if (!to) {
-      setFeedback({ text: "Test e-posta için alıcı adresi girin.", error: true });
+      setTestMailFeedback({ text: "Test e-posta için alıcı adresi girin.", error: true });
       return;
     }
     setTestMailBusy(true);
-    setFeedback(null);
+    setTestMailFeedback(null);
     try {
       const res = await fetch("/api/admin/settings/test-mail", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ to }),
       });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; via?: string };
       if (!res.ok || !j.ok) {
-        setFeedback({ text: j.error ?? "Test e-postası gönderilemedi.", error: true });
+        setTestMailFeedback({ text: j.error ?? "Test e-postası gönderilemedi.", error: true });
         return;
       }
-      setFeedback({ text: `Test e-postası gönderildi: ${to}`, error: false });
+      const via = j.via ? ` (${j.via})` : "";
+      setTestMailFeedback({ text: `Test e-postası gönderildi${via}: ${to}`, error: false });
     } finally {
       setTestMailBusy(false);
     }
@@ -755,6 +757,15 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
                 {testMailBusy ? "Gönderiliyor…" : "Test mail gönder"}
               </button>
             </div>
+            {testMailFeedback ? (
+              <p
+                className={`mt-2 text-xs ${
+                  testMailFeedback.error ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"
+                }`}
+              >
+                {testMailFeedback.text}
+              </p>
+            ) : null}
           </div>
         </div>
       </section>
