@@ -40,6 +40,29 @@ export async function sendTransactionalEmail(opts: {
       return { ok: true };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
+      const code = (e as { code?: string }).code ?? "";
+      const responseCode = (e as { responseCode?: number }).responseCode;
+      const response = (e as { response?: string }).response ?? "";
+      const lower = `${msg} ${response}`.toLowerCase();
+      const smtpRateLimited =
+        responseCode === 452 ||
+        code === "EMESSAGE" ||
+        lower.includes("452") ||
+        lower.includes("maximum number of sent messages is exceeded") ||
+        lower.includes("rate limit");
+
+      if (smtpRateLimited) {
+        const fallback = await sendViaResend({ ...opts, to });
+        if (fallback.ok) {
+          console.warn("SMTP 452/rate-limit algılandı; Resend fallback ile gönderildi.");
+          return { ok: true };
+        }
+        return {
+          ok: false,
+          error: `SMTP limiti aşıldı (${msg}). Resend fallback da başarısız: ${fallback.error}`,
+        };
+      }
+
       return { ok: false, error: msg };
     }
   }
