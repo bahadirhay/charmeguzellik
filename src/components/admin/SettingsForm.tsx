@@ -26,6 +26,8 @@ type SettingsRow = SiteSettingsAdminClient;
 export function SettingsForm({ initial }: { initial: SettingsRow }) {
   const [row, setRow] = useState<SettingsRow>(initial);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [testMailTo, setTestMailTo] = useState("");
+  const [testMailBusy, setTestMailBusy] = useState(false);
   const [importPresetImages, setImportPresetImages] = useState(false);
   const [importCustomUrls, setImportCustomUrls] = useState(false);
   const [customUrlsJson, setCustomUrlsJson] = useState("");
@@ -110,6 +112,31 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
 
   function field<K extends keyof SettingsRow>(key: K, value: SettingsRow[K]) {
     setRow((r) => ({ ...r, [key]: value }));
+  }
+
+  async function sendTestMail() {
+    const to = testMailTo.trim();
+    if (!to) {
+      setFeedback({ text: "Test e-posta için alıcı adresi girin.", error: true });
+      return;
+    }
+    setTestMailBusy(true);
+    setFeedback(null);
+    try {
+      const res = await fetch("/api/admin/settings/test-mail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !j.ok) {
+        setFeedback({ text: j.error ?? "Test e-postası gönderilemedi.", error: true });
+        return;
+      }
+      setFeedback({ text: `Test e-postası gönderildi: ${to}`, error: false });
+    } finally {
+      setTestMailBusy(false);
+    }
   }
 
   function patchFooterStrip(patch: Partial<NonNullable<ThemeTokens["siteFooterStrip"]>>) {
@@ -703,6 +730,32 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
               autoComplete="off"
             />
           </label>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-950/50 md:col-span-2">
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">SMTP test e-postası</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Ayarları kaydettikten sonra bu alandan test e-postası gönderip teslimatı doğrulayabilirsiniz.
+            </p>
+            <div className="mt-2 flex flex-wrap items-end gap-2">
+              <label className="grid min-w-[260px] flex-1 gap-1 text-sm">
+                Alıcı e-posta
+                <input
+                  type="email"
+                  className="rounded border border-zinc-300 px-2 py-1 dark:border-zinc-600 dark:bg-zinc-950"
+                  value={testMailTo}
+                  onChange={(e) => setTestMailTo(e.target.value)}
+                  placeholder="ornek@alanadiniz.com"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => void sendTestMail()}
+                disabled={testMailBusy}
+                className="rounded-full border border-zinc-300 px-4 py-2 text-xs font-medium dark:border-zinc-600 disabled:opacity-50"
+              >
+                {testMailBusy ? "Gönderiliyor…" : "Test mail gönder"}
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
