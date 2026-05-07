@@ -52,6 +52,15 @@ export async function appointmentDuplicateExists(
   });
 }
 
+function istanbulYmd(d: Date): string {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Istanbul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
 /**
  * Aynı kişi için çakışma kuralları:
  * 1) Aynı saat (hizmetten bağımsız) -> engel
@@ -97,6 +106,68 @@ export async function appointmentConflictExists(
     const sameTime = a.startAt.getTime() === targetStartMs;
     return sameTime;
   });
+}
+
+/**
+ * Aynı kişi + aynı hizmet + aynı gün için bekleyen talep var mı?
+ * Yalnızca status=pending satırları dikkate alınır.
+ */
+export async function pendingSameDaySameServiceExists(
+  db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
+  params: {
+    startAt: Date;
+    serviceName: string | null;
+    nameKey: string;
+    phoneKey: string | null;
+    excludeAppointmentId?: string;
+  },
+): Promise<boolean> {
+  const svc = params.serviceName?.trim().toLocaleLowerCase("tr-TR") || null;
+  if (!svc) return false;
+
+  const rows = await db.appointment.findMany({
+    where: {
+      status: "pending",
+      ...(params.excludeAppointmentId ? { NOT: { id: params.excludeAppointmentId } } : {}),
+      OR: [{ clientNameKey: params.nameKey }, ...(params.phoneKey ? [{ clientPhoneKey: params.phoneKey }] : [])],
+    },
+    select: {
+      startAt: true,
+      serviceName: true,
+      clientName: true,
+      clientPhone: true,
+      clientNameKey: true,
+      clientPhoneKey: true,
+    },
+  });
+
+  const targetDay = istanbulYmd(params.startAt);
+  return rows.some((a) => {
+    const nk = a.clientNameKey ?? normalizeClientNameKey(a.clientName);
+    const pk = a.clientPhoneKey ?? normalizePhoneKey(a.clientPhone);
+    const samePerson = nk === params.nameKey || (params.phoneKey && pk && pk === params.phoneKey);
+    if (!samePerson) return false;
+    const service = a.serviceName?.trim().toLocaleLowerCase("tr-TR") || null;
+    if (service !== svc) return false;
+    return istanbulYmd(a.startAt) === targetDay;
+  });
+}
+
+/**
+ * Slot doluluk kontrolü: aynı başlangıç saatinde aktif başka randevu var mı?
+ */
+export async function slotOccupiedExists(
+  db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
+  params: { startAt: Date; excludeAppointmentId?: string },
+): Promise<boolean> {
+  const count = await db.appointment.count({
+    where: {
+      startAt: params.startAt,
+      status: { in: ["pending", "approved", "cancel_request"] },
+      ...(params.excludeAppointmentId ? { NOT: { id: params.excludeAppointmentId } } : {}),
+    },
+  });
+  return count > 0;
 }
 
 export async function upsertCrmContactForAppointment(

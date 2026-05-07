@@ -2,6 +2,7 @@ import type { Appointment, Prisma } from "@prisma/client";
 import {
   appointmentConflictExists,
   normalizeClientNameKey,
+  pendingSameDaySameServiceExists,
   normalizePhoneKey,
   upsertCrmContactForAppointment,
 } from "@/lib/crm-contact";
@@ -10,6 +11,13 @@ export class AppointmentDuplicateError extends Error {
   constructor() {
     super("duplicate_appointment");
     this.name = "AppointmentDuplicateError";
+  }
+}
+
+export class AppointmentPendingSameDayServiceError extends Error {
+  constructor() {
+    super("pending_same_day_same_service");
+    this.name = "AppointmentPendingSameDayServiceError";
   }
 }
 
@@ -42,6 +50,15 @@ export async function createAppointmentRecord(
     phoneKey,
   });
   if (dup) throw new AppointmentDuplicateError();
+  const sameDayPending = await pendingSameDaySameServiceExists(tx, {
+    startAt: input.startAt,
+    serviceName: input.serviceName,
+    nameKey,
+    phoneKey,
+  });
+  if (sameDayPending && (input.status ?? "pending") === "pending") {
+    throw new AppointmentPendingSameDayServiceError();
+  }
 
   let crmContactId: string | null = null;
   if (phoneKey) {

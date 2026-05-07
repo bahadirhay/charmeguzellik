@@ -7,7 +7,7 @@ import {
   slotStartLabelsForCalendarDate,
   validatePreferredStartAgainstSchedule,
 } from "@/lib/appointment-schedule";
-import { appointmentConflictExists, normalizeClientNameKey, normalizePhoneKey } from "@/lib/crm-contact";
+import { appointmentConflictExists, normalizeClientNameKey, normalizePhoneKey, slotOccupiedExists } from "@/lib/crm-contact";
 import { notifyTelegramAppointmentAction } from "@/lib/appointment-telegram-notify";
 import { getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
 import { prisma } from "@/lib/prisma";
@@ -118,6 +118,14 @@ export async function POST(req: Request) {
     const slots = new Set(slotStartLabelsForCalendarDate(parsed.data.dateYmd, scheduleDays, slotDur, tz));
     if (!slots.has(parsed.data.timeHm)) {
       return NextResponse.json({ ok: false, error: "Bu saat aralığı için uygun slot bulunamadı." }, { status: 400 });
+    }
+
+    const occupied = await slotOccupiedExists(prisma, {
+      startAt: nextStart,
+      excludeAppointmentId: appt.id,
+    });
+    if (occupied) {
+      return NextResponse.json({ ok: false, error: "Seçtiğiniz saat dolu. Lütfen başka saat seçin." }, { status: 409 });
     }
 
     const nameKey = normalizeClientNameKey(appt.clientName);

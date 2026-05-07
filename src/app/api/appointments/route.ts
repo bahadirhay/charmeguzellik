@@ -4,8 +4,13 @@ import {
   mergeAppointmentDays,
   validatePreferredStartAgainstSchedule,
 } from "@/lib/appointment-schedule";
+import { slotOccupiedExists } from "@/lib/crm-contact";
 import { resolvePublishedContactFormBlock, type ContactFormContext } from "@/lib/contact-form-resolve";
-import { createAppointmentRecord, AppointmentDuplicateError } from "@/lib/create-appointment-record";
+import {
+  createAppointmentRecord,
+  AppointmentDuplicateError,
+  AppointmentPendingSameDayServiceError,
+} from "@/lib/create-appointment-record";
 import { appointmentInboundNotifyRecipients } from "@/lib/appointment-inbound-notify";
 import { notifyStaffPushNewAppointment } from "@/lib/appointment-push-notify";
 import { notifyTelegramNewAppointment } from "@/lib/appointment-telegram-notify";
@@ -86,6 +91,13 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+  const occupied = await slotOccupiedExists(prisma, { startAt: start });
+  if (occupied) {
+    return NextResponse.json(
+      { ok: false, error: "Seçilen saat dolu. Lütfen takvimden başka saat seçin." },
+      { status: 409 },
+    );
+  }
 
   const duration = slotDur;
   const end = new Date(start.getTime() + duration * 60_000);
@@ -121,6 +133,16 @@ export async function POST(req: Request) {
           ok: false,
           error:
             "Bu kişi için aynı saatte başka bir randevu/talep var. Farklı saat seçebilir veya mevcut randevunuzu güncelleyebilirsiniz.",
+        },
+        { status: 409 },
+      );
+    }
+    if (e instanceof AppointmentPendingSameDayServiceError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Bu kişi için aynı hizmette aynı gün zaten bekleyen bir randevu talebi var. Önce mevcut talebi güncelleyin veya sonuçlanmasını bekleyin.",
         },
         { status: 409 },
       );

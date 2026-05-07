@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
-import { createAppointmentRecord, AppointmentDuplicateError } from "@/lib/create-appointment-record";
+import {
+  createAppointmentRecord,
+  AppointmentDuplicateError,
+  AppointmentPendingSameDayServiceError,
+} from "@/lib/create-appointment-record";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
 import { appointmentPhoneTurkeyHint, isValidTurkeyMobileAppointmentPhone } from "@/lib/appointment-phone";
+import { slotOccupiedExists } from "@/lib/crm-contact";
 
 export async function GET() {
   const auth = await requireStaffApiPerm("crm.appointments");
@@ -35,9 +40,17 @@ export async function POST(req: Request) {
   }
   let row;
   try {
+    const startAt = new Date(body.startAt);
+    if (Number.isNaN(startAt.getTime())) {
+      return NextResponse.json({ error: "Geçersiz başlangıç tarihi" }, { status: 400 });
+    }
+    const occupied = await slotOccupiedExists(prisma, { startAt });
+    if (occupied) {
+      return NextResponse.json({ error: "Seçilen saat dolu." }, { status: 409 });
+    }
     row = await prisma.$transaction(async (tx) =>
       createAppointmentRecord(tx, {
-        startAt: new Date(body.startAt),
+        startAt,
         endAt: body.endAt ? new Date(body.endAt) : null,
         serviceName: body.serviceName?.trim() || null,
         clientName: body.clientName,
@@ -53,6 +66,15 @@ export async function POST(req: Request) {
         {
           error:
             "Aynı kişi için aynı saatte başka aktif kayıt var.",
+        },
+        { status: 409 },
+      );
+    }
+    if (e instanceof AppointmentPendingSameDayServiceError) {
+      return NextResponse.json(
+        {
+          error:
+            "Aynı kişi için aynı hizmette aynı gün zaten bekleyen talep var.",
         },
         { status: 409 },
       );
