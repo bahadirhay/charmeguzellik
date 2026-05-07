@@ -912,7 +912,7 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
             <span className="text-xs text-zinc-500">
               Yeni randevu talebi geldiğinde buradaki adreslere posta gider. Ortam değişkeni{" "}
               <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">APPOINTMENT_NOTIFY_TO</code> ile birleşir (
-              tekrar gönderilmez).
+              tekrar gönderilmez). Boşsa sistem <strong>SMTP kullanıcı adresini</strong> yedek alıcı olarak kullanır.
             </span>
             <textarea
               rows={3}
