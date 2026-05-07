@@ -17,6 +17,7 @@ import { getPublishedNavTree } from "@/lib/navigation";
 import { getSiteSettings } from "@/lib/site-settings";
 import { resolveWaDigits } from "@/lib/whatsapp-url";
 import { normalizePublicMediaUrl } from "@/lib/media-url";
+import { fetchGooglePlaceReviews } from "@/lib/google-place-reviews";
 
 function layoutClass(
   desktop: "left" | "center" | "right" | undefined,
@@ -124,6 +125,21 @@ async function PublicBlockRow({
         aspectRatio={block.props.aspectRatio}
         showDots={block.props.showDots}
         overlayDark={block.props.overlayDark}
+      />
+    );
+  }
+  if (block.type === "testimonialCarousel") {
+    const googleReviews = await fetchGooglePlaceReviews({
+      max: Math.min(10, Math.max(1, block.props.reviews.length || 6)),
+      language: "tr",
+    });
+    return (
+      <TestimonialCarousel
+        title={block.props.title}
+        subtitle={block.props.subtitle}
+        reviews={googleReviews ?? block.props.reviews}
+        autoplayMs={block.props.autoplayMs}
+        footnote={block.props.footnote}
       />
     );
   }

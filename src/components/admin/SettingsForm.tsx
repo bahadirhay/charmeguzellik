@@ -20,6 +20,13 @@ function strForInput(v: string | null | undefined) {
 }
 
 type Feedback = { text: string; error: boolean };
+type GoogleReviewsHealth = {
+  ok: boolean;
+  configured: boolean;
+  message: string;
+  totalFromGoogle: number;
+  publishedAfterFilter: number;
+};
 
 type SettingsRow = SiteSettingsAdminClient;
 
@@ -29,6 +36,8 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
   const [testMailTo, setTestMailTo] = useState("");
   const [testMailBusy, setTestMailBusy] = useState(false);
   const [testMailFeedback, setTestMailFeedback] = useState<Feedback | null>(null);
+  const [googleHealthBusy, setGoogleHealthBusy] = useState(false);
+  const [googleHealth, setGoogleHealth] = useState<GoogleReviewsHealth | null>(null);
   const [importPresetImages, setImportPresetImages] = useState(false);
   const [importCustomUrls, setImportCustomUrls] = useState(false);
   const [customUrlsJson, setCustomUrlsJson] = useState("");
@@ -138,6 +147,31 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
       setTestMailFeedback({ text: `Test e-postası gönderildi${via}: ${to}`, error: false });
     } finally {
       setTestMailBusy(false);
+    }
+  }
+
+  async function checkGoogleReviewsHealth() {
+    setGoogleHealthBusy(true);
+    try {
+      const res = await fetch("/api/admin/settings/google-reviews-health", {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      const j = (await res.json().catch(() => ({}))) as GoogleReviewsHealth & { error?: string };
+      if (!res.ok) {
+        setGoogleHealth({
+          ok: false,
+          configured: false,
+          message: j.error ?? "Google yorum testi başarısız.",
+          totalFromGoogle: 0,
+          publishedAfterFilter: 0,
+        });
+        return;
+      }
+      setGoogleHealth(j);
+    } finally {
+      setGoogleHealthBusy(false);
     }
   }
 
@@ -542,6 +576,36 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
               Tarayıcı sekmesindeki ikon ve bazı sosyal önizleme kartlarında kullanılan favicon.
             </span>
           </label>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-950/50 md:col-span-2">
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Google yorum entegrasyonu</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Canlı sitede yorumlar Google Places API’den çekilir. Kötü yorumları filtrelemek için Vercel env:
+              <code className="ml-1 rounded bg-zinc-100 px-1 dark:bg-zinc-800">GOOGLE_REVIEWS_MIN_RATING</code>{" "}
+              (öneri: 4) ve isteğe bağlı
+              <code className="ml-1 rounded bg-zinc-100 px-1 dark:bg-zinc-800">GOOGLE_REVIEWS_BLOCK_TERMS</code>{" "}
+              (virgülle anahtar kelime) kullanın.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void checkGoogleReviewsHealth()}
+                disabled={googleHealthBusy}
+                className="rounded-full border border-zinc-300 px-4 py-2 text-xs font-medium dark:border-zinc-600 disabled:opacity-50"
+              >
+                {googleHealthBusy ? "Kontrol ediliyor…" : "Google yorumlarını test et"}
+              </button>
+              {googleHealth ? (
+                <span
+                  className={`text-xs ${
+                    googleHealth.ok ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-300"
+                  }`}
+                >
+                  {googleHealth.message} (Google: {googleHealth.totalFromGoogle}, Yayınlanacak:{" "}
+                  {googleHealth.publishedAfterFilter})
+                </span>
+              ) : null}
+            </div>
+          </div>
         </div>
       </section>
 
