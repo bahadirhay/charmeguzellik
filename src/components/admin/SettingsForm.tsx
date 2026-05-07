@@ -140,13 +140,36 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
   const parsedThemeTokens = parseThemeTokens(row.themeTokensJson);
   const headerBrand = parsedThemeTokens.siteHeaderBrand ?? {};
   const socialPreviewLogoUrl = strForInput(parsedThemeTokens.socialPreviewLogoUrl ?? undefined);
+  const siteFaviconUrl = strForInput(parsedThemeTokens.siteFaviconUrl ?? undefined);
 
   const themeList = listThemes();
   const activeMeta = themeList.find((t) => t.id === row.activeThemeId) ?? themeList[0];
+  const settingsSections = [
+    { id: "appearance", label: "Görünüm & tema" },
+    { id: "seo", label: "Genel & SEO" },
+    { id: "footer", label: "Alt bilgi şeridi" },
+    { id: "analytics", label: "Ölçümleme" },
+    { id: "smtp", label: "SMTP" },
+    { id: "contact", label: "İletişim" },
+  ] as const;
 
   return (
     <form onSubmit={save} className="mx-auto max-w-3xl space-y-6">
-      <section className="rounded-xl border border-rose-200 bg-rose-50/50 p-4 dark:border-rose-900 dark:bg-rose-950/20">
+      <nav className="sticky top-2 z-20 rounded-xl border border-zinc-200 bg-white/90 p-2 backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/90">
+        <div className="flex flex-wrap gap-2">
+          {settingsSections.map((s) => (
+            <a
+              key={s.id}
+              href={`#${s.id}`}
+              className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              {s.label}
+            </a>
+          ))}
+        </div>
+      </nav>
+
+      <section id="appearance" className="scroll-mt-16 rounded-xl border border-rose-200 bg-rose-50/50 p-4 dark:border-rose-900 dark:bg-rose-950/20">
         <h2 className="font-medium">Görünüm & tema</h2>
         <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
           Her tema ayrı klasör: <code className="rounded bg-white px-1 dark:bg-zinc-900">src/themes/default</code>,{" "}
@@ -288,7 +311,7 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
         </div>
       </section>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <section id="seo" className="scroll-mt-16 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <h2 className="font-medium">Genel & SEO</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <label className="grid gap-1 text-sm md:col-span-2">
@@ -478,10 +501,22 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
               Randevu onay/iptal bağlantılarının WhatsApp kart görseli. Boşsa sistem varsayılan logoyu dener.
             </span>
           </label>
+          <label className="grid gap-1 text-sm md:col-span-2">
+            Site favicon / app icon URL
+            <input
+              className="rounded border border-zinc-300 px-2 py-1 font-mono text-xs dark:border-zinc-600 dark:bg-zinc-950"
+              value={siteFaviconUrl}
+              onChange={(e) => patchThemeTokens({ siteFaviconUrl: e.target.value || null })}
+              placeholder="/uploads/charme-guzellik-logo.png veya https://..."
+            />
+            <span className="text-xs text-zinc-500">
+              Tarayıcı sekmesindeki ikon ve bazı sosyal önizleme kartlarında kullanılan favicon.
+            </span>
+          </label>
         </div>
       </section>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <section id="footer" className="scroll-mt-16 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <h2 className="font-medium">Alt bilgi şeridi (telif + yönetim)</h2>
         <p className="mt-1 text-xs text-zinc-500">
           Bloklarla dolu pazarlama alt bilgisinin altında görünen ince şerit. İkisini de kapatırsanız bu alan
@@ -552,7 +587,7 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
         </div>
       </section>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <section id="analytics" className="scroll-mt-16 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <h2 className="font-medium">Ölçümleme</h2>
         <p className="mt-1 text-xs text-zinc-500">
           GTM kullanıyorsanız GA ID alanını boş bırakın; yalnızca GTM yüklenir.
@@ -594,7 +629,7 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
         </div>
       </section>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <section id="smtp" className="scroll-mt-16 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <h2 className="font-medium">Giden e-posta (SMTP)</h2>
         <p className="mt-1 text-xs text-zinc-500">
           Doldurulduğunda randevu onay/red e-postaları bu sunucudan gider. Alan adınızda SPF ve DKIM kayıtlarını
@@ -671,7 +706,7 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
         </div>
       </section>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <section id="contact" className="scroll-mt-16 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <h2 className="font-medium">İletişim</h2>
         <div className="mt-4 grid gap-3">
           <label className="grid gap-1 text-sm">

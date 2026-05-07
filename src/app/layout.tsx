@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { getSiteSettings } from "@/lib/site-settings";
+import { parseThemeTokens } from "@/lib/theme-tokens";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,14 +16,43 @@ const geistMono = Geist_Mono({
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
-export const metadata: Metadata = {
-  title: {
-    default: "Güzellik & Hizmet",
-    template: "%s · Güzellik & Hizmet",
-  },
-  description: "Yerel olarak düzenleyin, SEO uyumlu yayınlayın.",
-  ...(URL.canParse(siteUrl) ? { metadataBase: new URL(siteUrl) } : {}),
-};
+function toAbsoluteAssetUrl(raw: string | null | undefined): string | undefined {
+  const v = raw?.trim();
+  if (!v) return undefined;
+  if (v.startsWith("http://") || v.startsWith("https://")) return v;
+  if (!URL.canParse(siteUrl)) return undefined;
+  if (v.startsWith("/")) return `${siteUrl.replace(/\/+$/, "")}${v}`;
+  return undefined;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  let faviconUrl: string | undefined;
+  try {
+    const settings = await getSiteSettings();
+    const t = parseThemeTokens(settings.themeTokensJson);
+    faviconUrl = toAbsoluteAssetUrl(t.siteFaviconUrl);
+  } catch {
+    faviconUrl = undefined;
+  }
+
+  return {
+    title: {
+      default: "Güzellik & Hizmet",
+      template: "%s · Güzellik & Hizmet",
+    },
+    description: "Yerel olarak düzenleyin, SEO uyumlu yayınlayın.",
+    ...(URL.canParse(siteUrl) ? { metadataBase: new URL(siteUrl) } : {}),
+    ...(faviconUrl
+      ? {
+          icons: {
+            icon: faviconUrl,
+            apple: faviconUrl,
+            shortcut: faviconUrl,
+          },
+        }
+      : {}),
+  };
+}
 
 export default function RootLayout({
   children,
