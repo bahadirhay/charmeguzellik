@@ -132,7 +132,14 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
     field("themeTokensJson", themeTokensToJson(next));
   }
 
-  const headerBrand = parseThemeTokens(row.themeTokensJson).siteHeaderBrand ?? {};
+  function patchThemeTokens(patch: Partial<ThemeTokens>) {
+    const t = parseThemeTokens(row.themeTokensJson);
+    field("themeTokensJson", themeTokensToJson({ ...t, ...patch }));
+  }
+
+  const parsedThemeTokens = parseThemeTokens(row.themeTokensJson);
+  const headerBrand = parsedThemeTokens.siteHeaderBrand ?? {};
+  const socialPreviewLogoUrl = strForInput(parsedThemeTokens.socialPreviewLogoUrl ?? undefined);
 
   const themeList = listThemes();
   const activeMeta = themeList.find((t) => t.id === row.activeThemeId) ?? themeList[0];
@@ -458,6 +465,18 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
               onChange={(e) => field("businessJson", e.target.value || null)}
               placeholder='{"name":"...","telephone":"+90...","address":{...}}'
             />
+          </label>
+          <label className="grid gap-1 text-sm md:col-span-2">
+            WhatsApp/link önizleme logo URL
+            <input
+              className="rounded border border-zinc-300 px-2 py-1 font-mono text-xs dark:border-zinc-600 dark:bg-zinc-950"
+              value={socialPreviewLogoUrl}
+              onChange={(e) => patchThemeTokens({ socialPreviewLogoUrl: e.target.value || null })}
+              placeholder="/uploads/charme-guzellik-logo.png veya https://..."
+            />
+            <span className="text-xs text-zinc-500">
+              Randevu onay/iptal bağlantılarının WhatsApp kart görseli. Boşsa sistem varsayılan logoyu dener.
+            </span>
           </label>
         </div>
       </section>

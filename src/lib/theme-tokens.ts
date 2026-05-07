@@ -56,6 +56,8 @@ const themeTokensSchema = z
     fontHeading: z.string().optional(),
     fontBody: z.string().optional(),
     googleFontsHref: z.string().optional(),
+    /** WhatsApp / sosyal önizleme kartlarında kullanılacak logo (URL) */
+    socialPreviewLogoUrl: z.string().nullable().optional(),
     siteFooterStrip: siteFooterStripFields.optional(),
     siteHeaderBrand: siteHeaderBrandFields.optional(),
   })
