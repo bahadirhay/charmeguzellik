@@ -1757,7 +1757,7 @@ function BlockFields({
                           <>
                             <input
                               type="time"
-                              className="rounded border border-zinc-600 bg-zinc-950 px-1 py-0.5 text-[11px] dark:border-zinc-500"
+                              className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] text-zinc-900 dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-100"
                               value={row?.start ?? "09:00"}
                               onChange={(e) => {
                                 const v = e.target.value;
@@ -1771,7 +1771,7 @@ function BlockFields({
                             <span className="text-zinc-500">—</span>
                             <input
                               type="time"
-                              className="rounded border border-zinc-600 bg-zinc-950 px-1 py-0.5 text-[11px] dark:border-zinc-500"
+                              className="rounded border border-zinc-300 bg-white px-1 py-0.5 text-[11px] text-zinc-900 dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-100"
                               value={row?.end ?? "18:00"}
                               onChange={(e) => {
                                 const v = e.target.value;
