@@ -87,7 +87,11 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
           <Link href="/admin/pages" className="text-rose-600 hover:underline">
             Sayfalar duzenleyici
           </Link>{" "}
-          icindeki randevu formu blok ayarlarini guncelleyin.
+          icindeki randevu formu blok ayarlarini guncelleyin. Personel-hizmet atama icin{" "}
+          <Link href="/admin/appointments/personel-planlama" className="text-rose-600 hover:underline">
+            Personel Planlama
+          </Link>{" "}
+          ekranini kullanin.
         </p>
       </header>
       <AdminAppointmentPushBanner />

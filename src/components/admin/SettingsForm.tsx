@@ -60,8 +60,6 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
   const [importPresetImages, setImportPresetImages] = useState(false);
   const [importCustomUrls, setImportCustomUrls] = useState(false);
   const [customUrlsJson, setCustomUrlsJson] = useState("");
-  const [staffServiceName, setStaffServiceName] = useState("");
-  const [staffNamesCsv, setStaffNamesCsv] = useState("");
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -275,52 +273,12 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
     field("themeTokensJson", themeTokensToJson({ ...t, ...patch }));
   }
 
-  function normalizeStaffCsv(csv: string): string[] {
-    return Array.from(
-      new Set(
-        csv
-          .split(",")
-          .map((x) => x.trim())
-          .filter(Boolean),
-      ),
-    );
-  }
-
   const parsedThemeTokens = parseThemeTokens(row.themeTokensJson);
   const headerBrand = parsedThemeTokens.siteHeaderBrand ?? {};
   const socialPreviewLogoUrl = strForInput(parsedThemeTokens.socialPreviewLogoUrl ?? undefined);
   const siteFaviconUrl = strForInput(parsedThemeTokens.siteFaviconUrl ?? undefined);
   const telegramBotToken = strForInput(parsedThemeTokens.telegramBotToken ?? undefined);
   const telegramChatId = strForInput(parsedThemeTokens.telegramChatId ?? undefined);
-  const appointmentStaffByService = parsedThemeTokens.appointmentStaffByService ?? {};
-
-  function saveStaffingRow(serviceRaw: string, csv: string) {
-    const service = serviceRaw.trim();
-    if (!service) {
-      setFeedback({ text: "Hizmet adı boş olamaz.", error: true });
-      return;
-    }
-    const names = normalizeStaffCsv(csv);
-    if (names.length === 0) {
-      setFeedback({ text: "En az bir personel adı girin.", error: true });
-      return;
-    }
-    patchThemeTokens({
-      appointmentStaffByService: {
-        ...appointmentStaffByService,
-        [service]: names,
-      },
-    });
-    setFeedback({ text: "Hizmet-personel eşleşmesi güncellendi (Kaydet ile canlıya alınır).", error: false });
-  }
-
-  function removeStaffingRow(service: string) {
-    const next: Record<string, string[]> = {};
-    for (const [k, v] of Object.entries(appointmentStaffByService)) {
-      if (k !== service) next[k] = v;
-    }
-    patchThemeTokens({ appointmentStaffByService: next });
-  }
 
   const themeList = listThemes();
   const activeMeta = themeList.find((t) => t.id === row.activeThemeId) ?? themeList[0];
@@ -1028,69 +986,12 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
                   placeholder="123456789 veya -100..."
                 />
               </label>
-              <div className="grid gap-2 rounded border border-zinc-200 p-2 dark:border-zinc-700">
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Hizmet-personel eşleşmesi</p>
-                <p className="text-xs text-zinc-500">
-                  Hizmet adını yazın, personelleri virgülle ayırın. Personel seçilmezse sistem uygun olanı otomatik atar.
-                </p>
-                {Object.entries(appointmentStaffByService).map(([svc, names]) => (
-                  <div key={svc} className="grid gap-1 rounded border border-zinc-200 p-2 dark:border-zinc-700">
-                    <label className="grid gap-1 text-xs">
-                      Hizmet
-                      <input
-                        className="rounded border border-zinc-300 px-2 py-1 dark:border-zinc-600 dark:bg-zinc-950"
-                        defaultValue={svc}
-                        onBlur={(e) => saveStaffingRow(e.target.value, names.join(", "))}
-                      />
-                    </label>
-                    <label className="grid gap-1 text-xs">
-                      Personeller
-                      <input
-                        className="rounded border border-zinc-300 px-2 py-1 dark:border-zinc-600 dark:bg-zinc-950"
-                        defaultValue={names.join(", ")}
-                        onBlur={(e) => saveStaffingRow(svc, e.target.value)}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => removeStaffingRow(svc)}
-                      className="justify-self-start rounded border border-red-300 px-2 py-1 text-xs text-red-700 dark:border-red-800 dark:text-red-300"
-                    >
-                      Bu eşleşmeyi sil
-                    </button>
-                  </div>
-                ))}
-                <div className="grid gap-1 rounded border border-dashed border-zinc-300 p-2 dark:border-zinc-600">
-                  <label className="grid gap-1 text-xs">
-                    Yeni hizmet
-                    <input
-                      className="rounded border border-zinc-300 px-2 py-1 dark:border-zinc-600 dark:bg-zinc-950"
-                      value={staffServiceName}
-                      onChange={(e) => setStaffServiceName(e.target.value)}
-                      placeholder="Hydrafacial — Işıltınız"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-xs">
-                    Personeller (virgülle)
-                    <input
-                      className="rounded border border-zinc-300 px-2 py-1 dark:border-zinc-600 dark:bg-zinc-950"
-                      value={staffNamesCsv}
-                      onChange={(e) => setStaffNamesCsv(e.target.value)}
-                      placeholder="Ayşe, Elif"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      saveStaffingRow(staffServiceName, staffNamesCsv);
-                      setStaffServiceName("");
-                      setStaffNamesCsv("");
-                    }}
-                    className="justify-self-start rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-600"
-                  >
-                    Hizmet-personel ekle
-                  </button>
-                </div>
+              <div className="rounded border border-zinc-200 p-2 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
+                Hizmet-personel planlama ekrani{" "}
+                <a href="/admin/appointments/personel-planlama" className="text-rose-600 underline">
+                  Randevular / Personel Planlama
+                </a>{" "}
+                menüsüne tasindi.
               </div>
             </div>
             <button

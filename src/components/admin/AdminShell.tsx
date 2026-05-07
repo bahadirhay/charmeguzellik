@@ -10,6 +10,7 @@ const TOP_NAV: NavItem[] = [
   { href: "/admin/navigation", label: "Menü", perm: "content.nav" },
   { href: "/admin/crm", label: "CRM", perm: "crm.leads" },
   { href: "/admin/appointments", label: "Randevular", perm: "crm.appointments" },
+  { href: "/admin/appointments/personel-planlama", label: "Personel Planlama", perm: "crm.appointments" },
 ];
 
 const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
