@@ -4,8 +4,10 @@
  * Yanlışlıkla `*.vercel.app` yazılmışsa müşteri linkleri kötü görünür; API isteği `Host` ile düzeltilir (aşağı).
  */
 
-/** Müşteriye giden e-posta ve WhatsApp’ta kullanılan kısa yol (rewrite ile `/randevu/iptal` içeriği). */
-export const APPOINTMENT_CANCEL_PATH = "/rezervasyoniptal";
+/** Müşteriye giden e-posta/WhatsApp kısa yol (randevu yönetimi linki). */
+export const APPOINTMENT_CANCEL_PATH = "/rezervasyonbilgi";
+/** Geriye uyumluluk: eski paylaşılan bağlantılar bozulmasın. */
+export const APPOINTMENT_CANCEL_LEGACY_PATH = "/rezervasyoniptal";
 
 export function normalizePublicSiteUrl(): string {
   const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim() ?? "";
@@ -56,7 +58,7 @@ export function resolvePublicSiteOrigin(req?: Request): string {
 }
 
 /**
- * Randevu iptal derin bağlantısı — token (?t=…); kod sayfada ayrı sorulur.
+ * Randevu yönetimi derin bağlantısı — token (?t=…).
  */
 export function buildAppointmentCancelUrl(token: string, req?: Request): string {
   const base = resolvePublicSiteOrigin(req).replace(/\/+$/, "");
