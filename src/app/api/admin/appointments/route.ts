@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Aynı kişi için aynı saatte başka aktif kayıt var veya aynı gün aynı hizmet zaten kayıtlı.",
+            "Aynı kişi için aynı saatte başka aktif kayıt var.",
         },
         { status: 409 },
       );

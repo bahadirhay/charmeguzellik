@@ -52,19 +52,9 @@ export async function appointmentDuplicateExists(
   });
 }
 
-function istanbulYmd(d: Date): string {
-  return new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Europe/Istanbul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
-}
-
 /**
  * Aynı kişi için çakışma kuralları:
  * 1) Aynı saat (hizmetten bağımsız) -> engel
- * 2) Aynı gün + aynı hizmet -> engel
  * Not: yalnızca aktif/işlemdeki kayıtlar (pending/approved/cancel_request) dikkate alınır.
  */
 export async function appointmentConflictExists(
@@ -96,9 +86,7 @@ export async function appointmentConflictExists(
     },
   });
 
-  const targetYmd = istanbulYmd(params.startAt);
   const targetStartMs = params.startAt.getTime();
-  const targetService = params.serviceName?.trim().toLocaleLowerCase("tr-TR") || null;
 
   return rows.some((a) => {
     const nk = a.clientNameKey ?? normalizeClientNameKey(a.clientName);
@@ -107,12 +95,7 @@ export async function appointmentConflictExists(
     if (!samePerson) return false;
 
     const sameTime = a.startAt.getTime() === targetStartMs;
-    if (sameTime) return true;
-
-    const sameDay = istanbulYmd(a.startAt) === targetYmd;
-    const service = a.serviceName?.trim().toLocaleLowerCase("tr-TR") || null;
-    const sameService = Boolean(targetService && service && targetService === service);
-    return sameDay && sameService;
+    return sameTime;
   });
 }
 

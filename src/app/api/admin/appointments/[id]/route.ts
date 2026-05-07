@@ -240,7 +240,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
   } catch (e) {
     if (e instanceof AppointmentDuplicateError) {
       return NextResponse.json(
-        { error: "Aynı kişi için aynı saatte veya aynı gün aynı hizmette başka aktif kayıt var." },
+        { error: "Aynı kişi için aynı saatte başka aktif kayıt var." },
         { status: 409 },
       );
     }

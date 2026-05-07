@@ -131,7 +131,7 @@ export async function POST(req: Request) {
     });
     if (conflict) {
       return NextResponse.json(
-        { ok: false, error: "Seçtiğiniz gün/saat dolu veya aynı gün aynı hizmet için zaten kayıt var. Lütfen başka seçim yapın." },
+        { ok: false, error: "Seçtiğiniz gün/saat dolu. Lütfen başka saat seçin." },
         { status: 409 },
       );
     }

@@ -120,7 +120,7 @@ export async function POST(req: Request) {
         {
           ok: false,
           error:
-            "Bu kişi için aynı saatte başka bir randevu/talep var veya aynı gün aynı hizmet zaten alınmış. Mevcut randevunuzu güncelleyebilir ya da farklı saat seçebilirsiniz.",
+            "Bu kişi için aynı saatte başka bir randevu/talep var. Farklı saat seçebilir veya mevcut randevunuzu güncelleyebilirsiniz.",
         },
         { status: 409 },
       );
