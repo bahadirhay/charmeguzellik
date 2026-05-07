@@ -15,7 +15,7 @@ export const revalidate = 0;
 export default async function AppointmentsPage() {
   await requirePagePermission("crm.appointments");
   const [rows, headerNav, footerNav, appointmentSchedule] = await Promise.all([
-    prisma.appointment.findMany({ orderBy: { startAt: "desc" } }),
+    prisma.appointment.findMany({ orderBy: { startAt: "asc" } }),
     prisma.navItem.findMany({
       where: { published: true, menuSlug: "header" },
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
@@ -34,7 +34,14 @@ export default async function AppointmentsPage() {
       : fromFooter.length > 0
         ? fromFooter
         : [];
-  const activeRows = rows.filter((r) => r.status === "pending" || r.status === "approved");
+  const activeRows = rows
+    .filter((r) => r.status === "pending" || r.status === "approved")
+    .sort((a, b) => {
+      const statusRank = (s: string) => (s === "pending" ? 0 : 1);
+      const byStatus = statusRank(a.status) - statusRank(b.status);
+      if (byStatus !== 0) return byStatus;
+      return a.startAt.getTime() - b.startAt.getTime();
+    });
   const cancelRequestRows = rows.filter((r) => r.status === "cancel_request");
   const archivedRows = rows.filter((r) => r.status === "rejected" || r.status === "cancelled");
   return (
@@ -63,6 +70,9 @@ export default async function AppointmentsPage() {
         </div>
       </details>
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="border-b border-zinc-200 px-3 py-2 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+          Sıralama: <strong>Bekleyenler önce</strong>, ardından onaylılar; her grupta <strong>en yakın tarih üstte</strong>.
+        </div>
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
             <tr>
