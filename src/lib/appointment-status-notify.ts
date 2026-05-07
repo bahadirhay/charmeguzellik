@@ -27,13 +27,11 @@ export function buildAppointmentNotifyCopy(
 
   if (decision === "approved") {
     /**
-     * WhatsApp yalnızca tam adresleri (örn. https://…) otomatik tıklanabilir yapar; “tıklayın” gibi düz yazı için
-     * özel bağlantı metni oluşturmak — wa.me/sohbet hazır metnine mümkün değildir.
-     * En iyi pratik: *kalın tek satır başlık* + hemen altında yalın URL + kod.
-     * @see https://faq.whatsapp.com/539178204879377/
+     * WhatsApp tam https:// adreslerini tıklanabilir yapar. Hazır metinde *yıldız* kalınlığı müşteriyi yanıltabildiği
+     * için düz metin + URL satırı kullanılır.
      */
     const waCancelBlock = cancelInfo
-      ? `\n\n*Randevunu iptal için tıklayıp kullanacağınız bağlantı*\n${cancelInfo.cancelUrl}\n\n*İptal kodunuz:* ${cancelInfo.cancelCode}\n(Uyarı: kodu paylaşmayın.)`
+      ? `\n\nRandevunu iptal için tıklayıp kullanacağınız bağlantı:\n${cancelInfo.cancelUrl}\n\nİptal kodunuz: ${cancelInfo.cancelCode}\n(Uyarı: kodu paylaşmayın.)`
       : "";
 
     /** E-posta: kod + bağlantı ayrı satırlarda. */

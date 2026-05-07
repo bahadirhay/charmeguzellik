@@ -54,7 +54,7 @@ export default function AppointmentCancelPage() {
       </p>
       <form className="mt-4 space-y-3" onSubmit={submit}>
         <label className="grid gap-1 text-sm">
-          Güvenlik anahtarı (bağlantıdaki <code className="text-xs">t=</code> değeri)
+          Güvenlik anahtarı
           <input
             required
             readOnly={Boolean(tokenFromUrl)}
