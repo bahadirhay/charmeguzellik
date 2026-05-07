@@ -27,6 +27,14 @@ type GoogleReviewsHealth = {
   totalFromGoogle: number;
   publishedAfterFilter: number;
 };
+type MailTestDetail = {
+  accepted?: string[];
+  rejected?: string[];
+  pending?: string[];
+  response?: string | null;
+  messageId?: string | null;
+  note?: string;
+};
 
 type SettingsRow = SiteSettingsAdminClient;
 
@@ -36,6 +44,7 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
   const [testMailTo, setTestMailTo] = useState("");
   const [testMailBusy, setTestMailBusy] = useState(false);
   const [testMailFeedback, setTestMailFeedback] = useState<Feedback | null>(null);
+  const [testMailDetail, setTestMailDetail] = useState<MailTestDetail | null>(null);
   const [googleHealthBusy, setGoogleHealthBusy] = useState(false);
   const [googleHealth, setGoogleHealth] = useState<GoogleReviewsHealth | null>(null);
   const [importPresetImages, setImportPresetImages] = useState(false);
@@ -128,23 +137,32 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
     const to = testMailTo.trim();
     if (!to) {
       setTestMailFeedback({ text: "Test e-posta için alıcı adresi girin.", error: true });
+      setTestMailDetail(null);
       return;
     }
     setTestMailBusy(true);
     setTestMailFeedback(null);
+    setTestMailDetail(null);
     try {
       const res = await fetch("/api/admin/settings/test-mail", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ to }),
       });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; via?: string };
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        via?: string;
+        detail?: MailTestDetail;
+      };
       if (!res.ok || !j.ok) {
         setTestMailFeedback({ text: j.error ?? "Test e-postası gönderilemedi.", error: true });
+        setTestMailDetail(j.detail ?? null);
         return;
       }
       const via = j.via ? ` (${j.via})` : "";
       setTestMailFeedback({ text: `Test e-postası gönderildi${via}: ${to}`, error: false });
+      setTestMailDetail(j.detail ?? null);
     } finally {
       setTestMailBusy(false);
     }
@@ -829,6 +847,16 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
               >
                 {testMailFeedback.text}
               </p>
+            ) : null}
+            {testMailDetail ? (
+              <div className="mt-2 rounded border border-zinc-200 bg-white p-2 text-[11px] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+                {testMailDetail.note ? <p>{testMailDetail.note}</p> : null}
+                {testMailDetail.response ? <p>Sunucu cevabı: {testMailDetail.response}</p> : null}
+                {testMailDetail.messageId ? <p>Message-ID: {testMailDetail.messageId}</p> : null}
+                {testMailDetail.accepted?.length ? <p>Kabul edilen: {testMailDetail.accepted.join(", ")}</p> : null}
+                {testMailDetail.rejected?.length ? <p>Reddedilen: {testMailDetail.rejected.join(", ")}</p> : null}
+                {testMailDetail.pending?.length ? <p>Bekleyen: {testMailDetail.pending.join(", ")}</p> : null}
+              </div>
             ) : null}
           </div>
         </div>

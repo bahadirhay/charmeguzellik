@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import nodemailer from "nodemailer";
 import { z } from "zod";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
 import { prisma } from "@/lib/prisma";
@@ -54,21 +55,76 @@ export async function POST(req: Request) {
   }
 
   const now = new Date().toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" });
+  const to = parsed.data.to.trim();
+
+  if (smtpConfigured) {
+    try {
+      const port = settings?.smtpPort ?? (settings?.smtpSecure ? 465 : 587);
+      const secure = settings?.smtpSecure ?? false;
+      const transporter = nodemailer.createTransport({
+        host: smtpHost!,
+        port,
+        secure,
+        auth: { user: smtpUser!, pass: smtpPass! },
+      });
+      await transporter.verify();
+      const info = await transporter.sendMail({
+        from: from!,
+        to,
+        subject: "SMTP test — Charme Yönetim",
+        text: `Bu bir test e-postasıdır.\n\nZaman: ${now}\nGönderen: Yönetim paneli SMTP test aracı`,
+      });
+      const accepted = Array.isArray(info.accepted) ? info.accepted.map(String) : [];
+      const rejected = Array.isArray(info.rejected) ? info.rejected.map(String) : [];
+      const pending = Array.isArray(info.pending) ? info.pending.map(String) : [];
+      if (!accepted.length || rejected.length > 0) {
+        return NextResponse.json(
+          {
+            error: `SMTP sunucusu teslimatı kabul etmedi. accepted=${accepted.length}, rejected=${rejected.length}, pending=${pending.length}`,
+            detail: { accepted, rejected, pending, response: info.response ?? null, messageId: info.messageId ?? null },
+          },
+          { status: 400 },
+        );
+      }
+      return NextResponse.json({
+        ok: true,
+        via: "SMTP",
+        detail: {
+          accepted,
+          rejected,
+          pending,
+          response: info.response ?? null,
+          messageId: info.messageId ?? null,
+          note: "SMTP sunucusu kabul etti. Alıcı kutusuna düşme spam/sağlayıcı filtrelerine bağlıdır.",
+        },
+      });
+    } catch (e) {
+      return NextResponse.json(
+        {
+          error: `SMTP test gönderimi başarısız. ${e instanceof Error ? e.message : String(e)}`,
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   const result = await sendTransactionalEmail({
-    to: parsed.data.to.trim(),
+    to,
     subject: "SMTP test — Charme Yönetim",
     text: `Bu bir test e-postasıdır.\n\nZaman: ${now}\nGönderen: Yönetim paneli SMTP test aracı`,
   });
-
   if (!result.ok) {
-    const channel = smtpConfigured ? "SMTP" : "Resend";
-    const fromHint = from ? `From: ${from}` : "From eksik";
     return NextResponse.json(
-      { error: `${channel} test gönderimi başarısız. ${fromHint}. Detay: ${result.error}` },
+      { error: `Resend test gönderimi başarısız. Detay: ${result.error}` },
       { status: 400 },
     );
   }
-
-  return NextResponse.json({ ok: true, via: smtpConfigured ? "SMTP" : "Resend" });
+  return NextResponse.json({
+    ok: true,
+    via: "Resend",
+    detail: {
+      note: "Resend API isteği başarılı. Alıcı kutusuna düşme spam/sağlayıcı filtrelerine bağlıdır.",
+    },
+  });
 }
 
