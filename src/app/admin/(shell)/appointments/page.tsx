@@ -5,6 +5,7 @@ import { AppointmentForm } from "@/components/admin/AppointmentForm";
 import { AppointmentRowActions } from "@/components/admin/AppointmentRowActions";
 import { ReservationWeekCalendar } from "@/components/admin/ReservationWeekCalendar";
 import { waPrefillForAppointment } from "@/lib/admin-whatsapp-prefill";
+import { getServiceStaffMap } from "@/lib/appointment-staffing";
 import { requirePagePermission } from "@/lib/auth";
 import { buildNavTree, collectServiceLabelsFromNav } from "@/lib/navigation";
 import { getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
@@ -32,7 +33,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     params.view === "rescheduled" || params.view === "cancel_link"
       ? params.view
       : "all";
-  const [rows, headerNav, footerNav, appointmentSchedule] = await Promise.all([
+  const [rows, headerNav, footerNav, appointmentSchedule, settings] = await Promise.all([
     prisma.appointment.findMany({ orderBy: { startAt: "asc" } }),
     prisma.navItem.findMany({
       where: { published: true, menuSlug: "header" },
@@ -43,7 +44,12 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
     }),
     getFirstPublishedAppointmentSchedule(),
+    prisma.siteSettings.findUnique({
+      where: { id: 1 },
+      select: { themeTokensJson: true },
+    }),
   ]);
+  const serviceStaffMap = getServiceStaffMap(settings?.themeTokensJson);
   const fromHeader = collectServiceLabelsFromNav(buildNavTree(headerNav));
   const fromFooter = collectServiceLabelsFromNav(buildNavTree(footerNav));
   const serviceOptions =
@@ -101,7 +107,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
           </span>
         </summary>
         <div className="mt-4">
-          <AppointmentForm serviceOptions={serviceOptions} schedule={appointmentSchedule} />
+          <AppointmentForm serviceOptions={serviceOptions} schedule={appointmentSchedule} serviceStaffMap={serviceStaffMap} />
         </div>
       </details>
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">

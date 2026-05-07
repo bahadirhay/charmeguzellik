@@ -15,6 +15,7 @@ import {
   slotOccupiedExists,
   withinOneHourOtherServiceExists,
 } from "@/lib/crm-contact";
+import { isStaffOccupiedAt, parseAssignedStaffFromNotes } from "@/lib/appointment-staffing";
 import { notifyTelegramAppointmentAction } from "@/lib/appointment-telegram-notify";
 import { getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
 import { prisma } from "@/lib/prisma";
@@ -167,6 +168,16 @@ export async function POST(req: Request) {
         { ok: false, error: "Aynı saatte başka randevunuz/talebiniz var. Lütfen farklı saat seçin." },
         { status: 409 },
       );
+    }
+    const assignedStaff = parseAssignedStaffFromNotes(appt.notes);
+    if (assignedStaff) {
+      const staffBusy = await isStaffOccupiedAt(prisma, nextStart, assignedStaff, appt.id);
+      if (staffBusy) {
+        return NextResponse.json(
+          { ok: false, error: `Secili personel (${assignedStaff}) bu saatte musait degil.` },
+          { status: 409 },
+        );
+      }
     }
     const occupied = await slotOccupiedExists(prisma, {
       startAt: nextStart,

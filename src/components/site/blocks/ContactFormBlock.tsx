@@ -111,6 +111,8 @@ export function ContactFormBlock({
   const [navLoading, setNavLoading] = useState(false);
   const [apptDate, setApptDate] = useState("");
   const [apptTime, setApptTime] = useState("");
+  const [selectedServiceId, setSelectedServiceId] = useState("");
+  const [serviceStaffMap, setServiceStaffMap] = useState<Record<string, string[]>>({});
   const clearAppointmentSubmitFeedback = useCallback(() => {
     setSubmitError(null);
     setStatus("idle");
@@ -179,6 +181,21 @@ export function ContactFormBlock({
       cancelled = true;
     };
   }, [isAppointment, showApptService, serviceNavMenuSlug]);
+  useEffect(() => {
+    if (!isAppointment) return;
+    let cancelled = false;
+    fetch("/api/appointments/staffing", { cache: "no-store" })
+      .then((r) => r.json().catch(() => ({})))
+      .then((j: { ok?: boolean; map?: Record<string, string[]> }) => {
+        if (!cancelled && j.ok && j.map && typeof j.map === "object") setServiceStaffMap(j.map);
+      })
+      .catch(() => {
+        if (!cancelled) setServiceStaffMap({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAppointment]);
 
   const navParent = useMemo(() => {
     if (!navTree.length) return null;
@@ -203,6 +220,14 @@ export function ContactFormBlock({
     () => [...navServiceOptions, ...manualServiceOptions],
     [navServiceOptions, manualServiceOptions],
   );
+  const selectedServiceLabel = useMemo(
+    () => selectOptions.find((s) => s.id === selectedServiceId)?.label?.trim() ?? "",
+    [selectOptions, selectedServiceId],
+  );
+  const eligibleStaff = useMemo(() => {
+    const key = selectedServiceLabel.toLocaleLowerCase("tr-TR");
+    return serviceStaffMap[key] ?? [];
+  }, [selectedServiceLabel, serviceStaffMap]);
 
   const showNavLoading = isAppointment && showApptService && navLoading;
 
@@ -342,6 +367,7 @@ export function ContactFormBlock({
         formContext,
         pageSlug: resolvedPageSlug,
         blockId: blockId ?? "",
+        staffName: String(fd.get("staffName") ?? "").trim() || null,
       }),
     });
     let j: { ok?: boolean; error?: string } = {};
@@ -365,6 +391,7 @@ export function ContactFormBlock({
     form.reset();
     setApptDate("");
     setApptTime("");
+    setSelectedServiceId("");
   }
 
   if (previewDisabled) {
@@ -414,8 +441,11 @@ export function ContactFormBlock({
                   name="serviceId"
                   required
                   className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
-                  defaultValue=""
-                  onChange={() => clearAppointmentSubmitFeedback()}
+                  value={selectedServiceId}
+                  onChange={(e) => {
+                    clearAppointmentSubmitFeedback();
+                    setSelectedServiceId(e.target.value);
+                  }}
                 >
                   <option value="" disabled>
                     Seçin…
@@ -443,6 +473,24 @@ export function ContactFormBlock({
                   Üst menüde «Hizmetlerimiz» başlıklı bir öğe bulunamadı. Admin’de menüyü düzenleyin veya blokta{" "}
                   <strong>Manuel</strong> kaynak seçin.
                 </p>
+              ) : null}
+              {eligibleStaff.length > 0 ? (
+                <label className="text-sm text-zinc-700 dark:text-zinc-300">
+                  Uygun personel
+                  <select
+                    name="staffName"
+                    className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
+                    defaultValue=""
+                    onChange={() => clearAppointmentSubmitFeedback()}
+                  >
+                    <option value="">Müsait personele otomatik ata</option>
+                    {eligibleStaff.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               ) : null}
             </>
           ) : null}

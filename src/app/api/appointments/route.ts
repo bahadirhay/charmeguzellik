@@ -4,6 +4,13 @@ import {
   mergeAppointmentDays,
   validatePreferredStartAgainstSchedule,
 } from "@/lib/appointment-schedule";
+import {
+  eligibleStaffForService,
+  getServiceStaffMap,
+  isStaffOccupiedAt,
+  pickAvailableStaff,
+  withAssignedStaffInNotes,
+} from "@/lib/appointment-staffing";
 import { resolvePublishedContactFormBlock, type ContactFormContext } from "@/lib/contact-form-resolve";
 import {
   createAppointmentRecord,
@@ -44,6 +51,7 @@ const postSchema = z.object({
   formContext: z.enum(["page", "header", "footer"]).optional(),
   pageSlug: z.string().max(200).optional().nullable(),
   blockId: z.string().max(80).optional(),
+  staffName: z.string().max(120).optional().nullable(),
 });
 
 export async function POST(req: Request) {
@@ -105,6 +113,29 @@ export async function POST(req: Request) {
   if (body.clientEmail?.trim()) notesParts.unshift(`E-posta: ${body.clientEmail.trim()}`);
   if (body.clientPhone?.trim()) notesParts.unshift(`Telefon: ${body.clientPhone.trim()}`);
   const notes = notesParts.length ? notesParts.join("\n") : null;
+  const settings = await getSiteSettings();
+  const staffMap = getServiceStaffMap(settings.themeTokensJson);
+  const staffCandidates = eligibleStaffForService(serviceName, staffMap);
+  const requestedStaff = body.staffName?.trim() || "";
+  let assignedStaff: string | null = null;
+  if (staffCandidates.length > 0) {
+    if (requestedStaff) {
+      if (!staffCandidates.some((s) => s.toLocaleLowerCase("tr-TR") === requestedStaff.toLocaleLowerCase("tr-TR"))) {
+        return NextResponse.json({ ok: false, error: "Secilen personel bu hizmet icin uygun degil." }, { status: 400 });
+      }
+      const occupied = await isStaffOccupiedAt(prisma, start, requestedStaff);
+      if (occupied) {
+        return NextResponse.json({ ok: false, error: "Secilen personelin bu saatte baska randevusu var." }, { status: 409 });
+      }
+      assignedStaff = requestedStaff;
+    } else {
+      assignedStaff = await pickAvailableStaff(prisma, start, staffCandidates);
+      if (!assignedStaff) {
+        return NextResponse.json({ ok: false, error: "Bu hizmet icin uygun personel bu saatte musait degil." }, { status: 409 });
+      }
+    }
+  }
+  const notesWithStaff = withAssignedStaffInNotes(notes, assignedStaff);
 
   let created: Awaited<ReturnType<typeof createAppointmentRecord>> | null = null;
   try {
@@ -116,7 +147,7 @@ export async function POST(req: Request) {
         clientName: body.clientName,
         clientEmail: body.clientEmail?.trim() || null,
         clientPhone: body.clientPhone?.trim() || null,
-        notes,
+        notes: notesWithStaff,
         status: "pending",
       }),
     );

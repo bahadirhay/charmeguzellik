@@ -19,12 +19,15 @@ type Props = {
   serviceOptions?: string[];
   /** Yayınlanmış sitedeki ilk randevu formunun takvimi; yoksa site varsayılanı */
   schedule?: PublishedAppointmentSchedule | null;
+  serviceStaffMap?: Record<string, string[]>;
 };
 
-export function AppointmentForm({ serviceOptions = [], schedule = null }: Props) {
+export function AppointmentForm({ serviceOptions = [], schedule = null, serviceStaffMap = {} }: Props) {
   const [feedback, setFeedback] = useState<{ text: string; error: boolean } | null>(null);
   const [apptDate, setApptDate] = useState("");
   const [apptTime, setApptTime] = useState("");
+  const [serviceNameValue, setServiceNameValue] = useState("");
+  const [staffNameValue, setStaffNameValue] = useState("");
 
   const mergedDays = useMemo(
     () =>
@@ -49,6 +52,10 @@ export function AppointmentForm({ serviceOptions = [], schedule = null }: Props)
       apptDate ? slotStartLabelsForCalendarDate(apptDate, mergedDays, slotDur, tz) : [],
     [apptDate, mergedDays, slotDur, tz],
   );
+  const eligibleStaff = useMemo(() => {
+    const key = serviceNameValue.trim().toLocaleLowerCase("tr-TR");
+    return serviceStaffMap[key] ?? [];
+  }, [serviceNameValue, serviceStaffMap]);
 
   useEffect(() => {
     if (!timeSlotLabels.includes(apptTime)) setApptTime("");
@@ -119,13 +126,16 @@ export function AppointmentForm({ serviceOptions = [], schedule = null }: Props)
         return;
       }
       serviceName = v;
+      setServiceNameValue(v);
     } else {
       serviceName = String(fd.get("serviceNameFree") ?? "").trim();
       if (!serviceName) {
         setFeedback({ text: "Hizmet adı girin.", error: true });
         return;
       }
+      setServiceNameValue(serviceName);
     }
+    const staffName = String(fd.get("staffName") ?? "").trim() || null;
 
     const end = new Date(start.getTime() + slotDur * 60_000);
     const body = {
@@ -136,6 +146,7 @@ export function AppointmentForm({ serviceOptions = [], schedule = null }: Props)
       clientEmail: String(fd.get("clientEmail") ?? "").trim() || null,
       clientPhone: phone,
       notes: String(fd.get("notes") ?? "").trim() || null,
+      staffName,
     };
     const res = await fetch("/api/admin/appointments", {
       method: "POST",
@@ -147,6 +158,8 @@ export function AppointmentForm({ serviceOptions = [], schedule = null }: Props)
       e.currentTarget.reset();
       setApptDate("");
       setApptTime("");
+      setServiceNameValue("");
+      setStaffNameValue("");
       return;
     }
     let detail = "Hata";
@@ -187,6 +200,11 @@ export function AppointmentForm({ serviceOptions = [], schedule = null }: Props)
             name="serviceName"
             required
             defaultValue=""
+            value={serviceNameValue}
+            onChange={(e) => {
+              setServiceNameValue(e.target.value);
+              setStaffNameValue("");
+            }}
             className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
           >
             <option value="" disabled>
@@ -208,11 +226,34 @@ export function AppointmentForm({ serviceOptions = [], schedule = null }: Props)
           <input
             name="serviceNameFree"
             required
+            value={serviceNameValue}
+            onChange={(e) => {
+              setServiceNameValue(e.target.value);
+              setStaffNameValue("");
+            }}
             placeholder="Örn. Cilt bakımı"
             className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
           />
         </label>
       )}
+      {eligibleStaff.length > 0 ? (
+        <label className="text-sm text-zinc-700 dark:text-zinc-300">
+          Personel
+          <select
+            name="staffName"
+            value={staffNameValue}
+            onChange={(e) => setStaffNameValue(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
+          >
+            <option value="">Müsait personel otomatik ata</option>
+            {eligibleStaff.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="text-sm text-zinc-700 dark:text-zinc-300">

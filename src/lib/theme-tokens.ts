@@ -63,6 +63,8 @@ const themeTokensSchema = z
     /** Telegram bot bildirimi (panelde yönetilir) */
     telegramBotToken: z.string().nullable().optional(),
     telegramChatId: z.string().nullable().optional(),
+    /** Hizmet -> personel listesi eşlemesi (panelde JSON) */
+    appointmentStaffByService: z.record(z.string(), z.array(z.string())).optional(),
     siteFooterStrip: siteFooterStripFields.optional(),
     siteHeaderBrand: siteHeaderBrandFields.optional(),
   })

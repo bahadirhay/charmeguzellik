@@ -9,6 +9,13 @@ import {
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
 import { appointmentPhoneTurkeyHint, isValidTurkeyMobileAppointmentPhone } from "@/lib/appointment-phone";
+import {
+  eligibleStaffForService,
+  getServiceStaffMap,
+  isStaffOccupiedAt,
+  pickAvailableStaff,
+  withAssignedStaffInNotes,
+} from "@/lib/appointment-staffing";
 
 export async function GET() {
   const auth = await requireStaffApiPerm("crm.appointments");
@@ -28,6 +35,7 @@ export async function POST(req: Request) {
     clientEmail?: string | null;
     clientPhone?: string | null;
     notes?: string | null;
+    staffName?: string | null;
   };
   if (!body.clientName?.trim() || !body.startAt) {
     return NextResponse.json({ error: "Eksik alan" }, { status: 400 });
@@ -45,15 +53,38 @@ export async function POST(req: Request) {
     if (Number.isNaN(startAt.getTime())) {
       return NextResponse.json({ error: "Geçersiz başlangıç tarihi" }, { status: 400 });
     }
+    const serviceName = body.serviceName?.trim() || null;
+    const settings = await prisma.siteSettings.findUnique({
+      where: { id: 1 },
+      select: { themeTokensJson: true },
+    });
+    const staffMap = getServiceStaffMap(settings?.themeTokensJson);
+    const staffCandidates = eligibleStaffForService(serviceName, staffMap);
+    const requestedStaff = body.staffName?.trim() || "";
+    let assignedStaff: string | null = null;
+    if (staffCandidates.length > 0) {
+      if (requestedStaff) {
+        if (!staffCandidates.some((s) => s.toLocaleLowerCase("tr-TR") === requestedStaff.toLocaleLowerCase("tr-TR"))) {
+          return NextResponse.json({ error: "Secilen personel bu hizmet icin uygun degil." }, { status: 400 });
+        }
+        const occupied = await isStaffOccupiedAt(prisma, startAt, requestedStaff);
+        if (occupied) return NextResponse.json({ error: "Secilen personel bu saatte musait degil." }, { status: 409 });
+        assignedStaff = requestedStaff;
+      } else {
+        assignedStaff = await pickAvailableStaff(prisma, startAt, staffCandidates);
+        if (!assignedStaff) return NextResponse.json({ error: "Bu hizmet icin musait personel yok." }, { status: 409 });
+      }
+    }
+    const notesWithStaff = withAssignedStaffInNotes(body.notes?.trim() || null, assignedStaff);
     row = await prisma.$transaction(async (tx) =>
       createAppointmentRecord(tx, {
         startAt,
         endAt: body.endAt ? new Date(body.endAt) : null,
-        serviceName: body.serviceName?.trim() || null,
+        serviceName,
         clientName: body.clientName,
         clientEmail: body.clientEmail?.trim() || null,
         clientPhone: phone,
-        notes: body.notes?.trim() || null,
+        notes: notesWithStaff,
         status: "pending",
       }),
     );
