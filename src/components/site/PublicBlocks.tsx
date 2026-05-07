@@ -130,7 +130,7 @@ async function PublicBlockRow({
   }
   if (block.type === "testimonialCarousel") {
     const googleReviews = await fetchGooglePlaceReviews({
-      max: Math.min(10, Math.max(1, block.props.reviews.length || 6)),
+      max: 10,
       language: "tr",
     });
     return (
