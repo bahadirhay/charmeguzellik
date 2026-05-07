@@ -19,6 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
     const settings = await getSiteSettings();
     const t = parseThemeTokens(settings.themeTokensJson);
     logoUrl =
+      absoluteLogoUrl(siteBase, t.siteFaviconUrl) ??
       absoluteLogoUrl(siteBase, t.socialPreviewLogoUrl) ??
       (siteBase.startsWith("http") ? `${siteBase.replace(/\/+$/, "")}/uploads/charme-guzellik-logo.png` : undefined);
   } catch {
@@ -27,9 +28,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title: "Randevu Onay",
+    description: "",
     robots: { index: false, follow: false },
     openGraph: {
       title: "Randevu Onay",
+      description: "",
       type: "website",
       ...(siteBase.startsWith("http") ? { url: `${siteBase}${APPOINTMENT_CANCEL_PATH}` } : {}),
       ...(logoUrl ? { images: [{ url: logoUrl, alt: "Charme Güzellik Salonu" }] } : {}),
@@ -39,6 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
           twitter: {
             card: "summary",
             title: "Randevu Onay",
+            description: "",
             images: [logoUrl],
           },
         }

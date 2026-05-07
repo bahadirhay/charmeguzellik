@@ -39,9 +39,9 @@ export function buildAppointmentNotifyCopy(
       : "";
 
     const intro = `Merhaba ${name}, ${siteName} — ${when} tarihindeki "${svc}" randevu talebiniz onaylanmıştır.`;
-    const whatsappPrefill = `${intro}${waCancelBlock}\n\nGörüşmek üzere.`;
+    const whatsappPrefill = `${intro}\n\nGörüşmek üzere.${waCancelBlock}`;
     const emailSubject = `${siteName} — Randevunuz onaylandı`;
-    const emailText = `${intro}${emailCancelBlock}\n\nGörüşmek üzere.\n\nİyi günler,\n${siteName}`;
+    const emailText = `${intro}\n\nGörüşmek üzere.${emailCancelBlock}\n\nİyi günler,\n${siteName}`;
     return { whatsappPrefill, emailSubject, emailText };
   }
 
