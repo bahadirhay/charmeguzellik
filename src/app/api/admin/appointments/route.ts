@@ -3,11 +3,12 @@ import {
   createAppointmentRecord,
   AppointmentDuplicateError,
   AppointmentPendingSameDayServiceError,
+  AppointmentSlotOccupiedError,
+  AppointmentTooCloseOtherServiceError,
 } from "@/lib/create-appointment-record";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
 import { appointmentPhoneTurkeyHint, isValidTurkeyMobileAppointmentPhone } from "@/lib/appointment-phone";
-import { slotOccupiedExists } from "@/lib/crm-contact";
 
 export async function GET() {
   const auth = await requireStaffApiPerm("crm.appointments");
@@ -44,10 +45,6 @@ export async function POST(req: Request) {
     if (Number.isNaN(startAt.getTime())) {
       return NextResponse.json({ error: "Geçersiz başlangıç tarihi" }, { status: 400 });
     }
-    const occupied = await slotOccupiedExists(prisma, { startAt });
-    if (occupied) {
-      return NextResponse.json({ error: "Seçilen saat dolu." }, { status: 409 });
-    }
     row = await prisma.$transaction(async (tx) =>
       createAppointmentRecord(tx, {
         startAt,
@@ -78,6 +75,18 @@ export async function POST(req: Request) {
         },
         { status: 409 },
       );
+    }
+    if (e instanceof AppointmentTooCloseOtherServiceError) {
+      return NextResponse.json(
+        {
+          error:
+            "Aynı kişide başka hizmette bekleyen/onaylı randevu var. Yeni saat mevcut randevudan en az 1 saat önce veya sonra olmalı.",
+        },
+        { status: 409 },
+      );
+    }
+    if (e instanceof AppointmentSlotOccupiedError) {
+      return NextResponse.json({ error: "Seçilen saat dolu." }, { status: 409 });
     }
     if (e instanceof Error && e.message === "phone_required") {
       return NextResponse.json({ error: "Telefon boş bırakılamaz." }, { status: 400 });

@@ -1,9 +1,17 @@
 import type { Appointment, Prisma } from "@prisma/client";
-import { AppointmentDuplicateError } from "@/lib/create-appointment-record";
+import {
+  AppointmentDuplicateError,
+  AppointmentPendingSameDayServiceError,
+  AppointmentSlotOccupiedError,
+  AppointmentTooCloseOtherServiceError,
+} from "@/lib/create-appointment-record";
 import {
   appointmentConflictExists,
   normalizeClientNameKey,
   normalizePhoneKey,
+  pendingSameDaySameServiceExists,
+  slotOccupiedExists,
+  withinOneHourOtherServiceExists,
   upsertCrmContactForAppointment,
 } from "@/lib/crm-contact";
 
@@ -56,6 +64,29 @@ export async function updateAppointmentRecord(
     excludeAppointmentId: appointmentId,
   });
   if (dup) throw new AppointmentDuplicateError();
+  const sameDayPending = await pendingSameDaySameServiceExists(tx, {
+    startAt: nextStart,
+    serviceName,
+    nameKey,
+    phoneKey,
+    excludeAppointmentId: appointmentId,
+  });
+  if (sameDayPending && existing.status === "pending") {
+    throw new AppointmentPendingSameDayServiceError();
+  }
+  const tooClose = await withinOneHourOtherServiceExists(tx, {
+    startAt: nextStart,
+    serviceName,
+    nameKey,
+    phoneKey,
+    excludeAppointmentId: appointmentId,
+  });
+  if (tooClose) throw new AppointmentTooCloseOtherServiceError();
+  const slotOccupied = await slotOccupiedExists(tx, {
+    startAt: nextStart,
+    excludeAppointmentId: appointmentId,
+  });
+  if (slotOccupied) throw new AppointmentSlotOccupiedError();
 
   let crmContactId = existing.crmContactId;
   if (phoneKey) {

@@ -4,12 +4,13 @@ import {
   mergeAppointmentDays,
   validatePreferredStartAgainstSchedule,
 } from "@/lib/appointment-schedule";
-import { slotOccupiedExists } from "@/lib/crm-contact";
 import { resolvePublishedContactFormBlock, type ContactFormContext } from "@/lib/contact-form-resolve";
 import {
   createAppointmentRecord,
   AppointmentDuplicateError,
   AppointmentPendingSameDayServiceError,
+  AppointmentSlotOccupiedError,
+  AppointmentTooCloseOtherServiceError,
 } from "@/lib/create-appointment-record";
 import { appointmentInboundNotifyRecipients } from "@/lib/appointment-inbound-notify";
 import { notifyStaffPushNewAppointment } from "@/lib/appointment-push-notify";
@@ -91,13 +92,6 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const occupied = await slotOccupiedExists(prisma, { startAt: start });
-  if (occupied) {
-    return NextResponse.json(
-      { ok: false, error: "Seçilen saat dolu. Lütfen takvimden başka saat seçin." },
-      { status: 409 },
-    );
-  }
 
   const duration = slotDur;
   const end = new Date(start.getTime() + duration * 60_000);
@@ -144,6 +138,22 @@ export async function POST(req: Request) {
           error:
             "Bu kişi için aynı hizmette aynı gün zaten bekleyen bir randevu talebi var. Önce mevcut talebi güncelleyin veya sonuçlanmasını bekleyin.",
         },
+        { status: 409 },
+      );
+    }
+    if (e instanceof AppointmentTooCloseOtherServiceError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Bu kişinin başka hizmette bekleyen/onaylı randevusu var. Yeni saat, mevcut randevudan en az 1 saat önce veya sonra olmalıdır.",
+        },
+        { status: 409 },
+      );
+    }
+    if (e instanceof AppointmentSlotOccupiedError) {
+      return NextResponse.json(
+        { ok: false, error: "Seçilen saat dolu. Lütfen takvimden başka saat seçin." },
         { status: 409 },
       );
     }

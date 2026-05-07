@@ -154,6 +154,50 @@ export async function pendingSameDaySameServiceExists(
 }
 
 /**
+ * Aynı kişi için farklı hizmette aktif (pending/approved) bir kayda 1 saatten yakınsa engeller.
+ * Kural: en az 60 dk önce/sonra seçilirse izin verilir.
+ */
+export async function withinOneHourOtherServiceExists(
+  db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
+  params: {
+    startAt: Date;
+    serviceName: string | null;
+    nameKey: string;
+    phoneKey: string | null;
+    excludeAppointmentId?: string;
+  },
+): Promise<boolean> {
+  const targetService = params.serviceName?.trim().toLocaleLowerCase("tr-TR") || null;
+  const rows = await db.appointment.findMany({
+    where: {
+      status: { in: ["pending", "approved"] },
+      ...(params.excludeAppointmentId ? { NOT: { id: params.excludeAppointmentId } } : {}),
+      OR: [{ clientNameKey: params.nameKey }, ...(params.phoneKey ? [{ clientPhoneKey: params.phoneKey }] : [])],
+    },
+    select: {
+      startAt: true,
+      serviceName: true,
+      clientName: true,
+      clientPhone: true,
+      clientNameKey: true,
+      clientPhoneKey: true,
+    },
+  });
+
+  const targetMs = params.startAt.getTime();
+  return rows.some((a) => {
+    const nk = a.clientNameKey ?? normalizeClientNameKey(a.clientName);
+    const pk = a.clientPhoneKey ?? normalizePhoneKey(a.clientPhone);
+    const samePerson = nk === params.nameKey || (params.phoneKey && pk && pk === params.phoneKey);
+    if (!samePerson) return false;
+    const existingService = a.serviceName?.trim().toLocaleLowerCase("tr-TR") || null;
+    if (!targetService || !existingService || targetService === existingService) return false;
+    const diffMs = Math.abs(a.startAt.getTime() - targetMs);
+    return diffMs < 60 * 60 * 1000;
+  });
+}
+
+/**
  * Slot doluluk kontrolü: aynı başlangıç saatinde aktif başka randevu var mı?
  */
 export async function slotOccupiedExists(

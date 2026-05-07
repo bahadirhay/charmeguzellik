@@ -7,7 +7,14 @@ import {
   slotStartLabelsForCalendarDate,
   validatePreferredStartAgainstSchedule,
 } from "@/lib/appointment-schedule";
-import { appointmentConflictExists, normalizeClientNameKey, normalizePhoneKey, slotOccupiedExists } from "@/lib/crm-contact";
+import {
+  appointmentConflictExists,
+  normalizeClientNameKey,
+  normalizePhoneKey,
+  pendingSameDaySameServiceExists,
+  slotOccupiedExists,
+  withinOneHourOtherServiceExists,
+} from "@/lib/crm-contact";
 import { notifyTelegramAppointmentAction } from "@/lib/appointment-telegram-notify";
 import { getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
 import { prisma } from "@/lib/prisma";
@@ -130,6 +137,32 @@ export async function POST(req: Request) {
 
     const nameKey = normalizeClientNameKey(appt.clientName);
     const phoneKey = normalizePhoneKey(appt.clientPhone);
+    const sameDayPending = await pendingSameDaySameServiceExists(prisma, {
+      startAt: nextStart,
+      serviceName: appt.serviceName,
+      nameKey,
+      phoneKey,
+      excludeAppointmentId: appt.id,
+    });
+    if (sameDayPending) {
+      return NextResponse.json(
+        { ok: false, error: "Aynı hizmette aynı gün bekleyen talebiniz olduğu için bu saat seçilemez." },
+        { status: 409 },
+      );
+    }
+    const tooClose = await withinOneHourOtherServiceExists(prisma, {
+      startAt: nextStart,
+      serviceName: appt.serviceName,
+      nameKey,
+      phoneKey,
+      excludeAppointmentId: appt.id,
+    });
+    if (tooClose) {
+      return NextResponse.json(
+        { ok: false, error: "Başka hizmetteki mevcut randevunuza çok yakın saat seçtiniz (en az 1 saat fark gerekli)." },
+        { status: 409 },
+      );
+    }
     const conflict = await appointmentConflictExists(prisma, {
       startAt: nextStart,
       serviceName: appt.serviceName,

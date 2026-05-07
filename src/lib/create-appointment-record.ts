@@ -4,6 +4,8 @@ import {
   normalizeClientNameKey,
   pendingSameDaySameServiceExists,
   normalizePhoneKey,
+  slotOccupiedExists,
+  withinOneHourOtherServiceExists,
   upsertCrmContactForAppointment,
 } from "@/lib/crm-contact";
 
@@ -18,6 +20,20 @@ export class AppointmentPendingSameDayServiceError extends Error {
   constructor() {
     super("pending_same_day_same_service");
     this.name = "AppointmentPendingSameDayServiceError";
+  }
+}
+
+export class AppointmentTooCloseOtherServiceError extends Error {
+  constructor() {
+    super("too_close_other_service");
+    this.name = "AppointmentTooCloseOtherServiceError";
+  }
+}
+
+export class AppointmentSlotOccupiedError extends Error {
+  constructor() {
+    super("slot_occupied");
+    this.name = "AppointmentSlotOccupiedError";
   }
 }
 
@@ -59,6 +75,15 @@ export async function createAppointmentRecord(
   if (sameDayPending && (input.status ?? "pending") === "pending") {
     throw new AppointmentPendingSameDayServiceError();
   }
+  const tooClose = await withinOneHourOtherServiceExists(tx, {
+    startAt: input.startAt,
+    serviceName: input.serviceName,
+    nameKey,
+    phoneKey,
+  });
+  if (tooClose) throw new AppointmentTooCloseOtherServiceError();
+  const slotOccupied = await slotOccupiedExists(tx, { startAt: input.startAt });
+  if (slotOccupied) throw new AppointmentSlotOccupiedError();
 
   let crmContactId: string | null = null;
   if (phoneKey) {

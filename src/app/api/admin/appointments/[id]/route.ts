@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import type { Appointment } from "@prisma/client";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
 import { buildAppointmentNotifyCopy, buildNotifyLinks } from "@/lib/appointment-status-notify";
-import { AppointmentDuplicateError } from "@/lib/create-appointment-record";
+import {
+  AppointmentDuplicateError,
+  AppointmentPendingSameDayServiceError,
+  AppointmentTooCloseOtherServiceError,
+  AppointmentSlotOccupiedError,
+} from "@/lib/create-appointment-record";
 import {
   APPOINTMENT_PHONE_INPUT_MAX_LENGTH,
   appointmentPhoneTurkeyHint,
@@ -243,6 +248,21 @@ export async function PATCH(req: Request, ctx: Ctx) {
         { error: "Aynı kişi için aynı saatte başka aktif kayıt var." },
         { status: 409 },
       );
+    }
+    if (e instanceof AppointmentPendingSameDayServiceError) {
+      return NextResponse.json(
+        { error: "Aynı kişi için aynı hizmette aynı gün bekleyen talep var." },
+        { status: 409 },
+      );
+    }
+    if (e instanceof AppointmentTooCloseOtherServiceError) {
+      return NextResponse.json(
+        { error: "Başka hizmetteki mevcut randevuya çok yakın saat seçildi (min. 1 saat fark gerekli)." },
+        { status: 409 },
+      );
+    }
+    if (e instanceof AppointmentSlotOccupiedError) {
+      return NextResponse.json({ error: "Seçilen saat dolu." }, { status: 409 });
     }
     if (e instanceof Error && e.message === "phone_required") {
       return NextResponse.json({ error: "Telefon boş bırakılamaz." }, { status: 400 });
