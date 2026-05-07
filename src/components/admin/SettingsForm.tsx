@@ -35,6 +35,11 @@ type MailTestDetail = {
   messageId?: string | null;
   note?: string;
 };
+type AppointmentNotifyTestDetail = {
+  recipients: number;
+  sent: number;
+  failed: Array<{ to: string; ok: boolean; error: string | null }>;
+};
 
 type SettingsRow = SiteSettingsAdminClient;
 
@@ -45,6 +50,9 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
   const [testMailBusy, setTestMailBusy] = useState(false);
   const [testMailFeedback, setTestMailFeedback] = useState<Feedback | null>(null);
   const [testMailDetail, setTestMailDetail] = useState<MailTestDetail | null>(null);
+  const [notifyTestBusy, setNotifyTestBusy] = useState(false);
+  const [notifyTestFeedback, setNotifyTestFeedback] = useState<Feedback | null>(null);
+  const [notifyTestDetail, setNotifyTestDetail] = useState<AppointmentNotifyTestDetail | null>(null);
   const [googleHealthBusy, setGoogleHealthBusy] = useState(false);
   const [googleHealth, setGoogleHealth] = useState<GoogleReviewsHealth | null>(null);
   const [importPresetImages, setImportPresetImages] = useState(false);
@@ -190,6 +198,32 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
       setGoogleHealth(j);
     } finally {
       setGoogleHealthBusy(false);
+    }
+  }
+
+  async function sendAppointmentNotifyTest() {
+    setNotifyTestBusy(true);
+    setNotifyTestFeedback(null);
+    setNotifyTestDetail(null);
+    try {
+      const res = await fetch("/api/admin/settings/test-appointment-notify", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        detail?: AppointmentNotifyTestDetail;
+      };
+      if (!res.ok || !j.ok) {
+        setNotifyTestFeedback({ text: j.error ?? "Test bildirimi gönderilemedi.", error: true });
+        setNotifyTestDetail(j.detail ?? null);
+        return;
+      }
+      setNotifyTestFeedback({ text: "Randevu bildirimi test e-postası gönderildi.", error: false });
+      setNotifyTestDetail(j.detail ?? null);
+    } finally {
+      setNotifyTestBusy(false);
     }
   }
 
@@ -904,6 +938,47 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
               onChange={(e) => field("appointmentNotifyOperatorEmails", e.target.value || null)}
             />
           </label>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-950/50">
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Randevu bildirimi testi</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Yeni randevu gelmiş gibi tanımlı alıcılara test e-postası yollar. Bu, canlı bildirim akışının en sade ve
+              güvenilir doğrulamasıdır.
+            </p>
+            <button
+              type="button"
+              onClick={() => void sendAppointmentNotifyTest()}
+              disabled={notifyTestBusy}
+              className="mt-2 rounded-full border border-zinc-300 px-4 py-2 text-xs font-medium dark:border-zinc-600 disabled:opacity-50"
+            >
+              {notifyTestBusy ? "Gönderiliyor…" : "Randevu bildirimi testini gönder"}
+            </button>
+            {notifyTestFeedback ? (
+              <p
+                className={`mt-2 text-xs ${
+                  notifyTestFeedback.error ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"
+                }`}
+              >
+                {notifyTestFeedback.text}
+              </p>
+            ) : null}
+            {notifyTestDetail ? (
+              <div className="mt-2 rounded border border-zinc-200 bg-white p-2 text-[11px] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+                <p>
+                  Alıcı: {notifyTestDetail.recipients} | Gönderilen: {notifyTestDetail.sent} | Hata:{" "}
+                  {notifyTestDetail.failed.length}
+                </p>
+                {notifyTestDetail.failed.length ? (
+                  <ul className="mt-1 list-disc pl-4">
+                    {notifyTestDetail.failed.map((f) => (
+                      <li key={f.to}>
+                        {f.to}: {f.error ?? "Bilinmeyen hata"}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
           <label className="grid gap-1 text-sm">
             Çerez bilgilendirme JSON (opsiyonel)
             <span className="text-xs text-zinc-500">
