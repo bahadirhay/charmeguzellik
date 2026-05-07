@@ -48,6 +48,12 @@ function itemVisible(permissions: readonly string[], item: NavItem): boolean {
   if (item.href === "/admin/crm") {
     return hasStaffPermission(permissions, "crm.leads") || hasStaffPermission(permissions, "crm.appointments");
   }
+  if (item.href === "/admin/appointments") {
+    return (
+      hasStaffPermission(permissions, "crm.appointments") ||
+      hasStaffPermission(permissions, "crm.appointments.self")
+    );
+  }
   if (item.perm === "site.theme") {
     return hasStaffPermission(permissions, "site.theme") || hasStaffPermission(permissions, "site.settings");
   }

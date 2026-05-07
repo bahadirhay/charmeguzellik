@@ -7,7 +7,8 @@ import {
   AppointmentTooCloseOtherServiceError,
 } from "@/lib/create-appointment-record";
 import { prisma } from "@/lib/prisma";
-import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { filterAppointmentsForSelfScope } from "@/lib/appointment-panel-access";
+import { requireStaffApiAppointments } from "@/lib/admin-api-auth";
 import { appointmentPhoneTurkeyHint, isValidTurkeyMobileAppointmentPhone } from "@/lib/appointment-phone";
 import {
   eligibleStaffForService,
@@ -18,14 +19,17 @@ import {
 } from "@/lib/appointment-staffing";
 
 export async function GET() {
-  const auth = await requireStaffApiPerm("crm.appointments");
+  const auth = await requireStaffApiAppointments();
   if (auth instanceof NextResponse) return auth;
   const list = await prisma.appointment.findMany({ orderBy: { startAt: "desc" } });
+  if (auth.appointmentScope === "self") {
+    return NextResponse.json(filterAppointmentsForSelfScope(list, auth.selfStaffLabel));
+  }
   return NextResponse.json(list);
 }
 
 export async function POST(req: Request) {
-  const auth = await requireStaffApiPerm("crm.appointments");
+  const auth = await requireStaffApiAppointments();
   if (auth instanceof NextResponse) return auth;
   const body = (await req.json()) as {
     startAt: string;
@@ -61,9 +65,29 @@ export async function POST(req: Request) {
     const staffMap = getServiceStaffMap(settings?.themeTokensJson);
     const staffCandidates = eligibleStaffForService(serviceName, staffMap);
     const requestedStaff = body.staffName?.trim() || "";
+    const selfLabel = auth.appointmentScope === "self" ? auth.selfStaffLabel?.trim() ?? "" : "";
+    if (auth.appointmentScope === "self" && !selfLabel) {
+      return NextResponse.json(
+        { error: "Hesabınızda görünen ad tanımlı değil. Yönetici: Personel → Görünen ad." },
+        { status: 403 },
+      );
+    }
+
     let assignedStaff: string | null = null;
     if (staffCandidates.length > 0) {
-      if (requestedStaff) {
+      if (auth.appointmentScope === "self") {
+        if (requestedStaff && requestedStaff.toLocaleLowerCase("tr-TR") !== selfLabel.toLocaleLowerCase("tr-TR")) {
+          return NextResponse.json({ error: "Yalnızca kendi adınıza randevu ekleyebilirsiniz." }, { status: 403 });
+        }
+        const want = requestedStaff || selfLabel;
+        const match = staffCandidates.find((s) => s.toLocaleLowerCase("tr-TR") === want.toLocaleLowerCase("tr-TR"));
+        if (!match) {
+          return NextResponse.json({ error: "Bu hizmet için hesabınız personel listesinde yok." }, { status: 403 });
+        }
+        const occupied = await isStaffOccupiedAt(prisma, startAt, match);
+        if (occupied) return NextResponse.json({ error: "Secilen personel bu saatte musait degil." }, { status: 409 });
+        assignedStaff = match;
+      } else if (requestedStaff) {
         if (!staffCandidates.some((s) => s.toLocaleLowerCase("tr-TR") === requestedStaff.toLocaleLowerCase("tr-TR"))) {
           return NextResponse.json({ error: "Secilen personel bu hizmet icin uygun degil." }, { status: 400 });
         }
@@ -74,6 +98,8 @@ export async function POST(req: Request) {
         assignedStaff = await pickAvailableStaff(prisma, startAt, staffCandidates);
         if (!assignedStaff) return NextResponse.json({ error: "Bu hizmet icin musait personel yok." }, { status: 409 });
       }
+    } else if (auth.appointmentScope === "self" && selfLabel) {
+      assignedStaff = selfLabel;
     }
     const notesWithStaff = withAssignedStaffInNotes(body.notes?.trim() || null, assignedStaff);
     row = await prisma.$transaction(async (tx) =>

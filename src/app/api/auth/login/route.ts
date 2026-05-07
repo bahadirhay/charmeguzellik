@@ -32,6 +32,7 @@ export async function POST(req: Request) {
     session.authKind = "staff";
     session.staffUserId = staff.id;
     session.username = staff.username;
+    session.staffDisplayName = staff.displayName?.trim() || null;
     session.roleSlug = staff.role.slug;
     session.permissionsJson = JSON.stringify(perms.length ? perms : allStaffPermissions());
     session.email = undefined;
@@ -63,6 +64,7 @@ export async function POST(req: Request) {
   session.email = process.env.ADMIN_EMAIL ?? "admin@example.com";
   session.username = undefined;
   session.staffUserId = undefined;
+  session.staffDisplayName = undefined;
   session.roleSlug = undefined;
   session.permissionsJson = JSON.stringify(allStaffPermissions());
   await session.save();

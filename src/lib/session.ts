@@ -8,6 +8,8 @@ export type AdminSession = {
   email?: string;
   staffUserId?: string;
   username?: string;
+  /** Personel kullanıcısında randevu ataması ile eşleşecek görünen ad (Personel Planlama isimleriyle aynı olmalı) */
+  staffDisplayName?: string | null;
   roleSlug?: string;
   /** JSON.stringify(string[]) — panel yetkileri */
   permissionsJson?: string;

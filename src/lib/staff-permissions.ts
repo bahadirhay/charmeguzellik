@@ -11,6 +11,8 @@ export const STAFF_PERMISSION_KEYS = [
   "social.tiktok",
   "crm.leads",
   "crm.appointments",
+  /** Yalnızca kendisine atanmış randevular (notes içi [[STAFF:…]] ile eşleşir) */
+  "crm.appointments.self",
   "users.manage",
 ] as const;
 

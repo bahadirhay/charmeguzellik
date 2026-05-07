@@ -1,9 +1,17 @@
 import { blocksArraySchema } from "@/lib/blocks/schema";
+import type { ContactFormContext } from "@/lib/contact-form-resolve";
 import { DEFAULT_APPOINTMENT_TIMEZONE, mergeAppointmentDays } from "@/lib/appointment-schedule";
 import type { PublishedAppointmentSchedule } from "@/lib/published-appointment-schedule.types";
 import { prisma } from "@/lib/prisma";
 
 export type { PublishedAppointmentSchedule } from "@/lib/published-appointment-schedule.types";
+
+/** Müşteri / panel randevu formunun public `resolvePublishedContactFormBlock` çağrısı için konum */
+export type PublishedAppointmentFormRef = {
+  blockId: string;
+  formContext: ContactFormContext;
+  pageSlug: string | null;
+};
 
 function parseBlocksJson(raw: string | null | undefined): unknown {
   if (!raw?.trim()) return [];
@@ -27,6 +35,53 @@ function extractFromBlocksArray(raw: unknown): PublishedAppointmentSchedule | nu
       appointmentTimeZone: p.appointmentTimeZone?.trim() || DEFAULT_APPOINTMENT_TIMEZONE,
     };
   }
+  return null;
+}
+
+function findAppointmentFormBlockIdInArray(raw: unknown): string | null {
+  const parsed = blocksArraySchema.safeParse(raw);
+  if (!parsed.success) return null;
+  for (const block of parsed.data) {
+    if (block.type === "contactForm" && block.props.mode === "appointment") {
+      return block.id;
+    }
+  }
+  return null;
+}
+
+/**
+ * İlk yayın randevu formu bloğunun id + bağlamı (müsait saat API’si ile aynı takvim).
+ * Sıra: üst blok → alt blok → yayın sayfaları.
+ */
+export async function getFirstPublishedAppointmentFormRef(): Promise<PublishedAppointmentFormRef | null> {
+  const [pages, settings] = await Promise.all([
+    prisma.page.findMany({
+      where: { published: true },
+      select: { slug: true, blocks: true, blocksMobile: true },
+    }),
+    prisma.siteSettings.findUnique({
+      where: { id: 1 },
+      select: { headerBlocks: true, footerBlocks: true },
+    }),
+  ]);
+
+  if (settings?.headerBlocks?.trim()) {
+    const id = findAppointmentFormBlockIdInArray(parseBlocksJson(settings.headerBlocks));
+    if (id) return { blockId: id, formContext: "header", pageSlug: null };
+  }
+  if (settings?.footerBlocks?.trim()) {
+    const id = findAppointmentFormBlockIdInArray(parseBlocksJson(settings.footerBlocks));
+    if (id) return { blockId: id, formContext: "footer", pageSlug: null };
+  }
+
+  for (const p of pages) {
+    for (const key of ["blocks", "blocksMobile"] as const) {
+      const raw = key === "blocksMobile" ? p.blocksMobile : p.blocks;
+      const id = findAppointmentFormBlockIdInArray(parseBlocksJson(raw ?? undefined));
+      if (id) return { blockId: id, formContext: "page", pageSlug: p.slug };
+    }
+  }
+
   return null;
 }
 

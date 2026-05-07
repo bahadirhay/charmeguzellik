@@ -4,11 +4,12 @@ import { AdminWhatsAppButton } from "@/components/admin/AdminWhatsAppButton";
 import { AppointmentForm } from "@/components/admin/AppointmentForm";
 import { AppointmentRowActions } from "@/components/admin/AppointmentRowActions";
 import { ReservationWeekCalendar } from "@/components/admin/ReservationWeekCalendar";
+import { filterAppointmentsForSelfScope, resolveAppointmentPanelScope } from "@/lib/appointment-panel-access";
 import { waPrefillForAppointment } from "@/lib/admin-whatsapp-prefill";
 import { getServiceStaffMap } from "@/lib/appointment-staffing";
 import { requirePagePermission } from "@/lib/auth";
 import { buildNavTree, collectServiceLabelsFromNav } from "@/lib/navigation";
-import { getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
+import { getFirstPublishedAppointmentFormRef, getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -27,13 +28,15 @@ function formatAppointmentDateTime(d: Date): string {
 }
 
 export default async function AppointmentsPage({ searchParams }: AppointmentsPageProps) {
-  await requirePagePermission("crm.appointments");
+  const access = await requirePagePermission(["crm.appointments", "crm.appointments.self"]);
+  const { scope: appointmentScope, selfStaffLabel } = resolveAppointmentPanelScope(access);
+
   const params = (await searchParams) ?? {};
   const view =
     params.view === "rescheduled" || params.view === "cancel_link"
       ? params.view
       : "all";
-  const [rows, headerNav, footerNav, appointmentSchedule, settings] = await Promise.all([
+  const [allRows, headerNav, footerNav, appointmentSchedule, settings, appointmentFormRef] = await Promise.all([
     prisma.appointment.findMany({ orderBy: { startAt: "asc" } }),
     prisma.navItem.findMany({
       where: { published: true, menuSlug: "header" },
@@ -48,7 +51,10 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
       where: { id: 1 },
       select: { themeTokensJson: true },
     }),
+    getFirstPublishedAppointmentFormRef(),
   ]);
+  const rows =
+    appointmentScope === "self" ? filterAppointmentsForSelfScope(allRows, selfStaffLabel) : allRows;
   const serviceStaffMap = getServiceStaffMap(settings?.themeTokensJson);
   const fromHeader = collectServiceLabelsFromNav(buildNavTree(headerNav));
   const fromFooter = collectServiceLabelsFromNav(buildNavTree(footerNav));
@@ -82,16 +88,31 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     <div className="min-w-0 max-w-full space-y-8">
       <header className="min-w-0">
         <h1 className="text-2xl font-semibold tracking-tight">Randevular</h1>
+        {appointmentScope === "self" ? (
+          <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+            Yalnızca size atanan randevuları görüyorsunuz (Personel Planlama’daki isim ile hesaptaki{" "}
+            <strong>görünen ad</strong> eşleşmeli).
+            {!selfStaffLabel?.trim()
+              ? " Şu anda görünen ad boş — yönetici Personel ekranından tanımlamalı."
+              : null}
+          </p>
+        ) : null}
         <p className="mt-2 text-xs text-zinc-500">
           Calisma saatleri ve slot araligi icin{" "}
           <Link href="/admin/pages" className="text-rose-600 hover:underline">
             Sayfalar duzenleyici
           </Link>{" "}
-          icindeki randevu formu blok ayarlarini guncelleyin. Personel-hizmet atama icin{" "}
-          <Link href="/admin/appointments/personel-planlama" className="text-rose-600 hover:underline">
-            Personel Planlama
-          </Link>{" "}
-          ekranini kullanin.
+          icindeki randevu formu blok ayarlarini guncelleyin.
+          {appointmentScope === "full" ? (
+            <>
+              {" "}
+              Personel-hizmet atama icin{" "}
+              <Link href="/admin/appointments/personel-planlama" className="text-rose-600 hover:underline">
+                Personel Planlama
+              </Link>{" "}
+              ekranini kullanin.
+            </>
+          ) : null}
         </p>
       </header>
       <AdminAppointmentPushBanner />
@@ -111,7 +132,13 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
           </span>
         </summary>
         <div className="mt-4">
-          <AppointmentForm serviceOptions={serviceOptions} schedule={appointmentSchedule} serviceStaffMap={serviceStaffMap} />
+          <AppointmentForm
+            serviceOptions={serviceOptions}
+            schedule={appointmentSchedule}
+            serviceStaffMap={serviceStaffMap}
+            appointmentFormRef={appointmentFormRef}
+            lockedStaffName={appointmentScope === "self" ? selfStaffLabel : null}
+          />
         </div>
       </details>
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">

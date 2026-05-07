@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import type { Appointment } from "@prisma/client";
-import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import {
+  appointmentRowForbiddenForStaff,
+  requireStaffApiAppointments,
+} from "@/lib/admin-api-auth";
 import { buildAppointmentNotifyCopy, buildNotifyLinks } from "@/lib/appointment-status-notify";
 import {
   AppointmentDuplicateError,
@@ -18,6 +21,7 @@ import { sendTransactionalEmail } from "@/lib/transactional-email";
 import { getSiteSettings } from "@/lib/site-settings";
 import { updateAppointmentRecord } from "@/lib/update-appointment-record";
 import { generateAppointmentCancelSecret } from "@/lib/appointment-cancel-token";
+import { withAssignedStaffInNotes } from "@/lib/appointment-staffing";
 import { buildAppointmentCancelUrl } from "@/lib/site-public-url";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -36,7 +40,7 @@ const DETAIL_KEYS = [
 const APPOINTMENT_UPDATE_LOCK_MS = 60 * 60 * 1000;
 
 export async function PATCH(req: Request, ctx: Ctx) {
-  const auth = await requireStaffApiPerm("crm.appointments");
+  const auth = await requireStaffApiAppointments();
   if (auth instanceof NextResponse) return auth;
 
   const { id } = await ctx.params;
@@ -62,6 +66,8 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
 
     const existing = await prisma.appointment.findUnique({ where: { id } });
+    const rowForbidden = appointmentRowForbiddenForStaff(auth, existing);
+    if (rowForbidden) return rowForbidden;
     if (!existing) {
       return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
     }
@@ -168,6 +174,8 @@ export async function PATCH(req: Request, ctx: Ctx) {
   }
 
   const existing = await prisma.appointment.findUnique({ where: { id } });
+  const rowForbidden2 = appointmentRowForbiddenForStaff(auth, existing);
+  if (rowForbidden2) return rowForbidden2;
   if (!existing) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
   }
@@ -237,6 +245,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
     input.notes = body.notes.trim() || null;
   } else if (body.notes === null) {
     input.notes = null;
+  }
+
+  if (auth.appointmentScope === "self" && auth.selfStaffLabel && input.notes !== undefined) {
+    input.notes = withAssignedStaffInNotes(input.notes, auth.selfStaffLabel);
   }
 
   try {

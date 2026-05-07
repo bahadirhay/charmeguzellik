@@ -15,14 +15,26 @@ import {
   isValidTurkeyMobileAppointmentPhone,
 } from "@/lib/appointment-phone";
 
+import type { PublishedAppointmentFormRef } from "@/lib/published-appointment-schedule";
+
 type Props = {
   serviceOptions?: string[];
   /** Yayınlanmış sitedeki ilk randevu formunun takvimi; yoksa site varsayılanı */
   schedule?: PublishedAppointmentSchedule | null;
   serviceStaffMap?: Record<string, string[]>;
+  /** Müşteri formu ile aynı blok (personel müsait saat API’si) */
+  appointmentFormRef?: PublishedAppointmentFormRef | null;
+  /** Uygulayıcı rolü: yalnızca bu ada randevu eklenir */
+  lockedStaffName?: string | null;
 };
 
-export function AppointmentForm({ serviceOptions = [], schedule = null, serviceStaffMap = {} }: Props) {
+export function AppointmentForm({
+  serviceOptions = [],
+  schedule = null,
+  serviceStaffMap = {},
+  appointmentFormRef = null,
+  lockedStaffName = null,
+}: Props) {
   const [feedback, setFeedback] = useState<{ text: string; error: boolean } | null>(null);
   const [apptDate, setApptDate] = useState("");
   const [apptTime, setApptTime] = useState("");
@@ -57,9 +69,62 @@ export function AppointmentForm({ serviceOptions = [], schedule = null, serviceS
     return serviceStaffMap[key] ?? [];
   }, [serviceNameValue, serviceStaffMap]);
 
+  const locked = lockedStaffName?.trim() ?? "";
+
   useEffect(() => {
-    if (!timeSlotLabels.includes(apptTime)) setApptTime("");
-  }, [timeSlotLabels, apptTime]);
+    if (locked) setStaffNameValue(locked);
+  }, [locked]);
+
+  const staffForSlots = locked || staffNameValue.trim();
+
+  const [staffSlots, setStaffSlots] = useState<string[] | null>(null);
+  const [staffSlotsLoading, setStaffSlotsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!staffForSlots || !appointmentFormRef) {
+      setStaffSlots(null);
+      setStaffSlotsLoading(false);
+      return;
+    }
+    if (!apptDate) {
+      setStaffSlots(null);
+      setStaffSlotsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setStaffSlotsLoading(true);
+    const params = new URLSearchParams({
+      date: apptDate,
+      staff: staffForSlots,
+      blockId: appointmentFormRef.blockId,
+      formContext: appointmentFormRef.formContext,
+    });
+    if (appointmentFormRef.pageSlug) params.set("pageSlug", appointmentFormRef.pageSlug);
+    fetch(`/api/appointments/availability?${params}`)
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; slots?: string[] }) => {
+        if (cancelled) return;
+        setStaffSlots(Array.isArray(j.slots) ? j.slots : []);
+      })
+      .catch(() => {
+        if (!cancelled) setStaffSlots([]);
+      })
+      .finally(() => {
+        if (!cancelled) setStaffSlotsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [apptDate, staffForSlots, appointmentFormRef]);
+
+  const effectiveSlots = useMemo(() => {
+    if (!staffForSlots || !appointmentFormRef) return timeSlotLabels;
+    return staffSlots ?? [];
+  }, [staffForSlots, appointmentFormRef, timeSlotLabels, staffSlots]);
+
+  useEffect(() => {
+    if (!effectiveSlots.includes(apptTime)) setApptTime("");
+  }, [effectiveSlots, apptTime]);
 
   const onClientPhoneBlur = useCallback(
     async (e: React.FocusEvent<HTMLInputElement>) => {
@@ -113,8 +178,8 @@ export function AppointmentForm({ serviceOptions = [], schedule = null, serviceS
       setFeedback({ text: appointmentPhoneTurkeyHint(), error: true });
       return;
     }
-    if (!timeSlotLabels.includes(time)) {
-      setFeedback({ text: "Seçilen saat bu takvim için geçerli değil.", error: true });
+    if (!effectiveSlots.includes(time)) {
+      setFeedback({ text: "Seçilen saat bu takvim veya personel müsaitliği için geçerli değil.", error: true });
       return;
     }
 
@@ -135,7 +200,9 @@ export function AppointmentForm({ serviceOptions = [], schedule = null, serviceS
       }
       setServiceNameValue(serviceName);
     }
-    const staffName = String(fd.get("staffName") ?? "").trim() || null;
+    const staffName =
+      locked ||
+      (String(fd.get("staffName") ?? "").trim() || null);
 
     const end = new Date(start.getTime() + slotDur * 60_000);
     const body = {
@@ -237,22 +304,38 @@ export function AppointmentForm({ serviceOptions = [], schedule = null, serviceS
         </label>
       )}
       {eligibleStaff.length > 0 ? (
-        <label className="text-sm text-zinc-700 dark:text-zinc-300">
-          Personel
-          <select
-            name="staffName"
-            value={staffNameValue}
-            onChange={(e) => setStaffNameValue(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
-          >
-            <option value="">Müsait personel otomatik ata</option>
-            {eligibleStaff.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
+        locked ? (
+          <>
+            <input type="hidden" name="staffName" value={locked} />
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              Personel: <span className="font-medium text-zinc-900 dark:text-zinc-100">{locked}</span> (hesabınız)
+            </p>
+          </>
+        ) : (
+          <label className="text-sm text-zinc-700 dark:text-zinc-300">
+            Personel
+            <select
+              name="staffName"
+              value={staffNameValue}
+              onChange={(e) => setStaffNameValue(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
+            >
+              <option value="">Müsait personel otomatik ata</option>
+              {eligibleStaff.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+        )
+      ) : locked ? (
+        <>
+          <input type="hidden" name="staffName" value={locked} />
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            Personel: <span className="font-medium text-zinc-900 dark:text-zinc-100">{locked}</span> (hesabınız)
+          </p>
+        </>
       ) : null}
 
       <div className="grid gap-2 sm:grid-cols-2">
@@ -282,7 +365,12 @@ export function AppointmentForm({ serviceOptions = [], schedule = null, serviceS
             className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
           >
             <option value="">{apptDate ? "Saat seçin…" : "Önce tarih seçin"}</option>
-            {timeSlotLabels.map((t) => (
+            {staffSlotsLoading && staffForSlots && appointmentFormRef ? (
+              <option value="" disabled>
+                Saatler yükleniyor…
+              </option>
+            ) : null}
+            {effectiveSlots.map((t) => (
               <option key={t} value={t}>
                 {t}
               </option>
@@ -290,8 +378,10 @@ export function AppointmentForm({ serviceOptions = [], schedule = null, serviceS
           </select>
         </label>
       </div>
-      {apptDate && timeSlotLabels.length === 0 ? (
-        <p className="text-xs text-amber-800 dark:text-amber-200">Bu tarihte salon kapalı veya uygun slot yok.</p>
+      {apptDate && effectiveSlots.length === 0 && !staffSlotsLoading ? (
+        <p className="text-xs text-amber-800 dark:text-amber-200">
+          Bu tarihte salon kapalı, uygun slot yok veya seçili personel için müsait saat kalmadı.
+        </p>
       ) : null}
 
       <label className="text-sm text-zinc-700 dark:text-zinc-300">

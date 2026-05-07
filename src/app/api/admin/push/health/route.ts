@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { requireStaffApiAny } from "@/lib/admin-api-auth";
 import { isVapidSendConfigured } from "@/lib/vapid-config";
 import { prisma } from "@/lib/prisma";
 
@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
  * Kimlik bilgisi veya anahtar döndürmez.
  */
 export async function GET() {
-  const auth = await requireStaffApiPerm("crm.appointments");
+  const auth = await requireStaffApiAny(["crm.appointments", "crm.appointments.self"]);
   if (auth instanceof NextResponse) return auth;
 
   let subscriptionCount = 0;

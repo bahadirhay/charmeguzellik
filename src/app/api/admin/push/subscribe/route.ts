@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { requireStaffApiAny } from "@/lib/admin-api-auth";
 import { prisma } from "@/lib/prisma";
 
 const subscriptionSchema = z.object({
@@ -26,7 +26,7 @@ async function resolveStaffId(
 
 /** PushSubscription kaydı (aynı endpoint güncellenir) */
 export async function POST(req: Request) {
-  const auth = await requireStaffApiPerm("crm.appointments");
+  const auth = await requireStaffApiAny(["crm.appointments", "crm.appointments.self"]);
   if (auth instanceof NextResponse) return auth;
 
   let raw: unknown;
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const auth = await requireStaffApiPerm("crm.appointments");
+  const auth = await requireStaffApiAny(["crm.appointments", "crm.appointments.self"]);
   if (auth instanceof NextResponse) return auth;
   let endpoint: string | null = null;
   try {

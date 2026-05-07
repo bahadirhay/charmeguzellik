@@ -18,6 +18,11 @@ export async function ensureDefaultStaffRoles(prisma: PrismaClient) {
       label: "Randevu operatörü",
       permissions: ["crm.appointments"],
     },
+    {
+      slug: "practitioner",
+      label: "Uygulayıcı (yalnızca kendi randevuları)",
+      permissions: ["crm.appointments.self"],
+    },
   ];
   for (const r of roleSpecs) {
     await prisma.staffRole.upsert({

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { requireStaffApiAppointmentsFull } from "@/lib/admin-api-auth";
 import { prisma } from "@/lib/prisma";
 import { getServiceStaffMap } from "@/lib/appointment-staffing";
 import { parseThemeTokens, themeTokensToJson } from "@/lib/theme-tokens";
 
 export async function GET() {
-  const auth = await requireStaffApiPerm("crm.appointments");
+  const auth = await requireStaffApiAppointmentsFull();
   if (auth instanceof NextResponse) return auth;
   const row = await prisma.siteSettings.findUnique({
     where: { id: 1 },
@@ -15,7 +15,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const auth = await requireStaffApiPerm("crm.appointments");
+  const auth = await requireStaffApiAppointmentsFull();
   if (auth instanceof NextResponse) return auth;
   const body = (await req.json().catch(() => ({}))) as { map?: unknown };
   const src = body.map;

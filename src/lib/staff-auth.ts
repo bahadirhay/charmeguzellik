@@ -14,6 +14,8 @@ export type StaffAccess = {
   permissions: string[];
   isLegacy: boolean;
   staffUserId?: string;
+  /** Oturumdaki personel görünen adı — `crm.appointments.self` için randevu eşleşmesi */
+  staffDisplayName?: string | null;
   roleSlug?: string;
 };
 
@@ -46,6 +48,7 @@ export async function getStaffAccess(): Promise<StaffAccess | null> {
     permissions,
     isLegacy,
     staffUserId: s.staffUserId,
+    staffDisplayName: typeof s.staffDisplayName === "string" ? s.staffDisplayName.trim() || null : null,
     roleSlug: s.roleSlug,
   };
 }

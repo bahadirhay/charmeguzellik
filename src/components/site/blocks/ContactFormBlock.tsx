@@ -112,6 +112,7 @@ export function ContactFormBlock({
   const [apptDate, setApptDate] = useState("");
   const [apptTime, setApptTime] = useState("");
   const [selectedServiceId, setSelectedServiceId] = useState("");
+  const [selectedStaff, setSelectedStaff] = useState("");
   const [serviceStaffMap, setServiceStaffMap] = useState<Record<string, string[]>>({});
   const clearAppointmentSubmitFeedback = useCallback(() => {
     setSubmitError(null);
@@ -155,9 +156,56 @@ export function ContactFormBlock({
     [apptDate, mergedDays, slotDurationMinutes, tz],
   );
 
+  const staffForSlots = selectedStaff.trim();
+
+  const [staffSlots, setStaffSlots] = useState<string[] | null>(null);
+  const [staffSlotsLoading, setStaffSlotsLoading] = useState(false);
+
   useEffect(() => {
-    if (!timeSlotLabels.includes(apptTime)) setApptTime("");
-  }, [timeSlotLabels, apptTime]);
+    if (!isAppointment || !staffForSlots || !blockId?.trim()) {
+      setStaffSlots(null);
+      setStaffSlotsLoading(false);
+      return;
+    }
+    if (!apptDate) {
+      setStaffSlots(null);
+      setStaffSlotsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setStaffSlotsLoading(true);
+    const params = new URLSearchParams({
+      date: apptDate,
+      staff: staffForSlots,
+      blockId: blockId ?? "",
+      formContext,
+    });
+    if (resolvedPageSlug) params.set("pageSlug", resolvedPageSlug);
+    fetch(`/api/appointments/availability?${params}`)
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; slots?: string[] }) => {
+        if (cancelled) return;
+        setStaffSlots(Array.isArray(j.slots) ? j.slots : []);
+      })
+      .catch(() => {
+        if (!cancelled) setStaffSlots([]);
+      })
+      .finally(() => {
+        if (!cancelled) setStaffSlotsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAppointment, apptDate, staffForSlots, blockId, formContext, resolvedPageSlug]);
+
+  const effectiveTimeSlots = useMemo(() => {
+    if (!staffForSlots) return timeSlotLabels;
+    return staffSlots ?? [];
+  }, [staffForSlots, timeSlotLabels, staffSlots]);
+
+  useEffect(() => {
+    if (!effectiveTimeSlots.includes(apptTime)) setApptTime("");
+  }, [effectiveTimeSlots, apptTime]);
 
   useEffect(() => {
     if (!isAppointment || !showApptService) {
@@ -228,6 +276,12 @@ export function ContactFormBlock({
     const key = selectedServiceLabel.toLocaleLowerCase("tr-TR");
     return serviceStaffMap[key] ?? [];
   }, [selectedServiceLabel, serviceStaffMap]);
+
+  useEffect(() => {
+    if (selectedStaff && !eligibleStaff.includes(selectedStaff)) {
+      setSelectedStaff("");
+    }
+  }, [eligibleStaff, selectedStaff]);
 
   const showNavLoading = isAppointment && showApptService && navLoading;
 
@@ -324,7 +378,7 @@ export function ContactFormBlock({
       setStatus("err");
       return;
     }
-    if (!timeSlotLabels.includes(time)) {
+    if (!effectiveTimeSlots.includes(time)) {
       setStatus("err");
       return;
     }
@@ -392,6 +446,7 @@ export function ContactFormBlock({
     setApptDate("");
     setApptTime("");
     setSelectedServiceId("");
+    setSelectedStaff("");
   }
 
   if (previewDisabled) {
@@ -445,6 +500,7 @@ export function ContactFormBlock({
                   onChange={(e) => {
                     clearAppointmentSubmitFeedback();
                     setSelectedServiceId(e.target.value);
+                    setSelectedStaff("");
                   }}
                 >
                   <option value="" disabled>
@@ -479,9 +535,12 @@ export function ContactFormBlock({
                   Uygun personel
                   <select
                     name="staffName"
+                    value={selectedStaff}
+                    onChange={(e) => {
+                      clearAppointmentSubmitFeedback();
+                      setSelectedStaff(e.target.value);
+                    }}
                     className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
-                    defaultValue=""
-                    onChange={() => clearAppointmentSubmitFeedback()}
                   >
                     <option value="">Müsait personele otomatik ata</option>
                     {eligibleStaff.map((s) => (
@@ -525,7 +584,12 @@ export function ContactFormBlock({
                 className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
               >
                 <option value="">{apptDate ? "Saat seçin…" : "Önce tarih seçin"}</option>
-                {timeSlotLabels.map((t) => (
+                {staffSlotsLoading && staffForSlots && blockId?.trim() ? (
+                  <option value="" disabled>
+                    Saatler yükleniyor…
+                  </option>
+                ) : null}
+                {effectiveTimeSlots.map((t) => (
                   <option key={t} value={t}>
                     {t}
                   </option>
@@ -533,8 +597,10 @@ export function ContactFormBlock({
               </select>
             </label>
           </div>
-          {apptDate && timeSlotLabels.length === 0 ? (
-            <p className="text-xs text-amber-800 dark:text-amber-200">Bu tarihte salon kapalı veya uygun slot yok.</p>
+          {apptDate && effectiveTimeSlots.length === 0 && !staffSlotsLoading ? (
+            <p className="text-xs text-amber-800 dark:text-amber-200">
+              Bu tarihte salon kapalı, uygun slot yok veya seçili personel için müsait saat kalmadı.
+            </p>
           ) : null}
           {showApptEmail ? (
             <label className="text-sm text-zinc-700 dark:text-zinc-300">
