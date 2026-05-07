@@ -27,11 +27,11 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 
   return {
-    title: "Randevu Onay",
+    title: "Randevu Onayı",
     description: "",
     robots: { index: false, follow: false },
     openGraph: {
-      title: "Randevu Onay",
+      title: "Randevu Onayı",
       description: "",
       type: "website",
       ...(siteBase.startsWith("http") ? { url: `${siteBase}${APPOINTMENT_CANCEL_PATH}` } : {}),
@@ -41,7 +41,7 @@ export async function generateMetadata(): Promise<Metadata> {
       ? {
           twitter: {
             card: "summary",
-            title: "Randevu Onay",
+      title: "Randevu Onayı",
             description: "",
             images: [logoUrl],
           },
