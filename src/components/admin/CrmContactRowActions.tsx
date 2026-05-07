@@ -7,6 +7,8 @@ export function CrmContactRowActions(props: {
   id: string;
   name: string;
   email: string | null;
+  /** Normalleştirilmiş telefon (phoneKey); wa.me için kullanılır */
+  phoneKey: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);

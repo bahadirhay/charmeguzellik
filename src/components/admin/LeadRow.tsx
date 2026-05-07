@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminWhatsAppButton } from "@/components/admin/AdminWhatsAppButton";
 import type { Lead } from "@prisma/client";
 import { useState } from "react";
 
@@ -26,7 +27,14 @@ export function LeadRow({ lead }: { lead: Lead }) {
       <td className="px-3 py-2 font-medium">{lead.name}</td>
       <td className="px-3 py-2 text-xs">
         <div>{lead.email}</div>
-        <div>{lead.phone}</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span>{lead.phone ?? "—"}</span>
+          <AdminWhatsAppButton
+            phone={lead.phone}
+            prefilledMessage={`Merhaba ${lead.name.trim() || "Merhaba"}, iletişim formunuz hakkında yazıyorum.`}
+            className="inline-flex shrink-0 items-center rounded-full border border-emerald-600/50 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-900 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-100"
+          />
+        </div>
         <div className="text-zinc-500">{lead.message}</div>
       </td>
       <td className="px-3 py-2">

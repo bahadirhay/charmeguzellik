@@ -1,7 +1,9 @@
 import { AdminAppointmentPushBanner } from "@/components/admin/AdminAppointmentPushBanner";
+import { AdminWhatsAppButton } from "@/components/admin/AdminWhatsAppButton";
 import { AppointmentForm } from "@/components/admin/AppointmentForm";
 import { AppointmentRowActions } from "@/components/admin/AppointmentRowActions";
 import { ReservationWeekCalendar } from "@/components/admin/ReservationWeekCalendar";
+import { waPrefillForAppointment } from "@/lib/admin-whatsapp-prefill";
 import { requirePagePermission } from "@/lib/auth";
 import { buildNavTree, collectServiceLabelsFromNav } from "@/lib/navigation";
 import { getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
@@ -78,9 +80,16 @@ export default async function AppointmentsPage() {
                 </td>
                 <td className="px-3 py-2">{r.serviceName}</td>
                 <td className="px-3 py-2">
-                  {r.clientName}
-                  <div className="text-xs text-zinc-500">{r.clientPhone}</div>
-                  {r.clientEmail ? <div className="text-xs text-zinc-500">{r.clientEmail}</div> : null}
+                  <div className="font-medium">{r.clientName}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                    <span>{r.clientPhone}</span>
+                    <AdminWhatsAppButton
+                      phone={r.clientPhone}
+                      prefilledMessage={waPrefillForAppointment(r.clientName, r.startAt.toISOString(), r.serviceName)}
+                      label="WhatsApp"
+                    />
+                  </div>
+                  {r.clientEmail ? <div className="mt-0.5 text-xs text-zinc-500">{r.clientEmail}</div> : null}
                 </td>
                 <td className="px-3 py-2 align-top">
                   <AppointmentRowActions
@@ -127,8 +136,15 @@ export default async function AppointmentsPage() {
                   <td className="px-3 py-2 whitespace-nowrap">{new Date(r.startAt).toLocaleString("tr-TR")}</td>
                   <td className="px-3 py-2">{r.serviceName}</td>
                   <td className="px-3 py-2">
-                    {r.clientName}
-                    <div className="text-xs text-zinc-500">{r.clientPhone}</div>
+                    <div className="font-medium">{r.clientName}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+                      <span>{r.clientPhone}</span>
+                      <AdminWhatsAppButton
+                        phone={r.clientPhone}
+                        prefilledMessage={waPrefillForAppointment(r.clientName, r.startAt.toISOString(), r.serviceName)}
+                        label="WhatsApp"
+                      />
+                    </div>
                   </td>
                   <td className="px-3 py-2 align-top">
                     <AppointmentRowActions

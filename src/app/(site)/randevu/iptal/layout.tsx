@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
+import { APPOINTMENT_CANCEL_PATH, normalizePublicSiteUrl } from "@/lib/site-public-url";
 
-const siteBase =
-  typeof process.env.NEXT_PUBLIC_SITE_URL === "string"
-    ? process.env.NEXT_PUBLIC_SITE_URL.trim().replace(/\/$/, "")
-    : "";
+const siteBase = normalizePublicSiteUrl();
 
 export const metadata: Metadata = {
   title: "Randevu iptal",
@@ -13,7 +11,7 @@ export const metadata: Metadata = {
     title: "Randevu iptal",
     description: "Bağlantıya dokunun; iptal kodunuzu güvenli şekilde girin.",
     type: "website",
-    ...(siteBase.startsWith("http") ? { url: `${siteBase}/randevu/iptal` } : {}),
+    ...(siteBase.startsWith("http") ? { url: `${siteBase}${APPOINTMENT_CANCEL_PATH}` } : {}),
   },
 };
 

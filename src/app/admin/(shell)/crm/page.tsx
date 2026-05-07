@@ -1,3 +1,4 @@
+import { AdminWhatsAppButton } from "@/components/admin/AdminWhatsAppButton";
 import { LeadRow } from "@/components/admin/LeadRow";
 import { CrmContactRowActions } from "@/components/admin/CrmContactRowActions";
 import { requirePagePermission } from "@/lib/auth";
@@ -70,7 +71,16 @@ export default async function CrmPage() {
                       {new Date(c.updatedAt).toLocaleString("tr-TR")}
                     </td>
                     <td className="px-3 py-2 font-medium">{c.name}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{c.phoneKey}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
+                        <span>{c.phoneKey}</span>
+                        <AdminWhatsAppButton
+                          phone={c.phoneKey}
+                          prefilledMessage={`Merhaba ${c.name.trim() || "Merhaba"}, randevunuz / iletişiminiz hakkında yazıyorum.`}
+                          label="WhatsApp"
+                        />
+                      </div>
+                    </td>
                     <td className="px-3 py-2 text-xs">{c.email ?? "—"}</td>
                     <td className="px-3 py-2 text-xs">
                       {c.appointments.length === 0 ? (
@@ -91,7 +101,7 @@ export default async function CrmPage() {
                       )}
                     </td>
                     <td className="px-3 py-2 align-top">
-                      <CrmContactRowActions id={c.id} name={c.name} email={c.email} />
+                      <CrmContactRowActions id={c.id} name={c.name} email={c.email} phoneKey={c.phoneKey} />
                     </td>
                   </tr>
                 ))}

@@ -17,7 +17,8 @@ export default async function SettingsPage() {
         <p className="text-sm text-zinc-500">
           Üretimde{" "}
           <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">NEXT_PUBLIC_SITE_URL</code>{" "}
-          alan adınızı girin (sitemap ve canonical için). Hangi sayfaların{" "}
+          mutlaka canlı alan adınız olsun — örn. <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">https://charmeguzellik.com</code> (Vercel
+          alt alanı değil). Böylece randevu iptal bağlantıları ve sitemap doğru domain ile üretilir. Hangi sayfaların{" "}
           <a className="text-rose-600 underline" href="/admin/sitemap">
             sitemap.xml
           </a>{" "}

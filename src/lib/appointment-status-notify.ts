@@ -33,7 +33,7 @@ export function buildAppointmentNotifyCopy(
      * @see https://faq.whatsapp.com/539178204879377/
      */
     const waCancelBlock = cancelInfo
-      ? `\n\n*Randevunu iptal için tıklayıp kullanacağınız bağlantı*\n${cancelInfo.cancelUrl}\n\n*İptal kodunuz:* ${cancelInfo.cancelCode}\n⚠ Kodu paylaşmayın.`
+      ? `\n\n*Randevunu iptal için tıklayıp kullanacağınız bağlantı*\n${cancelInfo.cancelUrl}\n\n*İptal kodunuz:* ${cancelInfo.cancelCode}\n(Uyarı: kodu paylaşmayın.)`
       : "";
 
     /** E-posta: kod + bağlantı ayrı satırlarda. */

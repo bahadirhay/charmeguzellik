@@ -13,6 +13,7 @@ import { sendTransactionalEmail } from "@/lib/transactional-email";
 import { getSiteSettings } from "@/lib/site-settings";
 import { updateAppointmentRecord } from "@/lib/update-appointment-record";
 import { generateAppointmentCancelSecret } from "@/lib/appointment-cancel-token";
+import { buildAppointmentCancelUrl } from "@/lib/site-public-url";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -106,11 +107,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
     if (statusRaw === "approved") {
       const sec = generateAppointmentCancelSecret();
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "";
-      const cancelUrlBase = siteUrl ? `${siteUrl}/randevu/iptal` : "/randevu/iptal";
       cancelInfo = {
         cancelCode: sec.code,
-        cancelUrl: `${cancelUrlBase}?t=${encodeURIComponent(sec.token)}`,
+        cancelUrl: buildAppointmentCancelUrl(sec.token, req),
       };
       updated = await prisma.appointment.update({
         where: { id: updated.id },

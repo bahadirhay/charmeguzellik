@@ -7,6 +7,8 @@ import {
   appointmentPhoneTurkeyHint,
   isValidTurkeyMobileAppointmentPhone,
 } from "@/lib/appointment-phone";
+import { AdminWhatsAppButton } from "@/components/admin/AdminWhatsAppButton";
+import { waPrefillForAppointment } from "@/lib/admin-whatsapp-prefill";
 
 function statusLabelTr(status: string): string {
   if (status === "pending") return "Bekliyor";
@@ -59,6 +61,9 @@ export function AppointmentRowActions(props: {
 
   const isPending = localStatus === "pending";
   const hasServiceList = props.serviceOptions.length > 0;
+
+  const phoneForWa = editing ? draftPhone : props.clientPhone ?? "";
+  const waPrefillMessage = waPrefillForAppointment(props.clientName, props.startAtIso, props.serviceName);
 
   useEffect(() => {
     setLocalStatus(props.status);
@@ -227,6 +232,7 @@ export function AppointmentRowActions(props: {
         >
           {editing ? "Kapat" : "Düzenle"}
         </button>
+        <AdminWhatsAppButton phone={phoneForWa} prefilledMessage={waPrefillMessage} label="WhatsApp" />
       </div>
 
       {editing ? (

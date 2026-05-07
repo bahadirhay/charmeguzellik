@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
    * Admin paneli ve yönetim API’si asla edge/CDN’de önbelleğe alınmasın;
    * aksi halde eski menü / eski JS paketi canlıda kalabiliyor.
    */
+  /** Eski `/randevu/iptal` bağlantıları → kısa kanonik yol (sorgu dizisi korunur). */
+  async redirects() {
+    return [{ source: "/randevu/iptal", destination: "/rezervasyoniptal", permanent: true }];
+  },
   async headers() {
     const noStore = [
       { key: "Cache-Control", value: "private, no-store, max-age=0, must-revalidate" },
@@ -26,6 +30,8 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
+      /** Müşteri yüzü kısa güvenilir URL; içerik `/randevu/iptal` ile aynı (alan adı + izlenim için). */
+      { source: "/rezervasyoniptal", destination: "/randevu/iptal" },
       {
         source: "/wp-content/:path*",
         destination: "/webpace-mirror/wp-content/:path*",
