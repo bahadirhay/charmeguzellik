@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Aynı müşteri adı veya telefonla bu hizmet ve saatte zaten kayıt var (bekleyen veya onaylı).",
+            "Aynı kişi için aynı saatte başka aktif kayıt var veya aynı gün aynı hizmet zaten kayıtlı.",
         },
         { status: 409 },
       );

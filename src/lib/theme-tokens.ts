@@ -60,6 +60,9 @@ const themeTokensSchema = z
     socialPreviewLogoUrl: z.string().nullable().optional(),
     /** Sitenin favicon / app icon görseli (URL) */
     siteFaviconUrl: z.string().nullable().optional(),
+    /** Telegram bot bildirimi (panelde yönetilir) */
+    telegramBotToken: z.string().nullable().optional(),
+    telegramChatId: z.string().nullable().optional(),
     siteFooterStrip: siteFooterStripFields.optional(),
     siteHeaderBrand: siteHeaderBrandFields.optional(),
   })

@@ -8,6 +8,7 @@ import { resolvePublishedContactFormBlock, type ContactFormContext } from "@/lib
 import { createAppointmentRecord, AppointmentDuplicateError } from "@/lib/create-appointment-record";
 import { appointmentInboundNotifyRecipients } from "@/lib/appointment-inbound-notify";
 import { notifyStaffPushNewAppointment } from "@/lib/appointment-push-notify";
+import { notifyTelegramNewAppointment } from "@/lib/appointment-telegram-notify";
 import { getSiteSettings } from "@/lib/site-settings";
 import { prisma } from "@/lib/prisma";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
@@ -119,7 +120,7 @@ export async function POST(req: Request) {
         {
           ok: false,
           error:
-            "Bu ad veya telefon numarasıyla aynı hizmet ve saat için zaten bir randevu talebiniz var. Talebinizi kontrol edin veya farklı bir saat seçin.",
+            "Bu kişi için aynı saatte başka bir randevu/talep var veya aynı gün aynı hizmet zaten alınmış. Mevcut randevunuzu güncelleyebilir ya da farklı saat seçebilirsiniz.",
         },
         { status: 409 },
       );
@@ -179,6 +180,16 @@ export async function POST(req: Request) {
     await notifyStaffPushNewAppointment(created);
   } catch (e) {
     console.warn("appointment push notify", e);
+  }
+
+  try {
+    const settings = await getSiteSettings();
+    const tg = await notifyTelegramNewAppointment(settings, created);
+    if (!tg.ok && !tg.skipped) {
+      console.warn("appointment telegram notify", tg.error);
+    }
+  } catch (e) {
+    console.warn("appointment telegram notify", e);
   }
 
   return NextResponse.json({ ok: true });

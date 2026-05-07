@@ -53,6 +53,8 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
   const [notifyTestBusy, setNotifyTestBusy] = useState(false);
   const [notifyTestFeedback, setNotifyTestFeedback] = useState<Feedback | null>(null);
   const [notifyTestDetail, setNotifyTestDetail] = useState<AppointmentNotifyTestDetail | null>(null);
+  const [telegramTestBusy, setTelegramTestBusy] = useState(false);
+  const [telegramTestFeedback, setTelegramTestFeedback] = useState<Feedback | null>(null);
   const [googleHealthBusy, setGoogleHealthBusy] = useState(false);
   const [googleHealth, setGoogleHealth] = useState<GoogleReviewsHealth | null>(null);
   const [importPresetImages, setImportPresetImages] = useState(false);
@@ -227,6 +229,25 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
     }
   }
 
+  async function sendTelegramNotifyTest() {
+    setTelegramTestBusy(true);
+    setTelegramTestFeedback(null);
+    try {
+      const res = await fetch("/api/admin/settings/test-telegram-notify", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !j.ok) {
+        setTelegramTestFeedback({ text: j.error ?? "Telegram test bildirimi gönderilemedi.", error: true });
+        return;
+      }
+      setTelegramTestFeedback({ text: "Telegram test bildirimi gönderildi.", error: false });
+    } finally {
+      setTelegramTestBusy(false);
+    }
+  }
+
   function patchFooterStrip(patch: Partial<NonNullable<ThemeTokens["siteFooterStrip"]>>) {
     const t = parseThemeTokens(row.themeTokensJson);
     const next: ThemeTokens = {
@@ -256,6 +277,8 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
   const headerBrand = parsedThemeTokens.siteHeaderBrand ?? {};
   const socialPreviewLogoUrl = strForInput(parsedThemeTokens.socialPreviewLogoUrl ?? undefined);
   const siteFaviconUrl = strForInput(parsedThemeTokens.siteFaviconUrl ?? undefined);
+  const telegramBotToken = strForInput(parsedThemeTokens.telegramBotToken ?? undefined);
+  const telegramChatId = strForInput(parsedThemeTokens.telegramChatId ?? undefined);
 
   const themeList = listThemes();
   const activeMeta = themeList.find((t) => t.id === row.activeThemeId) ?? themeList[0];
@@ -938,6 +961,50 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
               onChange={(e) => field("appointmentNotifyOperatorEmails", e.target.value || null)}
             />
           </label>
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-950/50">
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Telegram anlık bildirim</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Yeni randevularda anlık Telegram bildirimi almak için bot token ve chat id girin.
+            </p>
+            <div className="mt-2 grid gap-2">
+              <label className="grid gap-1 text-sm">
+                Telegram Bot Token
+                <input
+                  type="password"
+                  className="rounded border border-zinc-300 px-2 py-1 font-mono text-xs dark:border-zinc-600 dark:bg-zinc-950"
+                  value={telegramBotToken}
+                  onChange={(e) => patchThemeTokens({ telegramBotToken: e.target.value || null })}
+                  placeholder="123456789:AA..."
+                />
+              </label>
+              <label className="grid gap-1 text-sm">
+                Telegram Chat ID
+                <input
+                  className="rounded border border-zinc-300 px-2 py-1 font-mono text-xs dark:border-zinc-600 dark:bg-zinc-950"
+                  value={telegramChatId}
+                  onChange={(e) => patchThemeTokens({ telegramChatId: e.target.value || null })}
+                  placeholder="123456789 veya -100..."
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={() => void sendTelegramNotifyTest()}
+              disabled={telegramTestBusy}
+              className="mt-2 rounded-full border border-zinc-300 px-4 py-2 text-xs font-medium dark:border-zinc-600 disabled:opacity-50"
+            >
+              {telegramTestBusy ? "Gönderiliyor…" : "Telegram test bildirimi gönder"}
+            </button>
+            {telegramTestFeedback ? (
+              <p
+                className={`mt-2 text-xs ${
+                  telegramTestFeedback.error ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"
+                }`}
+              >
+                {telegramTestFeedback.text}
+              </p>
+            ) : null}
+          </div>
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-950/50">
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Randevu bildirimi testi</p>
             <p className="mt-1 text-xs text-zinc-500">

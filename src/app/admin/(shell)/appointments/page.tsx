@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminAppointmentPushBanner } from "@/components/admin/AdminAppointmentPushBanner";
 import { AdminWhatsAppButton } from "@/components/admin/AdminWhatsAppButton";
 import { AppointmentForm } from "@/components/admin/AppointmentForm";
@@ -12,8 +13,20 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function AppointmentsPage() {
+type AppointmentsPageProps = {
+  searchParams?: Promise<{ view?: string }>;
+};
+
+const CUSTOMER_RESCHEDULE_NOTE_PREFIX = "Müşteri takvim güncelledi (bağlantı):";
+const CUSTOMER_CANCEL_REQUEST_NOTE_PREFIX = "Müşteri iptal talebi (bağlantı):";
+
+export default async function AppointmentsPage({ searchParams }: AppointmentsPageProps) {
   await requirePagePermission("crm.appointments");
+  const params = (await searchParams) ?? {};
+  const view =
+    params.view === "rescheduled" || params.view === "cancel_link"
+      ? params.view
+      : "all";
   const [rows, headerNav, footerNav, appointmentSchedule] = await Promise.all([
     prisma.appointment.findMany({ orderBy: { startAt: "asc" } }),
     prisma.navItem.findMany({
@@ -34,7 +47,7 @@ export default async function AppointmentsPage() {
       : fromFooter.length > 0
         ? fromFooter
         : [];
-  const activeRows = rows
+  const activeRowsBase = rows
     .filter((r) => r.status === "pending" || r.status === "approved")
     .sort((a, b) => {
       const statusRank = (s: string) => (s === "pending" ? 0 : 1);
@@ -42,7 +55,17 @@ export default async function AppointmentsPage() {
       if (byStatus !== 0) return byStatus;
       return a.startAt.getTime() - b.startAt.getTime();
     });
+  const isCustomerRescheduled = (notes: string | null | undefined) =>
+    Boolean(notes?.includes(CUSTOMER_RESCHEDULE_NOTE_PREFIX));
+  const isCancelRequestFromLink = (notes: string | null | undefined) =>
+    Boolean(notes?.includes(CUSTOMER_CANCEL_REQUEST_NOTE_PREFIX));
   const cancelRequestRows = rows.filter((r) => r.status === "cancel_request");
+  const rescheduledCount = activeRowsBase.filter((r) => isCustomerRescheduled(r.notes)).length;
+  const cancelLinkCount = cancelRequestRows.filter((r) => isCancelRequestFromLink(r.notes)).length;
+  const activeRows =
+    view === "rescheduled" ? activeRowsBase.filter((r) => isCustomerRescheduled(r.notes)) : activeRowsBase;
+  const visibleCancelRequestRows =
+    view === "cancel_link" ? cancelRequestRows.filter((r) => isCancelRequestFromLink(r.notes)) : cancelRequestRows;
   const archivedRows = rows.filter((r) => r.status === "rejected" || r.status === "cancelled");
   return (
     <div className="min-w-0 max-w-full space-y-8">
@@ -73,6 +96,26 @@ export default async function AppointmentsPage() {
         <div className="border-b border-zinc-200 px-3 py-2 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
           Sıralama: <strong>Bekleyenler önce</strong>, ardından onaylılar; her grupta <strong>en yakın tarih üstte</strong>.
         </div>
+        <div className="flex items-center gap-2 border-b border-zinc-200 px-3 py-2 text-xs dark:border-zinc-800">
+          <Link
+            href="/admin/appointments"
+            className={`rounded-full px-3 py-1 ${view === "all" ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900" : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"}`}
+          >
+            Tümü ({activeRowsBase.length})
+          </Link>
+          <Link
+            href="/admin/appointments?view=rescheduled"
+            className={`rounded-full px-3 py-1 ${view === "rescheduled" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"}`}
+          >
+            Müşteri güncelledi ({rescheduledCount})
+          </Link>
+          <Link
+            href="/admin/appointments?view=cancel_link"
+            className={`rounded-full px-3 py-1 ${view === "cancel_link" ? "bg-amber-600 text-white" : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300"}`}
+          >
+            Linkten iptal talebi ({cancelLinkCount})
+          </Link>
+        </div>
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
             <tr>
@@ -102,6 +145,11 @@ export default async function AppointmentsPage() {
                   {r.clientEmail ? <div className="mt-0.5 text-xs text-zinc-500">{r.clientEmail}</div> : null}
                 </td>
                 <td className="px-3 py-2 align-top">
+                  {isCustomerRescheduled(r.notes) ? (
+                    <span className="mb-2 inline-block rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                      Müşteri linkten takvim güncelledi
+                    </span>
+                  ) : null}
                   <AppointmentRowActions
                     id={r.id}
                     startAtIso={r.startAt.toISOString()}
@@ -141,7 +189,7 @@ export default async function AppointmentsPage() {
               </tr>
             </thead>
             <tbody>
-              {cancelRequestRows.map((r) => (
+              {visibleCancelRequestRows.map((r) => (
                 <tr key={r.id} className="border-b border-amber-100/70 dark:border-amber-900/20">
                   <td className="px-3 py-2 whitespace-nowrap">{new Date(r.startAt).toLocaleString("tr-TR")}</td>
                   <td className="px-3 py-2">{r.serviceName}</td>
@@ -157,6 +205,11 @@ export default async function AppointmentsPage() {
                     </div>
                   </td>
                   <td className="px-3 py-2 align-top">
+                    {isCancelRequestFromLink(r.notes) ? (
+                      <span className="mb-2 inline-block rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                        Müşteri linkten iptal talebi gönderdi
+                      </span>
+                    ) : null}
                     <AppointmentRowActions
                       id={r.id}
                       startAtIso={r.startAt.toISOString()}
@@ -171,7 +224,7 @@ export default async function AppointmentsPage() {
                   </td>
                 </tr>
               ))}
-              {cancelRequestRows.length === 0 ? (
+              {visibleCancelRequestRows.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-3 py-6 text-center text-sm text-zinc-500">
                     Bekleyen müşteri iptal talebi yok.

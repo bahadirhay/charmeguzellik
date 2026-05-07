@@ -1,6 +1,6 @@
 import type { Appointment, Prisma } from "@prisma/client";
 import {
-  appointmentDuplicateExists,
+  appointmentConflictExists,
   normalizeClientNameKey,
   normalizePhoneKey,
   upsertCrmContactForAppointment,
@@ -35,7 +35,7 @@ export async function createAppointmentRecord(
   }
   const nameKey = normalizeClientNameKey(trimName);
   const phoneKey = normalizePhoneKey(trimPhone);
-  const dup = await appointmentDuplicateExists(tx, {
+  const dup = await appointmentConflictExists(tx, {
     startAt: input.startAt,
     serviceName: input.serviceName,
     nameKey,

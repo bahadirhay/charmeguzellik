@@ -1,7 +1,7 @@
 import type { Appointment, Prisma } from "@prisma/client";
 import { AppointmentDuplicateError } from "@/lib/create-appointment-record";
 import {
-  appointmentDuplicateExists,
+  appointmentConflictExists,
   normalizeClientNameKey,
   normalizePhoneKey,
   upsertCrmContactForAppointment,
@@ -48,7 +48,7 @@ export async function updateAppointmentRecord(
   const serviceName =
     input.serviceName !== undefined ? input.serviceName : existing.serviceName;
 
-  const dup = await appointmentDuplicateExists(tx, {
+  const dup = await appointmentConflictExists(tx, {
     startAt: nextStart,
     serviceName,
     nameKey,

@@ -28,6 +28,7 @@ const DETAIL_KEYS = [
   "clientPhone",
   "notes",
 ] as const;
+const APPOINTMENT_UPDATE_LOCK_MS = 60 * 60 * 1000;
 
 export async function PATCH(req: Request, ctx: Ctx) {
   const auth = await requireStaffApiPerm("crm.appointments");
@@ -165,6 +166,12 @@ export async function PATCH(req: Request, ctx: Ctx) {
   if (!existing) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
   }
+  if (existing.startAt.getTime() - Date.now() < APPOINTMENT_UPDATE_LOCK_MS) {
+    return NextResponse.json(
+      { error: "Randevu başlangıcına 1 saatten az kala detay güncellemesi yapılamaz." },
+      { status: 400 },
+    );
+  }
 
   const input: Parameters<typeof updateAppointmentRecord>[2] = {};
 
@@ -233,7 +240,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
   } catch (e) {
     if (e instanceof AppointmentDuplicateError) {
       return NextResponse.json(
-        { error: "Bu bilgilerle aynı hizmet ve saatte başka kayıt var." },
+        { error: "Aynı kişi için aynı saatte veya aynı gün aynı hizmette başka aktif kayıt var." },
         { status: 409 },
       );
     }
