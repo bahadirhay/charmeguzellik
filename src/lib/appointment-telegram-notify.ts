@@ -84,7 +84,7 @@ export async function sendTelegramTestMessage(settings: {
 export async function notifyTelegramAppointmentAction(
   settings: { themeTokensJson: string | null | undefined; siteName?: string | null },
   row: Pick<Appointment, "clientName" | "serviceName" | "startAt" | "clientPhone" | "clientEmail">,
-  action: "customer_rescheduled" | "customer_cancel_request" | "appointment_cancelled",
+  action: "customer_rescheduled" | "customer_cancel_request" | "appointment_cancelled" | "customer_confirmed",
   meta?: { createdBy?: string | null },
 ): Promise<{ ok: true } | { ok: false; error: string; skipped?: boolean }> {
   const cfg = telegramConfig(settings.themeTokensJson);
@@ -96,7 +96,9 @@ export async function notifyTelegramAppointmentAction(
       ? "Müşteri randevuyu güncelledi"
       : action === "customer_cancel_request"
         ? "Müşteri iptal talebi gönderdi"
-        : "Randevu iptal edildi";
+        : action === "customer_confirmed"
+          ? "Müşteri randevusunu teyit etti"
+          : "Randevu iptal edildi";
   const actor = meta?.createdBy?.trim() ? `İşlemi yapan: ${meta.createdBy.trim()}` : null;
   const text = [
     title,
@@ -111,6 +113,29 @@ export async function notifyTelegramAppointmentAction(
   ]
     .filter(Boolean)
     .join("\n");
+  const sent = await sendTelegramMessage(cfg.botToken, cfg.chatId, text);
+  if (!sent.ok) return { ok: false, error: sent.error };
+  return { ok: true };
+}
+
+export async function notifyTelegramAppointmentReminder(
+  settings: { themeTokensJson: string | null | undefined; siteName?: string | null },
+  row: Pick<Appointment, "clientName" | "serviceName" | "startAt" | "clientPhone" | "clientEmail">,
+): Promise<{ ok: true } | { ok: false; error: string; skipped?: boolean }> {
+  const cfg = telegramConfig(settings.themeTokensJson);
+  if (!cfg) return { ok: false, error: "Telegram bot token/chat id eksik.", skipped: true };
+  const when = new Date(row.startAt).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" });
+  const site = settings.siteName?.trim() || "Salon";
+  const text = [
+    "Randevu teyit hatırlatması gönderildi",
+    "",
+    `İşletme: ${site}`,
+    `Tarih/Saat: ${when}`,
+    `Müşteri: ${row.clientName}`,
+    `Telefon: ${row.clientPhone ?? "-"}`,
+    `E-posta: ${row.clientEmail ?? "-"}`,
+    `Hizmet: ${row.serviceName ?? "-"}`,
+  ].join("\n");
   const sent = await sendTelegramMessage(cfg.botToken, cfg.chatId, text);
   if (!sent.ok) return { ok: false, error: sent.error };
   return { ok: true };

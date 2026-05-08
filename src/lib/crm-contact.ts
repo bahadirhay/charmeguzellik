@@ -31,7 +31,7 @@ export async function appointmentDuplicateExists(
     where: {
       startAt: params.startAt,
       serviceName: params.serviceName,
-      status: { in: ["pending", "approved"] },
+      status: { in: ["pending", "approved", "confirmed"] },
       ...(params.excludeAppointmentId
         ? { NOT: { id: params.excludeAppointmentId } }
         : {}),
@@ -64,7 +64,7 @@ function istanbulYmd(d: Date): string {
 /**
  * Aynı kişi için çakışma kuralları:
  * 1) Aynı saat (hizmetten bağımsız) -> engel
- * Not: yalnızca aktif/işlemdeki kayıtlar (pending/approved/cancel_request) dikkate alınır.
+ * Not: yalnızca aktif/işlemdeki kayıtlar (pending/approved/confirmed/cancel_request) dikkate alınır.
  */
 export async function appointmentConflictExists(
   db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
@@ -78,7 +78,7 @@ export async function appointmentConflictExists(
 ): Promise<boolean> {
   const rows = await db.appointment.findMany({
     where: {
-      status: { in: ["pending", "approved", "cancel_request"] },
+      status: { in: ["pending", "approved", "confirmed", "cancel_request"] },
       ...(params.excludeAppointmentId ? { NOT: { id: params.excludeAppointmentId } } : {}),
       OR: [
         { clientNameKey: params.nameKey },
@@ -154,7 +154,7 @@ export async function pendingSameDaySameServiceExists(
 }
 
 /**
- * Aynı kişi için farklı hizmette aktif (pending/approved) bir kayda 1 saatten yakınsa engeller.
+ * Aynı kişi için farklı hizmette aktif (pending/approved/confirmed) bir kayda 1 saatten yakınsa engeller.
  * Kural: en az 60 dk önce/sonra seçilirse izin verilir.
  */
 export async function withinOneHourOtherServiceExists(
@@ -170,7 +170,7 @@ export async function withinOneHourOtherServiceExists(
   const targetService = params.serviceName?.trim().toLocaleLowerCase("tr-TR") || null;
   const rows = await db.appointment.findMany({
     where: {
-      status: { in: ["pending", "approved"] },
+      status: { in: ["pending", "approved", "confirmed"] },
       ...(params.excludeAppointmentId ? { NOT: { id: params.excludeAppointmentId } } : {}),
       OR: [{ clientNameKey: params.nameKey }, ...(params.phoneKey ? [{ clientPhoneKey: params.phoneKey }] : [])],
     },
@@ -207,7 +207,7 @@ export async function slotOccupiedExists(
   const count = await db.appointment.count({
     where: {
       startAt: params.startAt,
-      status: { in: ["pending", "approved", "cancel_request"] },
+      status: { in: ["pending", "approved", "confirmed", "cancel_request"] },
       ...(params.excludeAppointmentId ? { NOT: { id: params.excludeAppointmentId } } : {}),
     },
   });

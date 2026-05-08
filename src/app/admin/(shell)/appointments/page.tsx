@@ -20,7 +20,7 @@ type AppointmentsPageProps = {
 };
 
 const CUSTOMER_RESCHEDULE_NOTE_PREFIX = "Müşteri takvim güncelledi (bağlantı):";
-const CUSTOMER_CANCEL_REQUEST_NOTE_PREFIX = "Müşteri iptal talebi (bağlantı):";
+const CUSTOMER_CANCEL_REQUEST_NOTE_PREFIX = "Müşteri iptal etti (bağlantı):";
 const PANEL_CANCEL_NOTE_PREFIX = "Panel iptal onayı:";
 const APPOINTMENT_TZ = "Europe/Istanbul";
 
@@ -107,9 +107,13 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
       ? baseServiceOptions.filter((svc) => hasStaffAccessToService(svc, serviceStaffMap, effectiveSelfLabel))
       : baseServiceOptions;
   const activeRowsBase = rows
-    .filter((r) => r.status === "pending" || r.status === "approved")
+    .filter((r) => r.status === "pending" || r.status === "approved" || r.status === "confirmed")
     .sort((a, b) => {
-      const statusRank = (s: string) => (s === "pending" ? 0 : 1);
+      const statusRank = (s: string) => {
+        if (s === "pending") return 0;
+        if (s === "confirmed") return 1;
+        return 2;
+      };
       const byStatus = statusRank(a.status) - statusRank(b.status);
       if (byStatus !== 0) return byStatus;
       return a.startAt.getTime() - b.startAt.getTime();
@@ -121,13 +125,14 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
   const cancelRequestRows = rows.filter((r) => r.status === "cancel_request");
   const rescheduledCount = activeRowsBase.filter((r) => isCustomerRescheduled(r.notes)).length;
   const cancelLinkCount = cancelRequestRows.filter((r) => isCancelRequestFromLink(r.notes)).length;
-  const cancelPanelCount = cancelRequestRows.length - cancelLinkCount;
+  const cancelPanelCount = Math.max(0, cancelRequestRows.length - cancelLinkCount);
   const activeRows =
     view === "rescheduled" ? activeRowsBase.filter((r) => isCustomerRescheduled(r.notes)) : activeRowsBase;
   const visibleCancelRequestRows =
     view === "cancel_link" ? cancelRequestRows.filter((r) => isCancelRequestFromLink(r.notes)) : cancelRequestRows;
   const cancelledRows = rows.filter((r) => r.status === "cancelled");
   const cancelledByStaffRows = cancelledRows.filter((r) => Boolean(parseCancelledByFromNotes(r.notes)));
+  const completedRows = rows.filter((r) => r.status === "checked_in" || r.status === "no_show");
   const archivedRows = rows.filter(
     (r) => r.status === "rejected" || (r.status === "cancelled" && !parseCancelledByFromNotes(r.notes)),
   );
@@ -277,7 +282,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
       </div>
       <details className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
         <summary className="cursor-pointer text-sm font-semibold text-amber-900 dark:text-amber-100">
-          İptal onayı bekleyenler ({cancelRequestRows.length})
+          Eski/manuel iptal talepleri ({cancelRequestRows.length})
         </summary>
         <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">
           Müşteri linkten gelen talepler: {cancelLinkCount} · Panelden başlatılanlar: {cancelPanelCount}
@@ -430,6 +435,51 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
                 <tr>
                   <td colSpan={5} className="px-3 py-6 text-center text-sm text-zinc-500">
                     Henüz iptal veya red kaydı yok.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <details className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+        <summary className="cursor-pointer text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+          Operasyon geçmişi — geldi / gelmedi ({completedRows.length})
+        </summary>
+        <div className="mt-3 overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="border-b border-emerald-200 bg-emerald-100/50 dark:border-emerald-900/40 dark:bg-emerald-950/30">
+              <tr>
+                <th className="px-3 py-2">Başlangıç</th>
+                <th className="px-3 py-2">Hizmet</th>
+                <th className="px-3 py-2">Personel</th>
+                <th className="px-3 py-2">Müşteri</th>
+                <th className="px-3 py-2">Durum</th>
+              </tr>
+            </thead>
+            <tbody>
+              {completedRows.map((r) => (
+                <tr key={r.id} className="border-b border-emerald-100/70 dark:border-emerald-900/20">
+                  <td className="px-3 py-2 whitespace-nowrap">{formatAppointmentDateTime(r.startAt)}</td>
+                  <td className="px-3 py-2">{r.serviceName}</td>
+                  <td className="px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300">{appointmentStaffCell(r.notes)}</td>
+                  <td className="px-3 py-2">
+                    {r.clientName}
+                    <div className="text-xs text-zinc-500">{r.clientPhone}</div>
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {r.status === "checked_in" ? (
+                      <span className="text-emerald-700 dark:text-emerald-300">Geldi</span>
+                    ) : (
+                      <span className="text-zinc-700 dark:text-zinc-300">Gelmedi</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {completedRows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-3 py-6 text-center text-sm text-zinc-500">
+                    Henüz geldi / gelmedi kaydı yok.
                   </td>
                 </tr>
               ) : null}

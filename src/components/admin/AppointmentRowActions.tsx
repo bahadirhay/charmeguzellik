@@ -14,9 +14,12 @@ import { waPrefillForAppointment } from "@/lib/admin-whatsapp-prefill";
 function statusLabelTr(status: string): string {
   if (status === "pending") return "Bekliyor";
   if (status === "approved") return "Onaylı";
+  if (status === "confirmed") return "Teyitli";
   if (status === "cancel_request") return "İptal talebi";
   if (status === "rejected") return "Reddedildi";
   if (status === "cancelled") return "İptal";
+  if (status === "checked_in") return "Geldi";
+  if (status === "no_show") return "Gelmedi (no-show)";
   return status;
 }
 
@@ -96,7 +99,7 @@ export function AppointmentRowActions(props: {
     setEditing(true);
   }
 
-  async function decide(status: "approved" | "rejected" | "cancelled" | "cancel_request") {
+  async function decide(status: "approved" | "rejected" | "cancelled" | "cancel_request" | "checked_in" | "no_show") {
     setBusy(true);
     setFeedback(null);
     setNotify(null);
@@ -223,15 +226,35 @@ export function AppointmentRowActions(props: {
             </button>
           </>
         ) : null}
-        {localStatus === "approved" ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void decide("cancel_request")}
-            className="rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800 dark:bg-zinc-900 dark:text-amber-300 dark:hover:bg-amber-950/40"
-          >
-            İptal talebi başlat
-          </button>
+        {localStatus === "approved" || localStatus === "confirmed" ? (
+          <>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void decide("cancelled")}
+              className="rounded-full border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950/40"
+            >
+              İptal et
+            </button>
+            {localStatus === "confirmed" ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void decide("checked_in")}
+                className="rounded-full border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:border-emerald-800 dark:bg-zinc-900 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+              >
+                Geldi
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void decide("no_show")}
+              className="rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              Gelmedi
+            </button>
+          </>
         ) : null}
         {localStatus === "cancel_request" ? (
           <button
@@ -241,6 +264,16 @@ export function AppointmentRowActions(props: {
             className="rounded-full border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:bg-zinc-900 dark:text-red-300 dark:hover:bg-red-950/40"
           >
             İptali onayla
+          </button>
+        ) : null}
+        {localStatus === "cancelled" ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void decide("approved")}
+            className="rounded-full border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:border-emerald-800 dark:bg-zinc-900 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+          >
+            İptali geri al
           </button>
         ) : null}
         <button

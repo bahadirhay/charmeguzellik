@@ -27,7 +27,7 @@ import { notifyTelegramAppointmentAction } from "@/lib/appointment-telegram-noti
 
 type Ctx = { params: Promise<{ id: string }> };
 
-const DECISIONS = new Set(["approved", "rejected", "cancelled", "cancel_request"]);
+const DECISIONS = new Set(["approved", "rejected", "cancelled", "cancel_request", "checked_in", "no_show"]);
 
 const DETAIL_KEYS = [
   "startAt",
@@ -40,6 +40,7 @@ const DETAIL_KEYS = [
 ] as const;
 const APPOINTMENT_UPDATE_LOCK_MS = 60 * 60 * 1000;
 const PANEL_CANCEL_NOTE_PREFIX = "Panel iptal onayı:";
+const PANEL_CANCEL_UNDO_NOTE_PREFIX = "Panel iptal geri alındı:";
 
 export async function PATCH(req: Request, ctx: Ctx) {
   const auth = await requireStaffApiAppointments();
@@ -57,7 +58,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
   if (statusRaw) {
     if (!DECISIONS.has(statusRaw)) {
-      return NextResponse.json({ error: "status: approved | rejected | cancelled | cancel_request olmalı" }, { status: 400 });
+      return NextResponse.json(
+        { error: "status: approved | rejected | cancelled | cancel_request | checked_in | no_show olmalı" },
+        { status: 400 },
+      );
     }
     const mixed = DETAIL_KEYS.some((k) => k in body && body[k] !== undefined);
     if (mixed) {
@@ -73,28 +77,39 @@ export async function PATCH(req: Request, ctx: Ctx) {
     if (!existing) {
       return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
     }
+    const appStatus = existing.status;
     if (statusRaw === "cancelled") {
       if (existing.status === "cancelled" || existing.status === "rejected") {
         return NextResponse.json({ error: "Bu kayıt zaten kapatılmış (iptal/red)." }, { status: 400 });
       }
-      if (existing.status !== "cancel_request") {
-        return NextResponse.json(
-          { error: "Doğrudan iptal için önce müşteri iptal talebi (cancel_request) olmalı." },
-          { status: 400 },
-        );
+      if (existing.status === "no_show" || existing.status === "checked_in") {
+        return NextResponse.json({ error: "Tamamlanmış kaydı iptal edemezsiniz." }, { status: 400 });
       }
     } else if (statusRaw === "cancel_request") {
-      if (existing.status !== "approved") {
+      if (appStatus !== "approved" && appStatus !== "confirmed") {
         return NextResponse.json(
           { error: "İptal talebi yalnızca onaylı randevu için başlatılır." },
           { status: 400 },
         );
       }
-    } else if (existing.status !== "pending") {
-      return NextResponse.json(
-        { error: "Yalnızca «bekleyen» (pending) talepler onaylanır veya reddedilir." },
-        { status: 400 },
-      );
+    } else if (statusRaw === "approved") {
+      if (appStatus !== "pending" && appStatus !== "cancelled") {
+        return NextResponse.json(
+          { error: "Onay işlemi yalnızca bekleyen veya iptal edilen kayıtta kullanılabilir." },
+          { status: 400 },
+        );
+      }
+    } else if (statusRaw === "rejected") {
+      if (appStatus !== "pending") {
+        return NextResponse.json({ error: "Reddetme yalnızca bekleyen kayıtta kullanılabilir." }, { status: 400 });
+      }
+    } else if (statusRaw === "checked_in" || statusRaw === "no_show") {
+      if (appStatus !== "confirmed") {
+        return NextResponse.json(
+          { error: "Check-in / no-show yalnızca teyitli randevuda işaretlenebilir." },
+          { status: 400 },
+        );
+      }
     }
 
     let updated = await prisma.appointment.update({
@@ -107,6 +122,13 @@ export async function PATCH(req: Request, ctx: Ctx) {
                 .filter(Boolean)
                 .join("\n"),
             }
+          : statusRaw === "approved" && appStatus === "cancelled"
+            ? {
+                status: statusRaw,
+                notes: [existing.notes, `${PANEL_CANCEL_UNDO_NOTE_PREFIX} ${auth.username} (${new Date().toLocaleString("tr-TR")})`]
+                  .filter(Boolean)
+                  .join("\n"),
+              }
           : { status: statusRaw },
     });
 
@@ -122,6 +144,13 @@ export async function PATCH(req: Request, ctx: Ctx) {
       } catch (e) {
         console.warn("appointment telegram notify", e);
       }
+      return NextResponse.json({
+        ok: true,
+        appointment: updated,
+        notifications: null,
+      });
+    }
+    if (statusRaw === "checked_in" || statusRaw === "no_show") {
       return NextResponse.json({
         ok: true,
         appointment: updated,

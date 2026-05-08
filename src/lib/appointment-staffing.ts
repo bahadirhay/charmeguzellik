@@ -145,7 +145,7 @@ export async function isStaffOccupiedAt(
   const rows = await db.appointment.findMany({
     where: {
       startAt,
-      status: { in: ["pending", "approved", "cancel_request"] },
+      status: { in: ["pending", "approved", "confirmed", "cancel_request"] },
       ...(excludeAppointmentId ? { NOT: { id: excludeAppointmentId } } : {}),
     },
     select: { notes: true },

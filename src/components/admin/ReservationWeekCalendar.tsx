@@ -48,6 +48,7 @@ function dateFromCalendarYmd(ymd: string): Date {
 }
 
 function statusLabel(status: string) {
+  if (status === "confirmed") return "Teyitli";
   if (status === "approved") return "Onaylı";
   if (status === "rejected") return "Red";
   if (status === "cancelled") return "İptal";
@@ -55,6 +56,7 @@ function statusLabel(status: string) {
 }
 
 function statusColor(status: string) {
+  if (status === "confirmed") return "text-blue-600 dark:text-blue-400";
   if (status === "approved") return "text-emerald-600 dark:text-emerald-400";
   if (status === "rejected") return "text-red-600 dark:text-red-400";
   if (status === "cancelled") return "text-amber-700 dark:text-amber-300";
@@ -197,7 +199,7 @@ export function ReservationWeekCalendar({ appointments }: { appointments: Reserv
                   const inCurrentMonth = d >= monthStart && d <= monthEnd;
                   const isToday = key === todayKey;
                   const isSelected = key === selectedYmd;
-                  const approvedCount = list.filter((x) => x.status === "approved").length;
+                  const approvedCount = list.filter((x) => x.status === "approved" || x.status === "confirmed").length;
                   const pendingCount = list.filter((x) => x.status === "pending").length;
                   return (
                     <button

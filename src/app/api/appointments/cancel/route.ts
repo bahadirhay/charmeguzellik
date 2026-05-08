@@ -19,6 +19,7 @@ import { isStaffOccupiedAt, parseAssignedStaffFromNotes } from "@/lib/appointmen
 import { notifyTelegramAppointmentAction } from "@/lib/appointment-telegram-notify";
 import { getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
 import { prisma } from "@/lib/prisma";
+import { sendTransactionalEmail } from "@/lib/transactional-email";
 import { resolveWaDigits } from "@/lib/whatsapp-url";
 
 const tokenSchema = z.object({
@@ -29,19 +30,54 @@ const cancelSchema = z.object({
   token: z.string().min(20).max(200),
   action: z.literal("cancel"),
 });
+const confirmSchema = z.object({
+  token: z.string().min(20).max(200),
+  action: z.literal("confirm"),
+});
 const rescheduleSchema = z.object({
   token: z.string().min(20).max(200),
   action: z.literal("reschedule"),
   dateYmd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   timeHm: z.string().regex(/^\d{2}:\d{2}$/),
 });
-const postSchema = z.discriminatedUnion("action", [cancelSchema, rescheduleSchema]);
+const postSchema = z.discriminatedUnion("action", [cancelSchema, confirmSchema, rescheduleSchema]);
 
 const CUSTOMER_UPDATE_LOCK_MS = 60 * 60 * 1000;
 
+async function sendCustomerDecisionEmail(opts: {
+  appointment: { clientEmail: string | null; clientName: string; serviceName: string | null; startAt: Date };
+  siteName: string;
+  kind: "confirmed" | "cancelled";
+}) {
+  const to = opts.appointment.clientEmail?.trim();
+  if (!to) return;
+  const when = new Date(opts.appointment.startAt).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" });
+  const svc = opts.appointment.serviceName ?? "Randevu";
+  const subject =
+    opts.kind === "confirmed"
+      ? `${opts.siteName} — Randevu teyidiniz alındı`
+      : `${opts.siteName} — Randevunuz iptal edildi`;
+  const text =
+    opts.kind === "confirmed"
+      ? [
+          `Merhaba ${opts.appointment.clientName},`,
+          "",
+          `${when} tarihli "${svc}" randevunuz için teyidiniz alınmıştır.`,
+          "Görüşmek üzere.",
+        ].join("\n")
+      : [
+          `Merhaba ${opts.appointment.clientName},`,
+          "",
+          `${when} tarihli "${svc}" randevunuz iptal edilmiştir.`,
+          "Yeni randevu için tekrar iletişime geçebilirsiniz.",
+        ].join("\n");
+  const sent = await sendTransactionalEmail({ to, subject, text });
+  if (!sent.ok) console.warn("customer decision email", sent.error);
+}
+
 async function findTokenAppointment(token: string) {
   const rows = await prisma.appointment.findMany({
-    where: { status: "approved" },
+    where: { status: { in: ["approved", "confirmed"] } },
     orderBy: { createdAt: "desc" },
     take: 300,
   });
@@ -216,11 +252,44 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, updatedStartAt: updated.startAt.toISOString() });
   }
 
+  if (parsed.data.action === "confirm") {
+    const alreadyConfirmed = appt.status === "confirmed";
+    const updated = alreadyConfirmed
+      ? appt
+      : await prisma.appointment.update({
+          where: { id: appt.id },
+          data: {
+            status: "confirmed",
+            notes: [appt.notes, `Müşteri teyit verdi (bağlantı): ${new Date().toLocaleString("tr-TR")}`]
+              .filter(Boolean)
+              .join("\n"),
+          },
+        });
+    try {
+      const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+      const siteName = settings?.siteName?.trim() || "Salon";
+      if (settings) {
+        const tg = await notifyTelegramAppointmentAction(settings, updated, "customer_confirmed", {
+          createdBy: "Müşteri (teyit bağlantısı)",
+        });
+        if (!tg.ok && !tg.skipped) console.warn("appointment telegram notify", tg.error);
+      }
+      await sendCustomerDecisionEmail({
+        appointment: updated,
+        siteName,
+        kind: "confirmed",
+      });
+    } catch (e) {
+      console.warn("appointment telegram notify", e);
+    }
+    return NextResponse.json({ ok: true, message: alreadyConfirmed ? "Randevunuz zaten teyitli." : "Randevunuz teyit edildi." });
+  }
+
   const updated = await prisma.appointment.update({
     where: { id: appt.id },
     data: {
-      status: "cancel_request",
-      notes: [appt.notes, `Müşteri iptal talebi (bağlantı): ${new Date().toLocaleString("tr-TR")}`]
+      status: "cancelled",
+      notes: [appt.notes, `Müşteri iptal etti (bağlantı): ${new Date().toLocaleString("tr-TR")}`]
         .filter(Boolean)
         .join("\n"),
       cancelTokenHash: null,
@@ -231,15 +300,23 @@ export async function POST(req: Request) {
 
   const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
   try {
+    const siteName = settings?.siteName?.trim() || "Salon";
     if (settings) {
-      const tg = await notifyTelegramAppointmentAction(settings, updated, "customer_cancel_request");
+      const tg = await notifyTelegramAppointmentAction(settings, updated, "appointment_cancelled", {
+        createdBy: "Müşteri (iptal bağlantısı)",
+      });
       if (!tg.ok && !tg.skipped) console.warn("appointment telegram notify", tg.error);
     }
+    await sendCustomerDecisionEmail({
+      appointment: updated,
+      siteName,
+      kind: "cancelled",
+    });
   } catch (e) {
     console.warn("appointment telegram notify", e);
   }
   const waDigits = resolveWaDigits(settings?.whatsappNumber ?? null);
-  const waText = `İptal onayı talebi: ${updated.clientName} - ${new Date(updated.startAt).toLocaleString("tr-TR")} randevumu iptal etmek istiyorum. Lütfen onaylayın.`;
+  const waText = `Bilgi: ${updated.clientName} - ${new Date(updated.startAt).toLocaleString("tr-TR")} randevusunu iptal etti.`;
   const whatsappUrl = waDigits ? `https://wa.me/${waDigits}?text=${encodeURIComponent(waText)}` : null;
 
   return NextResponse.json({ ok: true, whatsappUrl });

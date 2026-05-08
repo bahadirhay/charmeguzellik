@@ -67,8 +67,31 @@ export default function AppointmentCancelPage() {
         setErr(j.error ?? "İptal işlemi başarısız.");
         return;
       }
-      setMsg("Randevunuz için iptal talebi alındı.");
+      setMsg("Randevunuz iptal edildi.");
       setWaUrl(j.whatsappUrl ?? null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitConfirm() {
+    setBusy(true);
+    setErr(null);
+    setMsg(null);
+    setWaUrl(null);
+    try {
+      const res = await fetch("/api/appointments/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, action: "confirm" }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
+      if (!res.ok || !j.ok) {
+        setErr(j.error ?? "Teyit işlemi başarısız.");
+        return;
+      }
+      setMsg(j.message ?? "Randevunuz teyit edildi.");
+      if (apptInfo) setApptInfo({ ...apptInfo });
     } finally {
       setBusy(false);
     }
@@ -134,7 +157,7 @@ export default function AppointmentCancelPage() {
     <section className="mx-auto max-w-xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Randevu yönetimi</h1>
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
-        Bu linkten randevunuzu iptal edebilir veya uygun bir gün/saat seçip güncelleyebilirsiniz.
+        Bu linkten randevunuzu teyit edebilir, iptal edebilir veya uygun bir gün/saat seçip güncelleyebilirsiniz.
       </p>
       {loadingInfo ? <p className="mt-2 text-sm text-zinc-500">Randevu bilgileri yükleniyor...</p> : null}
       {apptInfo ? (
@@ -158,13 +181,23 @@ export default function AppointmentCancelPage() {
             placeholder="Bağlantıdan gelmediyse e-postadaki uzun değeri buraya yapıştırın"
           />
         </label>
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded-full bg-rose-600 px-5 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
-        >
-          {busy ? "İşleniyor…" : "Randevumu iptal et"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded-full bg-rose-600 px-5 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+          >
+            {busy ? "İşleniyor…" : "Randevumu iptal et"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void submitConfirm()}
+            disabled={busy}
+            className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {busy ? "İşleniyor…" : "Teyit ediyorum"}
+          </button>
+        </div>
       </form>
       <form className="mt-5 space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-700" onSubmit={submitReschedule}>
         <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">Takvim güncelle</p>
@@ -221,7 +254,7 @@ export default function AppointmentCancelPage() {
           rel="noopener noreferrer"
           className="mt-3 inline-block text-sm font-medium text-emerald-700 underline dark:text-emerald-400"
         >
-          WhatsApp ile iptal onayı gönder
+          WhatsApp ile bilgilendir
         </a>
       ) : null}
     </section>

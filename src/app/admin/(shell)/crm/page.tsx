@@ -20,7 +20,7 @@ export default async function CrmPage() {
           orderBy: { updatedAt: "desc" },
           include: {
             appointments: {
-              where: { status: { in: ["pending", "approved"] } },
+              where: { status: { in: ["pending", "approved", "confirmed"] } },
               orderBy: { startAt: "desc" },
               take: 8,
               select: {
@@ -98,7 +98,7 @@ export default async function CrmPage() {
                                 {staffLabel ? ` · Personel: ${staffLabel}` : ""}
                                 <span className="text-zinc-500">
                                   {" "}
-                                  ({a.status === "pending" ? "bekliyor" : "onaylı"})
+                                  ({a.status === "pending" ? "bekliyor" : a.status === "confirmed" ? "teyitli" : "onaylı"})
                                 </span>
                               </li>
                             );
