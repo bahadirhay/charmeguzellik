@@ -6,9 +6,9 @@ import {
 } from "@/lib/appointment-schedule";
 import {
   eligibleStaffForService,
-  getServiceStaffMap,
   isStaffOccupiedAt,
   pickAvailableStaff,
+  resolveServiceStaffMap,
   withAssignedStaffInNotes,
 } from "@/lib/appointment-staffing";
 import { resolvePublishedContactFormBlock, type ContactFormContext } from "@/lib/contact-form-resolve";
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
   if (body.clientPhone?.trim()) notesParts.unshift(`Telefon: ${body.clientPhone.trim()}`);
   const notes = notesParts.length ? notesParts.join("\n") : null;
   const settings = await getSiteSettings();
-  const staffMap = getServiceStaffMap(settings.themeTokensJson);
+  const staffMap = await resolveServiceStaffMap(prisma, settings.themeTokensJson);
   const staffCandidates = eligibleStaffForService(serviceName, staffMap);
   const requestedStaff = body.staffName?.trim() || "";
   let assignedStaff: string | null = null;

@@ -1,23 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
-type Props = {
-  initialMap: Record<string, string[]>;
-  /** Üst menü «Hizmetlerimiz» altındaki etiketler — randevu formu ile aynı kaynak */
-  serviceOptions: string[];
-};
+type StaffEntry = { id: string; displayName: string };
 
-function normalizeStaffCsv(csv: string): string[] {
-  return Array.from(
-    new Set(
-      csv
-        .split(",")
-        .map((x) => x.trim())
-        .filter(Boolean),
-    ),
-  );
-}
+type Props = {
+  /** Hizmet etiketi -> panel personel kullanıcı id'leri */
+  initialIdMap: Record<string, string[]>;
+  /** Üst menü «Hizmetlerimiz» altındaki etiketler */
+  serviceOptions: string[];
+  /** Personel & roller — görünen adı dolu aktif kullanıcılar (tek kaynak) */
+  staffDirectory: StaffEntry[];
+};
 
 function rowServiceSelectOptions(svc: string, menu: string[], map: Record<string, string[]>): string[] {
   const reserved = new Set(Object.keys(map).filter((k) => k !== svc));
@@ -28,28 +23,28 @@ function rowServiceSelectOptions(svc: string, menu: string[], map: Record<string
   return fromMenu;
 }
 
-export function AppointmentStaffPlanningForm({ initialMap, serviceOptions }: Props) {
-  const [map, setMap] = useState<Record<string, string[]>>(initialMap);
+export function AppointmentStaffPlanningForm({ initialIdMap, serviceOptions, staffDirectory }: Props) {
+  const [map, setMap] = useState<Record<string, string[]>>(initialIdMap);
   const [newService, setNewService] = useState("");
-  const [staffCsv, setStaffCsv] = useState("");
+  const [newStaffSelection, setNewStaffSelection] = useState<Record<string, boolean>>({});
   const [feedback, setFeedback] = useState<{ text: string; error: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const hasMenuServices = serviceOptions.some((s) => s.trim());
+  const hasStaffDirectory = staffDirectory.length > 0;
 
-  function upsert(serviceRaw: string, csv: string): boolean {
-    const service = serviceRaw.trim();
-    if (!service) {
-      setFeedback({ text: "Bir hizmet seçin.", error: true });
-      return false;
-    }
-    const names = normalizeStaffCsv(csv);
-    if (names.length === 0) {
-      setFeedback({ text: "En az bir personel adı girin.", error: true });
-      return false;
-    }
-    setMap((prev) => ({ ...prev, [service]: names }));
+  function toggleStaffForService(svc: string, staffId: string, checked: boolean) {
+    setMap((prev) => {
+      const cur = new Set(prev[svc] ?? []);
+      if (checked) cur.add(staffId);
+      else cur.delete(staffId);
+      const nextList = [...cur];
+      if (nextList.length === 0) {
+        const { [svc]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [svc]: nextList };
+    });
     setFeedback(null);
-    return true;
   }
 
   function renameServiceKey(previous: string, nextKey: string) {
@@ -74,9 +69,22 @@ export function AppointmentStaffPlanningForm({ initialMap, serviceOptions }: Pro
   }
 
   function addNewRow() {
-    if (!upsert(newService, staffCsv)) return;
+    const service = newService.trim();
+    if (!service) {
+      setFeedback({ text: "Bir hizmet seçin.", error: true });
+      return;
+    }
+    const ids = Object.entries(newStaffSelection)
+      .filter(([, on]) => on)
+      .map(([id]) => id);
+    if (ids.length === 0) {
+      setFeedback({ text: "En az bir personel seçin.", error: true });
+      return;
+    }
+    setMap((prev) => ({ ...prev, [service]: Array.from(new Set([...(prev[service] ?? []), ...ids])) }));
     setNewService("");
-    setStaffCsv("");
+    setNewStaffSelection({});
+    setFeedback(null);
   }
 
   async function saveAll() {
@@ -104,11 +112,16 @@ export function AppointmentStaffPlanningForm({ initialMap, serviceOptions }: Pro
     <div className="space-y-4">
       <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
         <p className="text-sm text-zinc-600 dark:text-zinc-300">
-          Hizmete bağlı personel tanımlayın. Müşteri/personel seçmezse sistem o saatte müsait olan personeli otomatik atar.
+          Personel adları yalnızca{" "}
+          <Link href="/admin/staff" className="text-rose-600 hover:underline">
+            Personel & roller
+          </Link>{" "}
+          ekranındaki <strong>Görünen ad</strong> alanından gelir (tek kaynak). Burada hizmete hangi hesabın
+          atanacağını seçersiniz; müşteri randevu formu bu adları otomatik kullanır.
         </p>
       </div>
       <div className="space-y-2 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        {Object.entries(map).map(([svc, names]) => (
+        {Object.entries(map).map(([svc, ids]) => (
           <div key={svc} className="grid gap-2 rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
             <label className="grid gap-1 text-sm">
               Hizmet
@@ -124,16 +137,28 @@ export function AppointmentStaffPlanningForm({ initialMap, serviceOptions }: Pro
                 ))}
               </select>
             </label>
-            <label className="grid gap-1 text-sm">
-              Personeller (virgülle)
-              <input
-                className="rounded border border-zinc-300 px-2 py-1 dark:border-zinc-600 dark:bg-zinc-950"
-                defaultValue={names.join(", ")}
-                onBlur={(e) => {
-                  void upsert(svc, e.target.value);
-                }}
-              />
-            </label>
+            <div className="grid gap-1 text-sm">
+              <span>Personeller</span>
+              {!hasStaffDirectory ? (
+                <p className="text-xs text-amber-800 dark:text-amber-200">
+                  Listelenecek personel yok. Personel & roller’de kullanıcıya <strong>Görünen ad</strong> yazın.
+                </p>
+              ) : (
+                <div className="flex max-h-40 flex-wrap gap-x-4 gap-y-1 overflow-y-auto rounded border border-zinc-200 p-2 dark:border-zinc-700">
+                  {staffDirectory.map((s) => (
+                    <label key={s.id} className="flex cursor-pointer items-center gap-1.5 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={ids.includes(s.id)}
+                        onChange={(e) => toggleStaffForService(svc, s.id, e.target.checked)}
+                        className="rounded"
+                      />
+                      <span>{s.displayName}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               type="button"
               className="justify-self-start rounded border border-red-300 px-2 py-1 text-xs text-red-700 dark:border-red-800 dark:text-red-300"
@@ -175,20 +200,32 @@ export function AppointmentStaffPlanningForm({ initialMap, serviceOptions }: Pro
               ))}
           </select>
         </label>
-        <label className="grid gap-1 text-sm">
-          Personeller (virgülle)
-          <input
-            value={staffCsv}
-            onChange={(e) => setStaffCsv(e.target.value)}
-            placeholder="Ayşe, Elif"
-            disabled={!hasMenuServices}
-            className="rounded border border-zinc-300 px-2 py-1 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-950"
-          />
-        </label>
+        <div className="grid gap-1 text-sm">
+          <span>Personel seçimi</span>
+          {!hasStaffDirectory ? (
+            <p className="text-xs text-amber-800 dark:text-amber-200">Önce Personel & roller’de görünen ad tanımlayın.</p>
+          ) : (
+            <div className="flex max-h-36 flex-wrap gap-x-4 gap-y-1 overflow-y-auto rounded border border-zinc-300 bg-white p-2 dark:border-zinc-600">
+              {staffDirectory.map((s) => (
+                <label key={s.id} className="flex cursor-pointer items-center gap-1.5 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={!!newStaffSelection[s.id]}
+                    onChange={(e) =>
+                      setNewStaffSelection((prev) => ({ ...prev, [s.id]: e.target.checked }))
+                    }
+                    className="rounded"
+                  />
+                  <span>{s.displayName}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           type="button"
           className="justify-self-start rounded border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-600"
-          disabled={!hasMenuServices}
+          disabled={!hasMenuServices || !hasStaffDirectory}
           onClick={() => addNewRow()}
         >
           Ekle
@@ -210,4 +247,3 @@ export function AppointmentStaffPlanningForm({ initialMap, serviceOptions }: Pro
     </div>
   );
 }
-

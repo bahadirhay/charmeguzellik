@@ -987,11 +987,15 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
                 />
               </label>
               <div className="rounded border border-zinc-200 p-2 text-xs text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">
-                Hizmet-personel planlama ekrani{" "}
+                Personel listesi yalnızca{" "}
+                <a href="/admin/staff" className="text-rose-600 underline">
+                  Personel & roller → Görünen ad
+                </a>{" "}
+                üzerinden gelir. Hizmet atamalari{" "}
                 <a href="/admin/appointments/personel-planlama" className="text-rose-600 underline">
                   Randevular / Personel Planlama
                 </a>{" "}
-                menüsüne tasindi.
+                ekranindan yapilir.
               </div>
             </div>
             <button

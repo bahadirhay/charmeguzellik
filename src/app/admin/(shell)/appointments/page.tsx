@@ -6,7 +6,7 @@ import { AppointmentRowActions } from "@/components/admin/AppointmentRowActions"
 import { ReservationWeekCalendar } from "@/components/admin/ReservationWeekCalendar";
 import { filterAppointmentsForSelfScope, resolveAppointmentPanelScope } from "@/lib/appointment-panel-access";
 import { waPrefillForAppointment } from "@/lib/admin-whatsapp-prefill";
-import { getServiceStaffMap } from "@/lib/appointment-staffing";
+import { parseAssignedStaffFromNotes, resolveServiceStaffMap } from "@/lib/appointment-staffing";
 import { requirePagePermission } from "@/lib/auth";
 import { buildNavTree, collectServiceLabelsFromNav } from "@/lib/navigation";
 import { getFirstPublishedAppointmentFormRef, getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
@@ -27,9 +27,22 @@ function formatAppointmentDateTime(d: Date): string {
   return new Date(d).toLocaleString("tr-TR", { timeZone: APPOINTMENT_TZ });
 }
 
+function appointmentStaffCell(notes: string | null | undefined): string {
+  return parseAssignedStaffFromNotes(notes)?.trim() || "—";
+}
+
 export default async function AppointmentsPage({ searchParams }: AppointmentsPageProps) {
   const access = await requirePagePermission(["crm.appointments", "crm.appointments.self"]);
   const { scope: appointmentScope, selfStaffLabel } = resolveAppointmentPanelScope(access);
+
+  let effectiveSelfLabel = selfStaffLabel;
+  if (appointmentScope === "self" && access.staffUserId) {
+    const su = await prisma.staffUser.findUnique({
+      where: { id: access.staffUserId },
+      select: { displayName: true },
+    });
+    effectiveSelfLabel = su?.displayName?.trim() ?? null;
+  }
 
   const params = (await searchParams) ?? {};
   const view =
@@ -54,8 +67,8 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     getFirstPublishedAppointmentFormRef(),
   ]);
   const rows =
-    appointmentScope === "self" ? filterAppointmentsForSelfScope(allRows, selfStaffLabel) : allRows;
-  const serviceStaffMap = getServiceStaffMap(settings?.themeTokensJson);
+    appointmentScope === "self" ? filterAppointmentsForSelfScope(allRows, effectiveSelfLabel) : allRows;
+  const serviceStaffMap = await resolveServiceStaffMap(prisma, settings?.themeTokensJson);
   const fromHeader = collectServiceLabelsFromNav(buildNavTree(headerNav));
   const fromFooter = collectServiceLabelsFromNav(buildNavTree(footerNav));
   const serviceOptions =
@@ -90,9 +103,10 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
         <h1 className="text-2xl font-semibold tracking-tight">Randevular</h1>
         {appointmentScope === "self" ? (
           <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
-            Yalnızca size atanan randevuları görüyorsunuz (Personel Planlama’daki isim ile hesaptaki{" "}
-            <strong>görünen ad</strong> eşleşmeli).
-            {!selfStaffLabel?.trim()
+            Yalnızca size atanan randevuları görüyorsunuz. Randevu ataması{" "}
+            <strong>Görünen ad</strong> ile yapılır; bu ad yalnızca Personel & roller hesabınızda tanımlıdır ve
+            Personel Planlama’da aynı hesap seçildiğinde eşleşir.
+            {!effectiveSelfLabel?.trim()
               ? " Şu anda görünen ad boş — yönetici Personel ekranından tanımlamalı."
               : null}
           </p>
@@ -137,7 +151,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
             schedule={appointmentSchedule}
             serviceStaffMap={serviceStaffMap}
             appointmentFormRef={appointmentFormRef}
-            lockedStaffName={appointmentScope === "self" ? selfStaffLabel : null}
+            lockedStaffName={appointmentScope === "self" ? effectiveSelfLabel : null}
           />
         </div>
       </details>
@@ -170,6 +184,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
             <tr>
               <th className="px-3 py-2">Başlangıç</th>
               <th className="px-3 py-2">Hizmet</th>
+              <th className="px-3 py-2">Personel</th>
               <th className="px-3 py-2">Müşteri</th>
               <th className="px-3 py-2">Durum / işlem</th>
             </tr>
@@ -181,6 +196,9 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
                   {formatAppointmentDateTime(r.startAt)}
                 </td>
                 <td className="px-3 py-2">{r.serviceName}</td>
+                <td className="px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300">
+                  {appointmentStaffCell(r.notes)}
+                </td>
                 <td className="px-3 py-2">
                   <div className="font-medium">{r.clientName}</div>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
@@ -215,7 +233,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
             ))}
             {activeRows.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-3 py-6 text-center text-sm text-zinc-500">
+                <td colSpan={5} className="px-3 py-6 text-center text-sm text-zinc-500">
                   Aktif randevu yok.
                 </td>
               </tr>
@@ -233,6 +251,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
               <tr>
                 <th className="px-3 py-2">Başlangıç</th>
                 <th className="px-3 py-2">Hizmet</th>
+                <th className="px-3 py-2">Personel</th>
                 <th className="px-3 py-2">Müşteri</th>
                 <th className="px-3 py-2">Durum / işlem</th>
               </tr>
@@ -242,6 +261,9 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
                 <tr key={r.id} className="border-b border-amber-100/70 dark:border-amber-900/20">
                   <td className="px-3 py-2 whitespace-nowrap">{formatAppointmentDateTime(r.startAt)}</td>
                   <td className="px-3 py-2">{r.serviceName}</td>
+                  <td className="px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300">
+                    {appointmentStaffCell(r.notes)}
+                  </td>
                   <td className="px-3 py-2">
                     <div className="font-medium">{r.clientName}</div>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
@@ -275,7 +297,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
               ))}
               {visibleCancelRequestRows.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-sm text-zinc-500">
+                  <td colSpan={5} className="px-3 py-6 text-center text-sm text-zinc-500">
                     Bekleyen müşteri iptal talebi yok.
                   </td>
                 </tr>
@@ -297,6 +319,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
               <tr>
                 <th className="px-3 py-2">Başlangıç</th>
                 <th className="px-3 py-2">Hizmet</th>
+                <th className="px-3 py-2">Personel</th>
                 <th className="px-3 py-2">Müşteri</th>
                 <th className="px-3 py-2">Durum</th>
               </tr>
@@ -306,6 +329,9 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
                 <tr key={r.id} className="border-b border-zinc-100 dark:border-zinc-800">
                   <td className="px-3 py-2 whitespace-nowrap">{formatAppointmentDateTime(r.startAt)}</td>
                   <td className="px-3 py-2">{r.serviceName}</td>
+                  <td className="px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300">
+                    {appointmentStaffCell(r.notes)}
+                  </td>
                   <td className="px-3 py-2">
                     {r.clientName}
                     <div className="text-xs text-zinc-500">{r.clientPhone}</div>
@@ -321,7 +347,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
               ))}
               {archivedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-sm text-zinc-500">
+                  <td colSpan={5} className="px-3 py-6 text-center text-sm text-zinc-500">
                     Henüz iptal veya red kaydı yok.
                   </td>
                 </tr>

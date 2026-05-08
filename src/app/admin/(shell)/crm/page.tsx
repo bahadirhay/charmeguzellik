@@ -1,6 +1,7 @@
 import { AdminWhatsAppButton } from "@/components/admin/AdminWhatsAppButton";
 import { LeadRow } from "@/components/admin/LeadRow";
 import { CrmContactRowActions } from "@/components/admin/CrmContactRowActions";
+import { parseAssignedStaffFromNotes } from "@/lib/appointment-staffing";
 import { requirePagePermission } from "@/lib/auth";
 import { hasStaffPermission } from "@/lib/staff-permissions";
 import { prisma } from "@/lib/prisma";
@@ -27,6 +28,7 @@ export default async function CrmPage() {
                 startAt: true,
                 serviceName: true,
                 status: true,
+                notes: true,
               },
             },
           },
@@ -87,16 +89,20 @@ export default async function CrmPage() {
                         <span className="text-zinc-400">—</span>
                       ) : (
                         <ul className="max-w-xs list-inside list-disc space-y-0.5">
-                          {c.appointments.map((a) => (
-                            <li key={a.id}>
-                              {new Date(a.startAt).toLocaleString("tr-TR")}
-                              {a.serviceName ? ` · ${a.serviceName}` : ""}
-                              <span className="text-zinc-500">
-                                {" "}
-                                ({a.status === "pending" ? "bekliyor" : "onaylı"})
-                              </span>
-                            </li>
-                          ))}
+                          {c.appointments.map((a) => {
+                            const staffLabel = parseAssignedStaffFromNotes(a.notes)?.trim();
+                            return (
+                              <li key={a.id}>
+                                {new Date(a.startAt).toLocaleString("tr-TR")}
+                                {a.serviceName ? ` · ${a.serviceName}` : ""}
+                                {staffLabel ? ` · Personel: ${staffLabel}` : ""}
+                                <span className="text-zinc-500">
+                                  {" "}
+                                  ({a.status === "pending" ? "bekliyor" : "onaylı"})
+                                </span>
+                              </li>
+                            );
+                          })}
                         </ul>
                       )}
                     </td>

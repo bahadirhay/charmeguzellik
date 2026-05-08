@@ -12,9 +12,9 @@ import { requireStaffApiAppointments } from "@/lib/admin-api-auth";
 import { appointmentPhoneTurkeyHint, isValidTurkeyMobileAppointmentPhone } from "@/lib/appointment-phone";
 import {
   eligibleStaffForService,
-  getServiceStaffMap,
   isStaffOccupiedAt,
   pickAvailableStaff,
+  resolveServiceStaffMap,
   withAssignedStaffInNotes,
 } from "@/lib/appointment-staffing";
 
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
       where: { id: 1 },
       select: { themeTokensJson: true },
     });
-    const staffMap = getServiceStaffMap(settings?.themeTokensJson);
+    const staffMap = await resolveServiceStaffMap(prisma, settings?.themeTokensJson);
     const staffCandidates = eligibleStaffForService(serviceName, staffMap);
     const requestedStaff = body.staffName?.trim() || "";
     const selfLabel = auth.appointmentScope === "self" ? auth.selfStaffLabel?.trim() ?? "" : "";
