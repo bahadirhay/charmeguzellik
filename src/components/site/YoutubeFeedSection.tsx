@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { clampSocialEmbedHeightPx, socialFeedColClass } from "@/lib/social-feed-layout";
 import { prisma } from "@/lib/prisma";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 import { youtubeEmbedUrl, youtubeThumbnailUrl, youtubeWatchUrl } from "@/lib/youtube-url";
 
 export async function YoutubeFeedSection({
@@ -15,7 +16,7 @@ export async function YoutubeFeedSection({
   displayMode?: "mediaCard" | "iframe";
 }) {
   const videos = await prisma.siteYoutubeVideo.findMany({
-    where: { published: true },
+    where: { tenantId: BOOTSTRAP_TENANT_ID, published: true },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
   });
   if (!videos.length) return null;

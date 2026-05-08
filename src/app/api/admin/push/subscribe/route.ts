@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireStaffApiAny } from "@/lib/admin-api-auth";
 import { prisma } from "@/lib/prisma";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 const subscriptionSchema = z.object({
   endpoint: z.string().url(),
@@ -17,8 +18,8 @@ async function resolveStaffId(
   username: string,
 ): Promise<string | null> {
   if (staffUserId?.trim()) return staffUserId;
-  const u = await prisma.staffUser.findUnique({
-    where: { username: username.trim() },
+  const u = await prisma.staffUser.findFirst({
+    where: { tenantId: BOOTSTRAP_TENANT_ID, username: username.trim() },
     select: { id: true },
   });
   return u?.id ?? null;

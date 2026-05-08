@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 import {
   extraPathToSitemapUrl,
   normalizeSitemapChangeFrequency,
@@ -36,7 +37,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const extras = parseSitemapExtrasJson(settings?.sitemapExtrasJson);
 
   const pages = await prisma.page.findMany({
-    where: { published: true, noIndex: false, includeInSitemap: true },
+    where: {
+      tenantId: BOOTSTRAP_TENANT_ID,
+      published: true,
+      noIndex: false,
+      includeInSitemap: true,
+    },
     select: {
       slug: true,
       updatedAt: true,

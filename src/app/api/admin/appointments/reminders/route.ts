@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { buildAppointmentCancelUrl } from "@/lib/site-public-url";
 import { getSiteSettings } from "@/lib/site-settings";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 const REMINDER_NOTE_PREFIX = "Teyit hatırlatması gönderildi:";
 
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
   const siteName = settings.siteName?.trim() || "Salon";
   const rows = await prisma.appointment.findMany({
     where: {
+      tenantId: BOOTSTRAP_TENANT_ID,
       status: "approved",
       startAt: { gte: from, lte: to },
       clientEmail: { not: null },
@@ -82,6 +84,7 @@ export async function POST(req: Request) {
       if (!mail.ok) {
         await prisma.appointmentEvent.create({
           data: {
+            tenantId: updated.tenantId,
             appointmentId: updated.id,
             eventType: "reminder_sent",
             channel: "email",
@@ -94,6 +97,7 @@ export async function POST(req: Request) {
       }
       await prisma.appointmentEvent.create({
         data: {
+          tenantId: updated.tenantId,
           appointmentId: updated.id,
           eventType: "reminder_sent",
           channel: "email",
@@ -106,6 +110,7 @@ export async function POST(req: Request) {
         console.warn("appointment reminder telegram notify", tg.error);
         await prisma.appointmentEvent.create({
           data: {
+            tenantId: updated.tenantId,
             appointmentId: updated.id,
             eventType: "reminder_sent",
             channel: "telegram",
@@ -117,6 +122,7 @@ export async function POST(req: Request) {
       } else {
         await prisma.appointmentEvent.create({
           data: {
+            tenantId: updated.tenantId,
             appointmentId: updated.id,
             eventType: "reminder_sent",
             channel: "telegram",

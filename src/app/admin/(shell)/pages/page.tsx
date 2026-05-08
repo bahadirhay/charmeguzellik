@@ -2,10 +2,14 @@ import Link from "next/link";
 import { AdminDeletePageButton } from "@/components/admin/AdminDeletePageButton";
 import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 export default async function AdminPagesPage() {
   await requirePagePermission("content.pages");
-  const pages = await prisma.page.findMany({ orderBy: { updatedAt: "desc" } });
+  const pages = await prisma.page.findMany({
+    where: { tenantId: BOOTSTRAP_TENANT_ID },
+    orderBy: { updatedAt: "desc" },
+  });
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireStaffApiAppointmentsFull } from "@/lib/admin-api-auth";
 import { prisma } from "@/lib/prisma";
 import { coerceAppointmentStaffMapToIds, isLikelyStaffUserId } from "@/lib/appointment-staffing";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 import { parseThemeTokens, themeTokensToJson } from "@/lib/theme-tokens";
 
 export async function GET() {
@@ -47,7 +48,7 @@ export async function PUT(req: Request) {
   const allIds = [...new Set(Object.values(normalized).flat())];
   if (allIds.length) {
     const users = await prisma.staffUser.findMany({
-      where: { id: { in: allIds }, active: true },
+      where: { id: { in: allIds }, active: true, tenantId: BOOTSTRAP_TENANT_ID },
       select: { id: true, displayName: true },
     });
     if (users.length !== allIds.length) {

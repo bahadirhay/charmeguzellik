@@ -9,9 +9,34 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Çok kiracılı (SaaS) çekirdek — slug ile subdomain eşlemesi (ileride middleware).
+model Tenant {
+  id                     String              @id @default(cuid())
+  slug                   String              @unique
+  name                   String
+  status                 String              @default("active")
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  siteSettings           SiteSettings[]
+  pages                  Page[]
+  leads                  Lead[]
+  crmContacts            CrmContact[]
+  appointments           Appointment[]
+  appointmentEvents      AppointmentEvent[]
+  navItems               NavItem[]
+  staffRoles             StaffRole[]
+  staffUsers             StaffUser[]
+  siteInstagramPosts     SiteInstagramPost[]
+  siteYoutubeVideos      SiteYoutubeVideo[]
+  siteTiktokVideos       SiteTiktokVideo[]
+  cookieConsentLogs      CookieConsentLog[]
+}
+
 model Page {
   id                     String   @id @default(cuid())
-  slug                   String   @unique
+  tenantId               String
+  tenant                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  slug                   String
   title                  String
   metaTitle              String?
   metaDescription        String?
@@ -29,6 +54,9 @@ model Page {
   sitemapChangeFrequency String?
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
 }
 
 model SiteSettings {
@@ -84,13 +112,18 @@ model SiteSettings {
   /// Yeni randevu talebi: operatör bilgilendirme e-postaları (virgül veya alt satır ile çoklu; ENV ile birleştirilir)
   appointmentNotifyOperatorEmails String?
   updatedAt              DateTime @updatedAt
+  /// Kiracı bağlantısı — faz 1 opsiyonel; mevcut satır migrate ile dolar. Uygulama sorgusu değişmeden kalır.
+  tenantId               String?  @unique
+  tenant                 Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
 }
 
 /// Sitede gösterilecek Instagram gönderileri — yayın kutusu admin’den
 model SiteInstagramPost {
   id            String   @id @default(cuid())
-  instagramId   String?  @unique
-  permalink     String   @unique
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  instagramId   String?
+  permalink     String
   caption       String?
   mediaUrl      String?
   thumbnailUrl  String?
@@ -100,12 +133,18 @@ model SiteInstagramPost {
   source        String   @default("manual")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, instagramId])
+  @@unique([tenantId, permalink])
+  @@index([tenantId])
 }
 
 /// YouTube vitrinı — video kimliği (11 karakter) + isteğe bağlı başlık
 model SiteYoutubeVideo {
   id         String   @id @default(cuid())
-  videoId    String   @unique
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  videoId    String
   title      String?
   watchUrl   String?
   published  Boolean  @default(false)
@@ -113,12 +152,17 @@ model SiteYoutubeVideo {
   source     String   @default("manual")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@unique([tenantId, videoId])
+  @@index([tenantId])
 }
 
 /// TikTok vitrinı — paylaşım bağlantısı; küçük resim oEmbed ile dolar
 model SiteTiktokVideo {
   id            String   @id @default(cuid())
-  permalink     String   @unique
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  permalink     String
   videoId       String?
   thumbnailUrl  String?
   title         String?
@@ -127,10 +171,15 @@ model SiteTiktokVideo {
   source        String   @default("manual")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, permalink])
+  @@index([tenantId])
 }
 
 model Lead {
   id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   name      String
   email     String?
   phone     String?
@@ -139,21 +188,30 @@ model Lead {
   status    String   @default("new")
   notes     String?
   createdAt DateTime @default(now())
+
+  @@index([tenantId])
 }
 
 /// Telefonla eşleşen müşteri kartı (randevu taleplerinden otomatik dolar)
 model CrmContact {
   id           String        @id @default(cuid())
-  phoneKey     String        @unique
+  tenantId     String
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  phoneKey     String
   name         String
   email        String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   appointments Appointment[]
+
+  @@unique([tenantId, phoneKey])
+  @@index([tenantId])
 }
 
 model Appointment {
   id             String      @id @default(cuid())
+  tenantId       String
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   startAt        DateTime
   endAt          DateTime?
   serviceName    String?
@@ -179,11 +237,13 @@ model Appointment {
   crmContact     CrmContact? @relation(fields: [crmContactId], references: [id], onDelete: SetNull)
   events         AppointmentEvent[]
 
-  @@index([startAt, serviceName, status])
+  @@index([tenantId, startAt, serviceName, status])
 }
 
 model AppointmentEvent {
   id            String      @id @default(cuid())
+  tenantId      String
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   appointmentId String
   appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
   eventType     String
@@ -193,14 +253,16 @@ model AppointmentEvent {
   detailsJson   String?
   createdAt     DateTime    @default(now())
 
-  @@index([appointmentId, createdAt])
-  @@index([eventType, createdAt])
+  @@index([tenantId, appointmentId, createdAt])
+  @@index([tenantId, eventType, createdAt])
 }
 
 /// Üst menü / alt menü — parentId null ise kök öğe
 /// menuSlug: "header" = sabit üst şerit menüsü; "footer" = alt bilgi / widget için ayrı liste
 model NavItem {
   id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   menuSlug     String    @default("header")
   parentId     String?
   parent       NavItem?  @relation("NavTree", fields: [parentId], references: [id], onDelete: Cascade)
@@ -211,22 +273,29 @@ model NavItem {
   published    Boolean   @default(true)
   openInNewTab Boolean   @default(false)
 
-  @@index([menuSlug, parentId, sortOrder])
+  @@index([tenantId, menuSlug, parentId, sortOrder])
 }
 
 /// Panel rolleri — permissionsJson: ["content.pages", "site.settings", ...]
 model StaffRole {
   id              String      @id @default(cuid())
-  slug            String      @unique
+  tenantId        String
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  slug            String
   label           String
   permissionsJson String
   users           StaffUser[]
   createdAt       DateTime    @default(now())
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
 }
 
 model StaffUser {
   id           String    @id @default(cuid())
-  username     String    @unique
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  username     String
   passwordHash String
   displayName  String?
   roleId       String
@@ -236,6 +305,9 @@ model StaffUser {
   updatedAt    DateTime  @updatedAt
 
   pushSubscriptions StaffPushSubscription[]
+
+  @@unique([tenantId, username])
+  @@index([tenantId])
 }
 
 /// Web Push (VAPID): yeni randevu gibi olaylarda tarayıcı bildirimi
@@ -254,6 +326,8 @@ model StaffPushSubscription {
 
 model CookieConsentLog {
   id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   consentKey    String
   decision      String
   preferencesJson String?
@@ -261,5 +335,5 @@ model CookieConsentLog {
   userAgent     String?
   createdAt     DateTime @default(now())
 
-  @@index([consentKey, createdAt])
+  @@index([tenantId, consentKey, createdAt])
 }

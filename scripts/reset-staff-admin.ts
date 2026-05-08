@@ -24,12 +24,15 @@ async function main() {
   const bcrypt = bcryptMod.default ?? bcryptMod;
   const { PrismaClient } = await import("@prisma/client");
   const { ensureDefaultStaffRoles } = await import("../src/lib/staff-roles-defaults");
+  const { BOOTSTRAP_TENANT_ID } = await import("../src/lib/tenant-db");
 
   const prisma = new PrismaClient();
 
   try {
     await ensureDefaultStaffRoles(prisma);
-    const adminRole = await prisma.staffRole.findUnique({ where: { slug: "admin" } });
+    const adminRole = await prisma.staffRole.findUnique({
+      where: { tenantId_slug: { tenantId: BOOTSTRAP_TENANT_ID, slug: "admin" } },
+    });
     if (!adminRole) throw new Error('StaffRole "admin" bulunamadı.');
 
     const raw = (process.env.ADMIN_STAFF_USERNAME ?? "admin").trim().toLowerCase().replace(/\s+/g, "");
@@ -37,8 +40,9 @@ async function main() {
     const hash = await bcrypt.hash(plain, 12);
 
     await prisma.staffUser.upsert({
-      where: { username },
+      where: { tenantId_username: { tenantId: BOOTSTRAP_TENANT_ID, username } },
       create: {
+        tenantId: BOOTSTRAP_TENANT_ID,
         username,
         passwordHash: hash,
         displayName: "Yönetici",

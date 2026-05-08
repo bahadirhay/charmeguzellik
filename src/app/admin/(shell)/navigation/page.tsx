@@ -1,10 +1,12 @@
 import { NavEditor } from "@/components/admin/NavEditor";
 import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 export default async function AdminNavigationPage() {
   await requirePagePermission("content.nav");
   const items = await prisma.navItem.findMany({
+    where: { tenantId: BOOTSTRAP_TENANT_ID },
     orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
   });
   return (

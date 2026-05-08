@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { extractYoutubeVideoId, youtubeWatchUrl } from "@/lib/youtube-url";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 export async function GET() {
   const auth = await requireStaffApiPerm("social.youtube");
   if (auth instanceof NextResponse) return auth;
   const videos = await prisma.siteYoutubeVideo.findMany({
+    where: { tenantId: BOOTSTRAP_TENANT_ID },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
   });
   return NextResponse.json({ videos });
@@ -23,15 +25,21 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const existing = await prisma.siteYoutubeVideo.findUnique({ where: { videoId } });
+  const existing = await prisma.siteYoutubeVideo.findUnique({
+    where: { tenantId_videoId: { tenantId: BOOTSTRAP_TENANT_ID, videoId } },
+  });
   if (existing) {
     return NextResponse.json({ error: "Bu video zaten listede" }, { status: 409 });
   }
-  const agg = await prisma.siteYoutubeVideo.aggregate({ _max: { sortOrder: true } });
+  const agg = await prisma.siteYoutubeVideo.aggregate({
+    where: { tenantId: BOOTSTRAP_TENANT_ID },
+    _max: { sortOrder: true },
+  });
   const sortOrder = (agg._max.sortOrder ?? -1) + 1;
   try {
     const row = await prisma.siteYoutubeVideo.create({
       data: {
+        tenantId: BOOTSTRAP_TENANT_ID,
         videoId,
         watchUrl: youtubeWatchUrl(videoId),
         published: false,

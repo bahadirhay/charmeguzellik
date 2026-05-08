@@ -6,10 +6,11 @@ import { PublicBlocks } from "@/components/site/PublicBlocks";
 import { parseBlocks } from "@/lib/blocks/schema";
 import { prisma } from "@/lib/prisma";
 import { getSiteSettings } from "@/lib/site-settings";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 export async function generateMetadata(): Promise<Metadata> {
   const page = await prisma.page.findFirst({
-    where: { slug: "home", published: true },
+    where: { tenantId: BOOTSTRAP_TENANT_ID, slug: "home", published: true },
   });
   const settings = await getSiteSettings();
   if (!page) {
@@ -30,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function HomePage() {
   const page = await prisma.page.findFirst({
-    where: { slug: "home", published: true },
+    where: { tenantId: BOOTSTRAP_TENANT_ID, slug: "home", published: true },
   });
   if (!page) notFound();
 

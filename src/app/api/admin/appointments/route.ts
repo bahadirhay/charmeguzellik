@@ -20,11 +20,15 @@ import {
   withAssignedStaffInNotes,
 } from "@/lib/appointment-staffing";
 import { getSiteSettings } from "@/lib/site-settings";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 export async function GET() {
   const auth = await requireStaffApiAppointments();
   if (auth instanceof NextResponse) return auth;
-  const list = await prisma.appointment.findMany({ orderBy: { startAt: "desc" } });
+  const list = await prisma.appointment.findMany({
+    where: { tenantId: BOOTSTRAP_TENANT_ID },
+    orderBy: { startAt: "desc" },
+  });
   if (auth.appointmentScope === "self") {
     return NextResponse.json(filterAppointmentsForSelfScope(list, auth.selfStaffLabel));
   }

@@ -6,11 +6,13 @@ import {
 } from "@/lib/tiktok-url";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 export async function GET() {
   const auth = await requireStaffApiPerm("social.tiktok");
   if (auth instanceof NextResponse) return auth;
   const videos = await prisma.siteTiktokVideo.findMany({
+    where: { tenantId: BOOTSTRAP_TENANT_ID },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
   });
   return NextResponse.json({ videos });
@@ -27,17 +29,23 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  const existing = await prisma.siteTiktokVideo.findUnique({ where: { permalink } });
+  const existing = await prisma.siteTiktokVideo.findUnique({
+    where: { tenantId_permalink: { tenantId: BOOTSTRAP_TENANT_ID, permalink } },
+  });
   if (existing) {
     return NextResponse.json({ error: "Bu video zaten listede" }, { status: 409 });
   }
   const videoId = extractTiktokVideoIdFromPermalink(permalink);
   const oembed = await fetchTiktokOembed(permalink);
-  const agg = await prisma.siteTiktokVideo.aggregate({ _max: { sortOrder: true } });
+  const agg = await prisma.siteTiktokVideo.aggregate({
+    where: { tenantId: BOOTSTRAP_TENANT_ID },
+    _max: { sortOrder: true },
+  });
   const sortOrder = (agg._max.sortOrder ?? -1) + 1;
   try {
     const row = await prisma.siteTiktokVideo.create({
       data: {
+        tenantId: BOOTSTRAP_TENANT_ID,
         permalink,
         videoId,
         thumbnailUrl: oembed?.thumbnail_url ?? null,

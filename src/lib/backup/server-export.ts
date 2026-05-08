@@ -1,4 +1,11 @@
 import { prisma, withPrismaEngine } from "@/lib/prisma";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+
+function tenantSiteSettingsWhere() {
+  return {
+    OR: [{ tenantId: null }, { tenantId: BOOTSTRAP_TENANT_ID }],
+  };
+}
 
 export type BackupMode = "all" | "pages" | "contents" | "database" | "files";
 
@@ -20,17 +27,17 @@ const PAGES_MODELS = ["Page", "NavItem"] as const satisfies readonly (typeof ALL
 const CONTENT_MODELS = ["SiteSettings", "SiteInstagramPost", "SiteYoutubeVideo", "SiteTiktokVideo"] as const;
 
 const MODEL_READERS: Record<(typeof ALL_MODELS)[number], () => Promise<unknown>> = {
-  Page: () => prisma.page.findMany(),
-  SiteSettings: () => prisma.siteSettings.findMany(),
-  SiteInstagramPost: () => prisma.siteInstagramPost.findMany(),
-  SiteYoutubeVideo: () => prisma.siteYoutubeVideo.findMany(),
-  SiteTiktokVideo: () => prisma.siteTiktokVideo.findMany(),
-  Lead: () => prisma.lead.findMany(),
-  CrmContact: () => prisma.crmContact.findMany(),
-  Appointment: () => prisma.appointment.findMany(),
-  NavItem: () => prisma.navItem.findMany(),
-  StaffRole: () => prisma.staffRole.findMany(),
-  StaffUser: () => prisma.staffUser.findMany(),
+  Page: () => prisma.page.findMany({ where: { tenantId: BOOTSTRAP_TENANT_ID } }),
+  SiteSettings: () => prisma.siteSettings.findMany({ where: tenantSiteSettingsWhere() }),
+  SiteInstagramPost: () => prisma.siteInstagramPost.findMany({ where: { tenantId: BOOTSTRAP_TENANT_ID } }),
+  SiteYoutubeVideo: () => prisma.siteYoutubeVideo.findMany({ where: { tenantId: BOOTSTRAP_TENANT_ID } }),
+  SiteTiktokVideo: () => prisma.siteTiktokVideo.findMany({ where: { tenantId: BOOTSTRAP_TENANT_ID } }),
+  Lead: () => prisma.lead.findMany({ where: { tenantId: BOOTSTRAP_TENANT_ID } }),
+  CrmContact: () => prisma.crmContact.findMany({ where: { tenantId: BOOTSTRAP_TENANT_ID } }),
+  Appointment: () => prisma.appointment.findMany({ where: { tenantId: BOOTSTRAP_TENANT_ID } }),
+  NavItem: () => prisma.navItem.findMany({ where: { tenantId: BOOTSTRAP_TENANT_ID } }),
+  StaffRole: () => prisma.staffRole.findMany({ where: { tenantId: BOOTSTRAP_TENANT_ID } }),
+  StaffUser: () => prisma.staffUser.findMany({ where: { tenantId: BOOTSTRAP_TENANT_ID } }),
 };
 
 function modelsForMode(mode: BackupMode): (typeof ALL_MODELS)[number][] {

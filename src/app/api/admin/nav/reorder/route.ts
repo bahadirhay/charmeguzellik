@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 export async function PUT(req: Request) {
   const auth = await requireStaffApiPerm("content.nav");
@@ -19,7 +20,7 @@ export async function PUT(req: Request) {
   const menuSlug = first.menuSlug;
 
   const siblings = await prisma.navItem.findMany({
-    where: { parentId, menuSlug },
+    where: { tenantId: BOOTSTRAP_TENANT_ID, parentId, menuSlug },
     select: { id: true },
   });
   const set = new Set(siblings.map((s) => s.id));

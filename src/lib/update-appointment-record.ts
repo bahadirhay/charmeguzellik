@@ -57,6 +57,7 @@ export async function updateAppointmentRecord(
     input.serviceName !== undefined ? input.serviceName : existing.serviceName;
 
   const dup = await appointmentConflictExists(tx, {
+    tenantId: existing.tenantId,
     startAt: nextStart,
     serviceName,
     nameKey,
@@ -65,6 +66,7 @@ export async function updateAppointmentRecord(
   });
   if (dup) throw new AppointmentDuplicateError();
   const sameDayPending = await pendingSameDaySameServiceExists(tx, {
+    tenantId: existing.tenantId,
     startAt: nextStart,
     serviceName,
     nameKey,
@@ -75,6 +77,7 @@ export async function updateAppointmentRecord(
     throw new AppointmentPendingSameDayServiceError();
   }
   const tooClose = await withinOneHourOtherServiceExists(tx, {
+    tenantId: existing.tenantId,
     startAt: nextStart,
     serviceName,
     nameKey,
@@ -91,6 +94,7 @@ export async function updateAppointmentRecord(
   let crmContactId = existing.crmContactId;
   if (phoneKey) {
     const c = await upsertCrmContactForAppointment(tx, {
+      tenantId: existing.tenantId,
       phoneKey,
       name: trimName,
       email: (input.clientEmail ?? existing.clientEmail)?.trim() || null,

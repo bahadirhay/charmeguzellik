@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { filterAppointmentsForSelfScope, resolveAppointmentPanelScope } from "@/lib/appointment-panel-access";
 import { prisma } from "@/lib/prisma";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 import { requireStaffPage } from "@/lib/auth";
 import { hasStaffPermission } from "@/lib/staff-permissions";
 
@@ -11,16 +12,17 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
   const access = await requireStaffPage();
   const p = access.permissions;
   const { scope: apptScope, selfStaffLabel } = resolveAppointmentPanelScope(access);
+  const t = BOOTSTRAP_TENANT_ID;
 
-  const pages = prisma.page.count();
-  const leads = prisma.lead.count({ where: { status: "new" } });
+  const pages = prisma.page.count({ where: { tenantId: t } });
+  const leads = prisma.lead.count({ where: { tenantId: t, status: "new" } });
   const appointmentsCountPromise =
     apptScope === "self"
       ? prisma.appointment
-          .findMany({ where: { status: "pending" }, select: { notes: true } })
+          .findMany({ where: { tenantId: t, status: "pending" }, select: { notes: true } })
           .then((rows) => filterAppointmentsForSelfScope(rows, selfStaffLabel).length)
       : hasStaffPermission(p, "crm.appointments")
-        ? prisma.appointment.count({ where: { status: "pending" } })
+        ? prisma.appointment.count({ where: { tenantId: t, status: "pending" } })
         : Promise.resolve(0);
 
   const [pagesCount, leadsCount, appointments] = await Promise.all([pages, leads, appointmentsCountPromise]);

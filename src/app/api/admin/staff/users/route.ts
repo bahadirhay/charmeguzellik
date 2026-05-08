@@ -3,12 +3,14 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
 import { ensureDefaultStaffRoles } from "@/lib/staff-roles-defaults";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 export async function GET() {
   const auth = await requireStaffApiPerm("users.manage");
   if (auth instanceof NextResponse) return auth;
   await ensureDefaultStaffRoles(prisma);
   const users = await prisma.staffUser.findMany({
+    where: { tenantId: BOOTSTRAP_TENANT_ID },
     include: { role: true },
     orderBy: { username: "asc" },
   });
@@ -48,7 +50,9 @@ export async function POST(req: Request) {
   if (!roleId) {
     return NextResponse.json({ error: "Rol seçin" }, { status: 400 });
   }
-  const role = await prisma.staffRole.findUnique({ where: { id: roleId } });
+  const role = await prisma.staffRole.findFirst({
+    where: { id: roleId, tenantId: BOOTSTRAP_TENANT_ID },
+  });
   if (!role) {
     return NextResponse.json({ error: "Geçersiz rol" }, { status: 400 });
   }
@@ -56,6 +60,7 @@ export async function POST(req: Request) {
   try {
     const user = await prisma.staffUser.create({
       data: {
+        tenantId: BOOTSTRAP_TENANT_ID,
         username,
         passwordHash: hash,
         displayName: body.displayName?.trim() || null,

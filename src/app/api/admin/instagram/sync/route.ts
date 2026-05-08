@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { normalizeInstagramPermalink } from "@/lib/instagram-url";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 type GraphMedia = {
   id: string;
@@ -47,7 +48,10 @@ export async function POST() {
 
   const items = json.data ?? [];
   let imported = 0;
-  const agg = await prisma.siteInstagramPost.aggregate({ _max: { sortOrder: true } });
+  const agg = await prisma.siteInstagramPost.aggregate({
+    where: { tenantId: BOOTSTRAP_TENANT_ID },
+    _max: { sortOrder: true },
+  });
   let nextOrder = (agg._max.sortOrder ?? -1) + 1;
 
   for (const item of items) {
@@ -56,6 +60,7 @@ export async function POST() {
 
     const existing = await prisma.siteInstagramPost.findFirst({
       where: {
+        tenantId: BOOTSTRAP_TENANT_ID,
         OR: [{ instagramId: item.id }, { permalink }],
       },
     });
@@ -76,6 +81,7 @@ export async function POST() {
     } else {
       await prisma.siteInstagramPost.create({
         data: {
+          tenantId: BOOTSTRAP_TENANT_ID,
           instagramId: item.id,
           permalink,
           caption: item.caption ?? null,

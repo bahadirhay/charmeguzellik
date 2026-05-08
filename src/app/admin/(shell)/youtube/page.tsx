@@ -1,10 +1,12 @@
 import { YoutubeAdminClient } from "@/components/admin/YoutubeAdminClient";
 import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 export default async function AdminYoutubePage() {
   await requirePagePermission("social.youtube");
   const videos = await prisma.siteYoutubeVideo.findMany({
+    where: { tenantId: BOOTSTRAP_TENANT_ID },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
   });
   return (

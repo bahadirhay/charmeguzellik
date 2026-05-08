@@ -167,6 +167,7 @@ export async function POST(req: Request) {
     const nameKey = normalizeClientNameKey(appt.clientName);
     const phoneKey = normalizePhoneKey(appt.clientPhone);
     const sameDayPending = await pendingSameDaySameServiceExists(prisma, {
+      tenantId: appt.tenantId,
       startAt: nextStart,
       serviceName: appt.serviceName,
       nameKey,
@@ -180,6 +181,7 @@ export async function POST(req: Request) {
       );
     }
     const tooClose = await withinOneHourOtherServiceExists(prisma, {
+      tenantId: appt.tenantId,
       startAt: nextStart,
       serviceName: appt.serviceName,
       nameKey,
@@ -193,6 +195,7 @@ export async function POST(req: Request) {
       );
     }
     const conflict = await appointmentConflictExists(prisma, {
+      tenantId: appt.tenantId,
       startAt: nextStart,
       serviceName: appt.serviceName,
       nameKey,
@@ -207,7 +210,7 @@ export async function POST(req: Request) {
     }
     const assignedStaff = parseAssignedStaffFromNotes(appt.notes);
     if (assignedStaff) {
-      const staffBusy = await isStaffOccupiedAt(prisma, nextStart, assignedStaff, appt.id);
+      const staffBusy = await isStaffOccupiedAt(prisma, nextStart, assignedStaff, appt.id, appt.tenantId);
       if (staffBusy) {
         return NextResponse.json(
           { ok: false, error: `Secili personel (${assignedStaff}) bu saatte musait degil.` },
@@ -216,6 +219,7 @@ export async function POST(req: Request) {
       }
     }
     const occupied = await slotOccupiedExists(prisma, {
+      tenantId: appt.tenantId,
       startAt: nextStart,
       excludeAppointmentId: appt.id,
     });

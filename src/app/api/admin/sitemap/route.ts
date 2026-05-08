@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 import { normalizeSitemapChangeFrequency, sitemapExtrasArraySchema } from "@/lib/sitemap-config";
 
 const pageUpdateSchema = z.object({
@@ -28,6 +29,7 @@ export async function GET() {
   }
 
   const pages = await prisma.page.findMany({
+    where: { tenantId: BOOTSTRAP_TENANT_ID },
     orderBy: { slug: "asc" },
     select: {
       id: true,
@@ -118,7 +120,7 @@ export async function PUT(req: Request) {
         }
         if (Object.keys(data).length === 0) continue;
         await prisma.page.update({
-          where: { id: u.id },
+          where: { id: u.id, tenantId: BOOTSTRAP_TENANT_ID },
           data,
         });
       }
@@ -128,6 +130,7 @@ export async function PUT(req: Request) {
     if (!settings) settings = await prisma.siteSettings.create({ data: { id: 1 } });
 
     const pages = await prisma.page.findMany({
+      where: { tenantId: BOOTSTRAP_TENANT_ID },
       orderBy: { slug: "asc" },
       select: {
         id: true,

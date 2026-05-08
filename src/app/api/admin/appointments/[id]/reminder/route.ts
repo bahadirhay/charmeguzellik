@@ -63,6 +63,7 @@ export async function POST(req: Request, ctx: Ctx) {
       emailSent = true;
       await prisma.appointmentEvent.create({
         data: {
+          tenantId: updated.tenantId,
           appointmentId: updated.id,
           eventType: "reminder_sent",
           channel: "email",
@@ -74,6 +75,7 @@ export async function POST(req: Request, ctx: Ctx) {
       emailError = sent.error;
       await prisma.appointmentEvent.create({
         data: {
+          tenantId: updated.tenantId,
           appointmentId: updated.id,
           eventType: "reminder_sent",
           channel: "email",
@@ -91,6 +93,7 @@ export async function POST(req: Request, ctx: Ctx) {
       console.warn("manual appointment reminder telegram notify", tg.error);
       await prisma.appointmentEvent.create({
         data: {
+          tenantId: updated.tenantId,
           appointmentId: updated.id,
           eventType: "reminder_sent",
           channel: "telegram",
@@ -102,6 +105,7 @@ export async function POST(req: Request, ctx: Ctx) {
     } else {
       await prisma.appointmentEvent.create({
         data: {
+          tenantId: updated.tenantId,
           appointmentId: updated.id,
           eventType: "reminder_sent",
           channel: "telegram",

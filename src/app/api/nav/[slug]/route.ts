@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildNavTree } from "@/lib/navigation";
 import { prisma } from "@/lib/prisma";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 const ALLOWED = new Set(["header", "footer"]);
 
@@ -13,7 +14,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Geçersiz menü" }, { status: 404 });
   }
   const items = await prisma.navItem.findMany({
-    where: { published: true, menuSlug: slug },
+    where: { tenantId: BOOTSTRAP_TENANT_ID, published: true, menuSlug: slug },
     orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
   });
   const nodes = buildNavTree(items);

@@ -11,6 +11,7 @@ import { requirePagePermission } from "@/lib/auth";
 import { buildNavTree, collectServiceLabelsFromNav } from "@/lib/navigation";
 import { getFirstPublishedAppointmentFormRef, getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
 import { prisma } from "@/lib/prisma";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -103,13 +104,16 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     upcomingReminderEligibleCount,
     lastReminderCronEvent,
   ] = await Promise.all([
-    prisma.appointment.findMany({ orderBy: { startAt: "asc" } }),
+    prisma.appointment.findMany({
+      where: { tenantId: BOOTSTRAP_TENANT_ID },
+      orderBy: { startAt: "asc" },
+    }),
     prisma.navItem.findMany({
-      where: { published: true, menuSlug: "header" },
+      where: { tenantId: BOOTSTRAP_TENANT_ID, published: true, menuSlug: "header" },
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
     }),
     prisma.navItem.findMany({
-      where: { published: true, menuSlug: "footer" },
+      where: { tenantId: BOOTSTRAP_TENANT_ID, published: true, menuSlug: "footer" },
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
     }),
     getFirstPublishedAppointmentSchedule(),
@@ -120,6 +124,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     getFirstPublishedAppointmentFormRef(),
     prisma.appointmentEvent.count({
       where: {
+        tenantId: BOOTSTRAP_TENANT_ID,
         eventType: "reminder_sent",
         outcome: "success",
         channel: "email",
@@ -128,6 +133,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     }),
     prisma.appointmentEvent.count({
       where: {
+        tenantId: BOOTSTRAP_TENANT_ID,
         eventType: "reminder_sent",
         outcome: "failed",
         channel: "email",
@@ -136,12 +142,14 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     }),
     prisma.appointment.count({
       where: {
+        tenantId: BOOTSTRAP_TENANT_ID,
         status: "approved",
         startAt: { gte: reminderWindowStart, lte: reminderWindowEnd },
       },
     }),
     prisma.appointmentEvent.findFirst({
       where: {
+        tenantId: BOOTSTRAP_TENANT_ID,
         eventType: "reminder_sent",
         createdAt: { gte: last24h },
       },

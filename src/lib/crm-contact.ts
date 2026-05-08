@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 /** Türkiye odaklı: rakamlar; 0 ile veya 5 ile başlayan 10 hane → 90… */
 export function normalizePhoneKey(raw: string | null | undefined): string | null {
@@ -19,6 +20,7 @@ export function normalizeClientNameKey(name: string): string {
 export async function appointmentDuplicateExists(
   db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
   params: {
+    tenantId?: string;
     startAt: Date;
     serviceName: string | null;
     nameKey: string;
@@ -27,8 +29,10 @@ export async function appointmentDuplicateExists(
     excludeAppointmentId?: string;
   },
 ): Promise<boolean> {
+  const tenantId = params.tenantId ?? BOOTSTRAP_TENANT_ID;
   const rows = await db.appointment.findMany({
     where: {
+      tenantId,
       startAt: params.startAt,
       serviceName: params.serviceName,
       status: { in: ["pending", "approved", "confirmed"] },
@@ -69,6 +73,7 @@ function istanbulYmd(d: Date): string {
 export async function appointmentConflictExists(
   db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
   params: {
+    tenantId?: string;
     startAt: Date;
     serviceName: string | null;
     nameKey: string;
@@ -76,8 +81,10 @@ export async function appointmentConflictExists(
     excludeAppointmentId?: string;
   },
 ): Promise<boolean> {
+  const tenantId = params.tenantId ?? BOOTSTRAP_TENANT_ID;
   const rows = await db.appointment.findMany({
     where: {
+      tenantId,
       status: { in: ["pending", "approved", "confirmed", "cancel_request"] },
       ...(params.excludeAppointmentId ? { NOT: { id: params.excludeAppointmentId } } : {}),
       OR: [
@@ -115,6 +122,7 @@ export async function appointmentConflictExists(
 export async function pendingSameDaySameServiceExists(
   db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
   params: {
+    tenantId?: string;
     startAt: Date;
     serviceName: string | null;
     nameKey: string;
@@ -122,11 +130,13 @@ export async function pendingSameDaySameServiceExists(
     excludeAppointmentId?: string;
   },
 ): Promise<boolean> {
+  const tenantId = params.tenantId ?? BOOTSTRAP_TENANT_ID;
   const svc = params.serviceName?.trim().toLocaleLowerCase("tr-TR") || null;
   if (!svc) return false;
 
   const rows = await db.appointment.findMany({
     where: {
+      tenantId,
       status: "pending",
       ...(params.excludeAppointmentId ? { NOT: { id: params.excludeAppointmentId } } : {}),
       OR: [{ clientNameKey: params.nameKey }, ...(params.phoneKey ? [{ clientPhoneKey: params.phoneKey }] : [])],
@@ -160,6 +170,7 @@ export async function pendingSameDaySameServiceExists(
 export async function withinOneHourOtherServiceExists(
   db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
   params: {
+    tenantId?: string;
     startAt: Date;
     serviceName: string | null;
     nameKey: string;
@@ -167,9 +178,11 @@ export async function withinOneHourOtherServiceExists(
     excludeAppointmentId?: string;
   },
 ): Promise<boolean> {
+  const tenantId = params.tenantId ?? BOOTSTRAP_TENANT_ID;
   const targetService = params.serviceName?.trim().toLocaleLowerCase("tr-TR") || null;
   const rows = await db.appointment.findMany({
     where: {
+      tenantId,
       status: { in: ["pending", "approved", "confirmed"] },
       ...(params.excludeAppointmentId ? { NOT: { id: params.excludeAppointmentId } } : {}),
       OR: [{ clientNameKey: params.nameKey }, ...(params.phoneKey ? [{ clientPhoneKey: params.phoneKey }] : [])],
@@ -202,10 +215,12 @@ export async function withinOneHourOtherServiceExists(
  */
 export async function slotOccupiedExists(
   db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
-  params: { startAt: Date; excludeAppointmentId?: string },
+  params: { tenantId?: string; startAt: Date; excludeAppointmentId?: string },
 ): Promise<boolean> {
+  const tenantId = params.tenantId ?? BOOTSTRAP_TENANT_ID;
   const count = await db.appointment.count({
     where: {
+      tenantId,
       startAt: params.startAt,
       status: { in: ["pending", "approved", "confirmed", "cancel_request"] },
       ...(params.excludeAppointmentId ? { NOT: { id: params.excludeAppointmentId } } : {}),
@@ -216,11 +231,13 @@ export async function slotOccupiedExists(
 
 export async function upsertCrmContactForAppointment(
   db: Pick<PrismaClient | Prisma.TransactionClient, "crmContact">,
-  opts: { phoneKey: string; name: string; email: string | null },
+  opts: { tenantId?: string; phoneKey: string; name: string; email: string | null },
 ) {
+  const tenantId = opts.tenantId ?? BOOTSTRAP_TENANT_ID;
   return db.crmContact.upsert({
-    where: { phoneKey: opts.phoneKey },
+    where: { tenantId_phoneKey: { tenantId, phoneKey: opts.phoneKey } },
     create: {
+      tenantId,
       phoneKey: opts.phoneKey,
       name: opts.name,
       email: opts.email,

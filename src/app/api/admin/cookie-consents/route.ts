@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApi, staffPermDenied } from "@/lib/staff-auth";
 import { hasStaffPermission } from "@/lib/staff-permissions";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 export async function GET() {
   const auth = await requireStaffApi();
@@ -11,6 +12,7 @@ export async function GET() {
   }
 
   const rows = await prisma.cookieConsentLog.findMany({
+    where: { tenantId: BOOTSTRAP_TENANT_ID },
     orderBy: { createdAt: "desc" },
     take: 200,
     select: {

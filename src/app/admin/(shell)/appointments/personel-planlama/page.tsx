@@ -4,6 +4,7 @@ import { coerceAppointmentStaffMapToIds } from "@/lib/appointment-staffing";
 import { requirePagePermission } from "@/lib/auth";
 import { buildNavTree, collectServiceLabelsFromNav } from "@/lib/navigation";
 import { prisma } from "@/lib/prisma";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -16,15 +17,16 @@ export default async function AppointmentStaffPlanningPage() {
       select: { themeTokensJson: true },
     }),
     prisma.navItem.findMany({
-      where: { published: true, menuSlug: "header" },
+      where: { tenantId: BOOTSTRAP_TENANT_ID, published: true, menuSlug: "header" },
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
     }),
     prisma.navItem.findMany({
-      where: { published: true, menuSlug: "footer" },
+      where: { tenantId: BOOTSTRAP_TENANT_ID, published: true, menuSlug: "footer" },
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
     }),
     prisma.staffUser.findMany({
       where: {
+        tenantId: BOOTSTRAP_TENANT_ID,
         active: true,
         displayName: { not: null },
       },

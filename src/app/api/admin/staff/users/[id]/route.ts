@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -16,7 +17,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
     displayName?: string | null;
   };
 
-  const existing = await prisma.staffUser.findUnique({ where: { id } });
+  const existing = await prisma.staffUser.findFirst({
+    where: { id, tenantId: BOOTSTRAP_TENANT_ID },
+  });
   if (!existing) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
   }
@@ -38,7 +41,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
   }
   if (body.roleId !== undefined) {
-    const role = await prisma.staffRole.findUnique({ where: { id: body.roleId } });
+    const role = await prisma.staffRole.findFirst({
+      where: { id: body.roleId, tenantId: existing.tenantId },
+    });
     if (!role) return NextResponse.json({ error: "Geçersiz rol" }, { status: 400 });
     data.roleId = role.id;
   }
@@ -54,7 +59,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
   }
 
   const user = await prisma.staffUser.update({
-    where: { id },
+    where: { id, tenantId: BOOTSTRAP_TENANT_ID },
     data,
     include: { role: true },
   });

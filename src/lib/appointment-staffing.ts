@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { parseThemeTokens } from "@/lib/theme-tokens";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 const STAFF_MARKER_PREFIX = "[[STAFF:";
 const STAFF_MARKER_SUFFIX = "]]";
@@ -80,10 +81,11 @@ function buildStaffResolution(users: StaffUserPick[]): {
 export async function coerceAppointmentStaffMapToIds(
   db: Pick<PrismaClient, "staffUser">,
   themeTokensJson: string | null | undefined,
+  tenantId: string = BOOTSTRAP_TENANT_ID,
 ): Promise<Record<string, string[]>> {
   const raw = parseRawAppointmentStaffByService(themeTokensJson);
   const users = await db.staffUser.findMany({
-    where: { active: true },
+    where: { active: true, tenantId },
     select: { id: true, displayName: true },
   });
   const { byId, normNameToId } = buildStaffResolution(users);
@@ -107,12 +109,13 @@ export async function coerceAppointmentStaffMapToIds(
 export async function resolveServiceStaffMap(
   db: Pick<PrismaClient, "staffUser">,
   themeTokensJson: string | null | undefined,
+  tenantId: string = BOOTSTRAP_TENANT_ID,
 ): Promise<ServiceStaffMap> {
-  const idByService = await coerceAppointmentStaffMapToIds(db, themeTokensJson);
+  const idByService = await coerceAppointmentStaffMapToIds(db, themeTokensJson, tenantId);
   const allIds = [...new Set(Object.values(idByService).flat())];
   if (allIds.length === 0) return {};
   const users = await db.staffUser.findMany({
-    where: { id: { in: allIds }, active: true },
+    where: { id: { in: allIds }, active: true, tenantId },
     select: { id: true, displayName: true },
   });
   const idToLabel = new Map(
@@ -141,9 +144,11 @@ export async function isStaffOccupiedAt(
   startAt: Date,
   staffName: string,
   excludeAppointmentId?: string,
+  tenantId: string = BOOTSTRAP_TENANT_ID,
 ): Promise<boolean> {
   const rows = await db.appointment.findMany({
     where: {
+      tenantId,
       startAt,
       status: { in: ["pending", "approved", "confirmed", "cancel_request"] },
       ...(excludeAppointmentId ? { NOT: { id: excludeAppointmentId } } : {}),
@@ -159,9 +164,10 @@ export async function pickAvailableStaff(
   startAt: Date,
   staffCandidates: string[],
   excludeAppointmentId?: string,
+  tenantId: string = BOOTSTRAP_TENANT_ID,
 ): Promise<string | null> {
   for (const s of staffCandidates) {
-    const occupied = await isStaffOccupiedAt(db, startAt, s, excludeAppointmentId);
+    const occupied = await isStaffOccupiedAt(db, startAt, s, excludeAppointmentId, tenantId);
     if (!occupied) return s;
   }
   return null;

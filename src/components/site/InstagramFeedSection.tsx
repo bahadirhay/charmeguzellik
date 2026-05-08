@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { InstagramFeedPostDTO } from "@/lib/instagram-feed-card";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 import { InstagramFeedClient } from "@/components/site/InstagramFeedClient";
 
 export async function InstagramFeedSection({
@@ -18,7 +19,7 @@ export async function InstagramFeedSection({
   carouselAutoplayMs?: number;
 }) {
   const rows = await prisma.siteInstagramPost.findMany({
-    where: { published: true },
+    where: { tenantId: BOOTSTRAP_TENANT_ID, published: true },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     select: {
       id: true,

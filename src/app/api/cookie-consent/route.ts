@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 const schema = z.object({
   consentKey: z.string().min(8).max(120),
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
   const body = parsed.data;
   await prisma.cookieConsentLog.create({
     data: {
+      tenantId: BOOTSTRAP_TENANT_ID,
       consentKey: body.consentKey,
       decision: body.decision,
       preferencesJson: body.preferences ? JSON.stringify(body.preferences) : null,

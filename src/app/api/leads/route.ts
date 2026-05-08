@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 export async function POST(req: Request) {
   const body = (await req.json()) as {
@@ -14,6 +15,7 @@ export async function POST(req: Request) {
   }
   await prisma.lead.create({
     data: {
+      tenantId: BOOTSTRAP_TENANT_ID,
       name: body.name.trim(),
       email: body.email?.trim() || null,
       phone: body.phone?.trim() || null,

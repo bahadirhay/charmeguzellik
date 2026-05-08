@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 function slugify(input: string): string {
   return input
@@ -35,19 +36,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Geçerli bir slug üretin" }, { status: 400 });
   }
   if (rawSlug === "home") {
-    const exists = await prisma.page.findUnique({ where: { slug: "home" } });
+    const exists = await prisma.page.findUnique({
+      where: { tenantId_slug: { tenantId: BOOTSTRAP_TENANT_ID, slug: "home" } },
+    });
     if (exists) {
       return NextResponse.json({ error: "home slug tek olabilir" }, { status: 400 });
     }
   }
 
-  const clash = await prisma.page.findUnique({ where: { slug: rawSlug } });
+  const clash = await prisma.page.findUnique({
+    where: { tenantId_slug: { tenantId: BOOTSTRAP_TENANT_ID, slug: rawSlug } },
+  });
   if (clash) {
     return NextResponse.json({ error: "Bu slug kullanılıyor" }, { status: 409 });
   }
 
   const page = await prisma.page.create({
     data: {
+      tenantId: BOOTSTRAP_TENANT_ID,
       slug: rawSlug,
       title,
       published: !!body.published,

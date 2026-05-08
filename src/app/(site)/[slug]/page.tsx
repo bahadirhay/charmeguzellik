@@ -6,6 +6,7 @@ import { PublicBlocks } from "@/components/site/PublicBlocks";
 import { parseBlocks } from "@/lib/blocks/schema";
 import { prisma } from "@/lib/prisma";
 import { getSiteSettings } from "@/lib/site-settings";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -15,7 +16,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Yönlendiriliyor" };
   }
   const page = await prisma.page.findFirst({
-    where: { slug, published: true },
+    where: { tenantId: BOOTSTRAP_TENANT_ID, slug, published: true },
   });
   const settings = await getSiteSettings();
   if (!page) {
@@ -36,7 +37,7 @@ export default async function DynamicPage({ params }: Props) {
   if (slug === "home") notFound();
 
   const page = await prisma.page.findFirst({
-    where: { slug, published: true },
+    where: { tenantId: BOOTSTRAP_TENANT_ID, slug, published: true },
   });
   if (!page) notFound();
 

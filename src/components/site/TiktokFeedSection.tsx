@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { clampSocialEmbedHeightPx, socialFeedColClass } from "@/lib/social-feed-layout";
 import { prisma } from "@/lib/prisma";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 import { extractTiktokVideoIdFromPermalink, tiktokEmbedUrl } from "@/lib/tiktok-url";
 
 export async function TiktokFeedSection({
@@ -15,7 +16,7 @@ export async function TiktokFeedSection({
   displayMode?: "mediaCard" | "iframe";
 }) {
   const items = await prisma.siteTiktokVideo.findMany({
-    where: { published: true },
+    where: { tenantId: BOOTSTRAP_TENANT_ID, published: true },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
   });
   if (!items.length) return null;

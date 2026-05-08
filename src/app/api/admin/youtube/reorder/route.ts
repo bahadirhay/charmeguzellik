@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 export async function PUT(req: Request) {
   const auth = await requireStaffApiPerm("social.youtube");
@@ -10,7 +11,10 @@ export async function PUT(req: Request) {
   if (!ids?.length) {
     return NextResponse.json({ error: "orderedIds gerekli" }, { status: 400 });
   }
-  const all = await prisma.siteYoutubeVideo.findMany({ select: { id: true } });
+  const all = await prisma.siteYoutubeVideo.findMany({
+    where: { tenantId: BOOTSTRAP_TENANT_ID },
+    select: { id: true },
+  });
   const set = new Set(all.map((a) => a.id));
   if (ids.length !== all.length || !ids.every((i) => set.has(i))) {
     return NextResponse.json({ error: "Tüm satırlar gerekli" }, { status: 400 });

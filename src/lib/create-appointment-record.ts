@@ -8,6 +8,7 @@ import {
   withinOneHourOtherServiceExists,
   upsertCrmContactForAppointment,
 } from "@/lib/crm-contact";
+import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 export class AppointmentDuplicateError extends Error {
   constructor() {
@@ -60,6 +61,7 @@ export async function createAppointmentRecord(
   const nameKey = normalizeClientNameKey(trimName);
   const phoneKey = normalizePhoneKey(trimPhone);
   const dup = await appointmentConflictExists(tx, {
+    tenantId: BOOTSTRAP_TENANT_ID,
     startAt: input.startAt,
     serviceName: input.serviceName,
     nameKey,
@@ -67,6 +69,7 @@ export async function createAppointmentRecord(
   });
   if (dup) throw new AppointmentDuplicateError();
   const sameDayPending = await pendingSameDaySameServiceExists(tx, {
+    tenantId: BOOTSTRAP_TENANT_ID,
     startAt: input.startAt,
     serviceName: input.serviceName,
     nameKey,
@@ -76,18 +79,20 @@ export async function createAppointmentRecord(
     throw new AppointmentPendingSameDayServiceError();
   }
   const tooClose = await withinOneHourOtherServiceExists(tx, {
+    tenantId: BOOTSTRAP_TENANT_ID,
     startAt: input.startAt,
     serviceName: input.serviceName,
     nameKey,
     phoneKey,
   });
   if (tooClose) throw new AppointmentTooCloseOtherServiceError();
-  const slotOccupied = await slotOccupiedExists(tx, { startAt: input.startAt });
+  const slotOccupied = await slotOccupiedExists(tx, { tenantId: BOOTSTRAP_TENANT_ID, startAt: input.startAt });
   if (slotOccupied) throw new AppointmentSlotOccupiedError();
 
   let crmContactId: string | null = null;
   if (phoneKey) {
     const c = await upsertCrmContactForAppointment(tx, {
+      tenantId: BOOTSTRAP_TENANT_ID,
       phoneKey,
       name: trimName,
       email: input.clientEmail?.trim() || null,
@@ -97,6 +102,7 @@ export async function createAppointmentRecord(
 
   return tx.appointment.create({
     data: {
+      tenantId: BOOTSTRAP_TENANT_ID,
       startAt: input.startAt,
       endAt: input.endAt,
       serviceName: input.serviceName,
