@@ -454,6 +454,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
                 <th className="px-3 py-2">Personel</th>
                 <th className="px-3 py-2">Müşteri</th>
                 <th className="px-3 py-2">İptal eden</th>
+                <th className="px-3 py-2">Durum / işlem</th>
               </tr>
             </thead>
             <tbody>
@@ -469,11 +470,24 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
                   <td className="px-3 py-2 text-xs font-medium text-rose-700 dark:text-rose-300">
                     {parseCancelledByFromNotes(r.notes) ?? "—"}
                   </td>
+                  <td className="px-3 py-2 align-top">
+                    <AppointmentRowActions
+                      id={r.id}
+                      startAtIso={r.startAt.toISOString()}
+                      serviceName={r.serviceName}
+                      clientName={r.clientName}
+                      clientEmail={r.clientEmail}
+                      clientPhone={r.clientPhone}
+                      notes={r.notes}
+                      status={r.status}
+                      serviceOptions={serviceOptions}
+                    />
+                  </td>
                 </tr>
               ))}
               {cancelledByStaffRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-sm text-zinc-500">
+                  <td colSpan={6} className="px-3 py-6 text-center text-sm text-zinc-500">
                     Henüz panelden onaylanmış iptal yok.
                   </td>
                 </tr>
