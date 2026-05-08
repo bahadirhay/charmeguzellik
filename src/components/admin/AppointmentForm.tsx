@@ -50,7 +50,9 @@ export function AppointmentForm({
   );
   const tz = (schedule?.appointmentTimeZone?.trim() || DEFAULT_APPOINTMENT_TIMEZONE) as string;
   const slotDur = schedule?.slotDurationMinutes ?? 60;
+  const locked = lockedStaffName?.trim() ?? "";
   const hasList = serviceOptions.length > 0;
+  const allowFreeServiceInput = !hasList && !locked;
 
   const minYmd = useMemo(() => todayYmdInTimeZone(tz), [tz]);
   const maxYmd = useMemo(() => {
@@ -68,8 +70,6 @@ export function AppointmentForm({
     const key = serviceNameValue.trim().toLocaleLowerCase("tr-TR");
     return serviceStaffMap[key] ?? [];
   }, [serviceNameValue, serviceStaffMap]);
-
-  const locked = lockedStaffName?.trim() ?? "";
 
   useEffect(() => {
     if (locked) setStaffNameValue(locked);
@@ -193,6 +193,10 @@ export function AppointmentForm({
       serviceName = v;
       setServiceNameValue(v);
     } else {
+      if (locked) {
+        setFeedback({ text: "Hesabınıza tanımlı hizmet bulunmuyor.", error: true });
+        return;
+      }
       serviceName = String(fd.get("serviceNameFree") ?? "").trim();
       if (!serviceName) {
         setFeedback({ text: "Hizmet adı girin.", error: true });
@@ -284,7 +288,7 @@ export function AppointmentForm({
             ))}
           </select>
         </label>
-      ) : (
+      ) : allowFreeServiceInput ? (
         <label className="text-sm text-zinc-700 dark:text-zinc-300">
           İstenen hizmet
           <p className="mt-0.5 text-[11px] text-amber-800 dark:text-amber-200">
@@ -302,6 +306,10 @@ export function AppointmentForm({
             className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
           />
         </label>
+      ) : (
+        <p className="text-xs text-amber-800 dark:text-amber-200">
+          Hesabınıza atanmış hizmet bulunmadığı için randevu oluşturamazsınız.
+        </p>
       )}
       {eligibleStaff.length > 0 ? (
         locked ? (

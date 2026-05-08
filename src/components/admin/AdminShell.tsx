@@ -10,7 +10,6 @@ const TOP_NAV: NavItem[] = [
   { href: "/admin/navigation", label: "Menü", perm: "content.nav" },
   { href: "/admin/crm", label: "CRM", perm: "crm.leads" },
   { href: "/admin/appointments", label: "Randevular", perm: "crm.appointments" },
-  { href: "/admin/appointments/personel-planlama", label: "Personel Planlama", perm: "crm.appointments" },
 ];
 
 const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
@@ -38,7 +37,13 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       { href: "/admin/sitemap", label: "Site haritası", perm: "content.sitemap" },
       { href: "/admin/cookie-consents", label: "Çerez kayıtları", perm: "site.settings" },
       { href: "/admin/backups", label: "Yedekleme merkezi", perm: "site.settings" },
+    ],
+  },
+  {
+    title: "Kullanıcılar",
+    items: [
       { href: "/admin/staff", label: "Personel & roller", perm: "users.manage" },
+      { href: "/admin/appointments/personel-planlama", label: "Personel Planlama", perm: "crm.appointments" },
     ],
   },
 ];

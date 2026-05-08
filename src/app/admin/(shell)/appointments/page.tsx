@@ -31,6 +31,17 @@ function appointmentStaffCell(notes: string | null | undefined): string {
   return parseAssignedStaffFromNotes(notes)?.trim() || "—";
 }
 
+function hasStaffAccessToService(
+  serviceName: string,
+  serviceStaffMap: Record<string, string[]>,
+  staffLabel: string | null | undefined,
+): boolean {
+  const normalizedStaff = staffLabel?.trim().toLocaleLowerCase("tr-TR");
+  if (!normalizedStaff) return false;
+  const staffList = serviceStaffMap[serviceName.trim().toLocaleLowerCase("tr-TR")] ?? [];
+  return staffList.some((s) => s.trim().toLocaleLowerCase("tr-TR") === normalizedStaff);
+}
+
 export default async function AppointmentsPage({ searchParams }: AppointmentsPageProps) {
   const access = await requirePagePermission(["crm.appointments", "crm.appointments.self"]);
   const { scope: appointmentScope, selfStaffLabel } = resolveAppointmentPanelScope(access);
@@ -71,12 +82,16 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
   const serviceStaffMap = await resolveServiceStaffMap(prisma, settings?.themeTokensJson);
   const fromHeader = collectServiceLabelsFromNav(buildNavTree(headerNav));
   const fromFooter = collectServiceLabelsFromNav(buildNavTree(footerNav));
-  const serviceOptions =
+  const baseServiceOptions =
     fromHeader.length > 0
       ? fromHeader
       : fromFooter.length > 0
         ? fromFooter
         : [];
+  const serviceOptions =
+    appointmentScope === "self"
+      ? baseServiceOptions.filter((svc) => hasStaffAccessToService(svc, serviceStaffMap, effectiveSelfLabel))
+      : baseServiceOptions;
   const activeRowsBase = rows
     .filter((r) => r.status === "pending" || r.status === "approved")
     .sort((a, b) => {

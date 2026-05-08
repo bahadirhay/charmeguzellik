@@ -78,9 +78,13 @@ export async function POST(req: Request) {
       if (requestedStaff && requestedStaff.toLocaleLowerCase("tr-TR") !== selfLabel.toLocaleLowerCase("tr-TR")) {
         return NextResponse.json({ error: "Yalnızca kendi adınıza randevu ekleyebilirsiniz." }, { status: 403 });
       }
+      const selfMatch = staffCandidates.find((s) => s.toLocaleLowerCase("tr-TR") === selfLabel.toLocaleLowerCase("tr-TR"));
+      if (!selfMatch) {
+        return NextResponse.json({ error: "Bu hizmet için hesabınızın personel yetkisi yok." }, { status: 403 });
+      }
       const occupied = await isStaffOccupiedAt(prisma, startAt, selfLabel);
       if (occupied) return NextResponse.json({ error: "Secilen personel bu saatte musait degil." }, { status: 409 });
-      assignedStaff = selfLabel;
+      assignedStaff = selfMatch;
     } else if (staffCandidates.length > 0) {
       if (requestedStaff) {
         if (!staffCandidates.some((s) => s.toLocaleLowerCase("tr-TR") === requestedStaff.toLocaleLowerCase("tr-TR"))) {
