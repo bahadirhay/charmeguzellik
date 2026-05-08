@@ -453,8 +453,8 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
                 <th className="px-3 py-2">Hizmet</th>
                 <th className="px-3 py-2">Personel</th>
                 <th className="px-3 py-2">Müşteri</th>
-                <th className="px-3 py-2">İptal eden</th>
                 <th className="px-3 py-2">Durum / işlem</th>
+                <th className="px-3 py-2">İptal eden</th>
               </tr>
             </thead>
             <tbody>
@@ -466,9 +466,6 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
                   <td className="px-3 py-2">
                     {r.clientName}
                     <div className="text-xs text-zinc-500">{r.clientPhone}</div>
-                  </td>
-                  <td className="px-3 py-2 text-xs font-medium text-rose-700 dark:text-rose-300">
-                    {parseCancelledByFromNotes(r.notes) ?? "—"}
                   </td>
                   <td className="px-3 py-2 align-top">
                     <AppointmentRowActions
@@ -482,6 +479,9 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
                       status={r.status}
                       serviceOptions={serviceOptions}
                     />
+                  </td>
+                  <td className="px-3 py-2 text-xs font-medium text-rose-700 dark:text-rose-300">
+                    {parseCancelledByFromNotes(r.notes) ?? "—"}
                   </td>
                 </tr>
               ))}
