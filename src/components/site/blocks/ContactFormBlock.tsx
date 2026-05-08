@@ -198,14 +198,30 @@ export function ContactFormBlock({
     };
   }, [isAppointment, apptDate, staffForSlots, blockId, formContext, resolvedPageSlug]);
 
-  const effectiveTimeSlots = useMemo(() => {
-    if (!staffForSlots) return timeSlotLabels;
+  const hasStaffSlotFilter =
+    isAppointment && Boolean(staffForSlots) && Boolean(blockId?.trim());
+
+  const isStaffSlotUnavailable = useCallback(
+    (slot: string) => {
+      if (!hasStaffSlotFilter) return false;
+      if (!staffSlots) return false;
+      return !staffSlots.includes(slot);
+    },
+    [hasStaffSlotFilter, staffSlots],
+  );
+
+  /** Takvimdeki tüm slotlar — personel seçiliyken dolular da listelenir, seçilemez. */
+  const visibleTimeSlots = timeSlotLabels;
+
+  /** Gönderim / seçim doğrulaması: personel seçiliyse yalnızca API’nin döndürdüğü boş saatler. */
+  const selectableSlots = useMemo(() => {
+    if (!hasStaffSlotFilter) return timeSlotLabels;
     return staffSlots ?? [];
-  }, [staffForSlots, timeSlotLabels, staffSlots]);
+  }, [hasStaffSlotFilter, timeSlotLabels, staffSlots]);
 
   useEffect(() => {
-    if (!effectiveTimeSlots.includes(apptTime)) setApptTime("");
-  }, [effectiveTimeSlots, apptTime]);
+    if (!selectableSlots.includes(apptTime)) setApptTime("");
+  }, [selectableSlots, apptTime]);
 
   useEffect(() => {
     if (!isAppointment || !showApptService) {
@@ -378,9 +394,21 @@ export function ContactFormBlock({
       setStatus("err");
       return;
     }
-    if (!effectiveTimeSlots.includes(time)) {
+    if (!timeSlotLabels.includes(time)) {
       setStatus("err");
       return;
+    }
+    if (hasStaffSlotFilter) {
+      if (!staffSlots) {
+        setSubmitError("Personel müsaitliği yükleniyor veya alınamadı; birkaç saniye sonra yeniden deneyin.");
+        setStatus("err");
+        return;
+      }
+      if (!staffSlots.includes(time)) {
+        setSubmitError("Bu saat seçili personel için dolu.");
+        setStatus("err");
+        return;
+      }
     }
 
     let serviceId: string | null = null;
@@ -576,30 +604,40 @@ export function ContactFormBlock({
               <select
                 name="apptTime"
                 required
+                disabled={Boolean(apptDate && hasStaffSlotFilter && staffSlotsLoading)}
                 value={apptTime}
                 onChange={(e) => {
                   clearAppointmentSubmitFeedback();
                   setApptTime(e.target.value);
                 }}
-                className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
+                className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50"
               >
                 <option value="">{apptDate ? "Saat seçin…" : "Önce tarih seçin"}</option>
-                {staffSlotsLoading && staffForSlots && blockId?.trim() ? (
+                {staffSlotsLoading && hasStaffSlotFilter ? (
                   <option value="" disabled>
                     Saatler yükleniyor…
                   </option>
                 ) : null}
-                {effectiveTimeSlots.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
+                {visibleTimeSlots.map((t) => (
+                  <option key={t} value={t} disabled={isStaffSlotUnavailable(t)}>
+                    {isStaffSlotUnavailable(t) ? `${t} (dolu)` : t}
                   </option>
                 ))}
               </select>
             </label>
           </div>
-          {apptDate && effectiveTimeSlots.length === 0 && !staffSlotsLoading ? (
+          {apptDate && visibleTimeSlots.length === 0 ? (
             <p className="text-xs text-amber-800 dark:text-amber-200">
-              Bu tarihte salon kapalı, uygun slot yok veya seçili personel için müsait saat kalmadı.
+              Bu tarihte salon kapalı veya tanımlı çalışma aralığında slot yok.
+            </p>
+          ) : null}
+          {apptDate &&
+          hasStaffSlotFilter &&
+          staffSlots &&
+          staffSlots.length === 0 &&
+          visibleTimeSlots.length > 0 ? (
+            <p className="text-xs text-amber-800 dark:text-amber-200">
+              Seçilen personelin bu tarihte müsait saati kalmadı; dolu saatler listede pasif olarak gösterilir.
             </p>
           ) : null}
           {showApptEmail ? (
