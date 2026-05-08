@@ -126,7 +126,14 @@ export function AppointmentRowActions(props: {
       if (n?.emailSent) {
         setFeedback("Müşteriye e-posta gönderildi.");
       } else if (n?.emailError) {
-        setFeedback(`E-posta gönderilemedi: ${n.emailError}`);
+        const low = n.emailError.toLocaleLowerCase("tr-TR");
+        if (low.includes("smtp limiti aşıldı") || low.includes("452")) {
+          setFeedback(
+            "E-posta kotası dolu. WhatsApp veya e-posta taslak bağlantısıyla müşteriye manuel bildirim gönderebilirsiniz.",
+          );
+        } else {
+          setFeedback(`E-posta gönderilemedi: ${n.emailError}`);
+        }
       } else if (n?.emailSkipped) {
         setFeedback(
           "Müşteri e-postası kayıtta yok veya sunucu e-postası yapılandırılmadı (aşağıdan manuel gönderebilirsiniz).",
@@ -139,6 +146,43 @@ export function AppointmentRowActions(props: {
         window.open(n.whatsappUrl, "_blank", "noopener,noreferrer");
       }
       router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendReminder() {
+    setBusy(true);
+    setFeedback(null);
+    setNotify(null);
+    try {
+      const res = await fetch(`/api/admin/appointments/${props.id}/reminder`, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        notifications?: Notify;
+      };
+      if (!res.ok || !j.ok) {
+        setFeedback(j.error ?? "Teyit mesajı gönderilemedi.");
+        return;
+      }
+      const n = j.notifications ?? null;
+      setNotify(n);
+      if (n?.emailSent) {
+        setFeedback("Teyit e-postası gönderildi. WhatsApp linki hazır.");
+      } else if (n?.emailError) {
+        setFeedback(`Teyit e-postası gönderilemedi: ${n.emailError}`);
+      } else if (n?.emailSkipped) {
+        setFeedback("Müşterinin e-postası yok; WhatsApp bağlantısı ile devam edebilirsiniz.");
+      } else {
+        setFeedback("Teyit mesajı hazırlandı.");
+      }
+      if (n?.whatsappUrl) {
+        window.open(n.whatsappUrl, "_blank", "noopener,noreferrer");
+      }
     } finally {
       setBusy(false);
     }
@@ -228,6 +272,14 @@ export function AppointmentRowActions(props: {
         ) : null}
         {localStatus === "approved" || localStatus === "confirmed" ? (
           <>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void sendReminder()}
+              className="rounded-full border border-blue-300 bg-white px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50 dark:border-blue-800 dark:bg-zinc-900 dark:text-blue-300 dark:hover:bg-blue-950/40"
+            >
+              Teyit mesajı gönder
+            </button>
             <button
               type="button"
               disabled={busy}

@@ -22,6 +22,7 @@ type AppointmentsPageProps = {
 const CUSTOMER_RESCHEDULE_NOTE_PREFIX = "Müşteri takvim güncelledi (bağlantı):";
 const CUSTOMER_CANCEL_REQUEST_NOTE_PREFIX = "Müşteri iptal etti (bağlantı):";
 const PANEL_CANCEL_NOTE_PREFIX = "Panel iptal onayı:";
+const REMINDER_NOTE_PREFIX = "Teyit hatırlatması gönderildi:";
 const APPOINTMENT_TZ = "Europe/Istanbul";
 
 function formatAppointmentDateTime(d: Date): string {
@@ -43,6 +44,19 @@ function parseCancelledByFromNotes(notes: string | null | undefined): string | n
   const value = line.slice(PANEL_CANCEL_NOTE_PREFIX.length).trim();
   const actor = value.split(" (")[0]?.trim();
   return actor || null;
+}
+
+function parseLastReminderInfo(notes: string | null | undefined): string | null {
+  const raw = notes?.trim() ?? "";
+  if (!raw) return null;
+  const lines = raw
+    .split("\n")
+    .map((x) => x.trim())
+    .filter((x) => x.startsWith(REMINDER_NOTE_PREFIX));
+  const last = lines.length > 0 ? lines[lines.length - 1] : null;
+  if (!last) return null;
+  const value = last.slice(REMINDER_NOTE_PREFIX.length).trim();
+  return value || null;
 }
 
 function hasStaffAccessToService(
@@ -255,6 +269,11 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
                     <span className="mb-2 inline-block rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
                       Müşteri linkten takvim güncelledi
                     </span>
+                  ) : null}
+                  {parseLastReminderInfo(r.notes) ? (
+                    <div className="mb-2 text-[11px] text-blue-700 dark:text-blue-300">
+                      Son teyit mesajı: {parseLastReminderInfo(r.notes)}
+                    </div>
                   ) : null}
                   <AppointmentRowActions
                     id={r.id}

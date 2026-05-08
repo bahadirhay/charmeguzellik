@@ -13,7 +13,13 @@ function hasValidCronSecret(req: Request): boolean {
   const required = process.env.APPOINTMENT_REMINDER_CRON_SECRET?.trim();
   if (!required) return false;
   const fromHeader = req.headers.get("x-cron-secret")?.trim() ?? "";
-  return fromHeader.length > 0 && fromHeader === required;
+  if (fromHeader && fromHeader === required) return true;
+  const authHeader = req.headers.get("authorization")?.trim() ?? "";
+  if (authHeader.toLowerCase().startsWith("bearer ")) {
+    const token = authHeader.slice(7).trim();
+    if (token && token === required) return true;
+  }
+  return false;
 }
 
 export async function POST(req: Request) {
