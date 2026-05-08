@@ -33,21 +33,34 @@ async function sendTelegramMessage(botToken: string, chatId: string, text: strin
 export async function notifyTelegramNewAppointment(
   settings: { themeTokensJson: string | null | undefined; siteName?: string | null },
   row: Pick<Appointment, "clientName" | "serviceName" | "startAt" | "clientPhone" | "clientEmail">,
+  meta?: {
+    source?: "site" | "admin";
+    createdBy?: string | null;
+    assignedStaff?: string | null;
+  },
 ): Promise<{ ok: true } | { ok: false; error: string; skipped?: boolean }> {
   const cfg = telegramConfig(settings.themeTokensJson);
   if (!cfg) return { ok: false, error: "Telegram bot token/chat id eksik.", skipped: true };
   const when = new Date(row.startAt).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" });
   const site = settings.siteName?.trim() || "Salon";
+  const sourceLine = meta?.source === "admin" ? "Kaynak: Admin panel" : "Kaynak: Web sitesi";
+  const createdByLine = meta?.createdBy?.trim() ? `Oluşturan: ${meta.createdBy.trim()}` : null;
+  const assignedStaffLine = meta?.assignedStaff?.trim() ? `Atanan personel: ${meta.assignedStaff.trim()}` : null;
   const text = [
     "Yeni randevu talebi",
     "",
     `İşletme: ${site}`,
+    sourceLine,
+    createdByLine,
     `Tarih/Saat: ${when}`,
     `Müşteri: ${row.clientName}`,
     `Telefon: ${row.clientPhone ?? "-"}`,
     `E-posta: ${row.clientEmail ?? "-"}`,
     `Hizmet: ${row.serviceName ?? "-"}`,
-  ].join("\n");
+    assignedStaffLine,
+  ]
+    .filter(Boolean)
+    .join("\n");
   const sent = await sendTelegramMessage(cfg.botToken, cfg.chatId, text);
   if (!sent.ok) return { ok: false, error: sent.error };
   return { ok: true };

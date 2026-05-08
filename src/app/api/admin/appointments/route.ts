@@ -10,13 +10,16 @@ import { prisma } from "@/lib/prisma";
 import { filterAppointmentsForSelfScope } from "@/lib/appointment-panel-access";
 import { requireStaffApiAppointments } from "@/lib/admin-api-auth";
 import { appointmentPhoneTurkeyHint, isValidTurkeyMobileAppointmentPhone } from "@/lib/appointment-phone";
+import { notifyTelegramNewAppointment } from "@/lib/appointment-telegram-notify";
 import {
   eligibleStaffForService,
   isStaffOccupiedAt,
+  parseAssignedStaffFromNotes,
   pickAvailableStaff,
   resolveServiceStaffMap,
   withAssignedStaffInNotes,
 } from "@/lib/appointment-staffing";
+import { getSiteSettings } from "@/lib/site-settings";
 
 export async function GET() {
   const auth = await requireStaffApiAppointments();
@@ -146,6 +149,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Telefon boş bırakılamaz." }, { status: 400 });
     }
     throw e;
+  }
+  try {
+    const settings = await getSiteSettings();
+    const tg = await notifyTelegramNewAppointment(settings, row, {
+      source: "admin",
+      createdBy: auth.username,
+      assignedStaff: parseAssignedStaffFromNotes(row.notes),
+    });
+    if (!tg.ok && !tg.skipped) {
+      console.warn("admin appointment telegram notify", tg.error);
+    }
+  } catch (e) {
+    console.warn("admin appointment telegram notify", e);
   }
   return NextResponse.json(row);
 }
