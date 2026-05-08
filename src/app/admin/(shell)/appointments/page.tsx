@@ -88,7 +88,21 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     params.view === "rescheduled" || params.view === "cancel_link"
       ? params.view
       : "all";
-  const [allRows, headerNav, footerNav, appointmentSchedule, settings, appointmentFormRef] = await Promise.all([
+  const reminderWindowStart = new Date(Date.now() + 23 * 60 * 60 * 1000);
+  const reminderWindowEnd = new Date(Date.now() + 25 * 60 * 60 * 1000);
+  const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [
+    allRows,
+    headerNav,
+    footerNav,
+    appointmentSchedule,
+    settings,
+    appointmentFormRef,
+    reminderSentLast24h,
+    reminderFailedLast24h,
+    upcomingReminderEligibleCount,
+    lastReminderCronEvent,
+  ] = await Promise.all([
     prisma.appointment.findMany({ orderBy: { startAt: "asc" } }),
     prisma.navItem.findMany({
       where: { published: true, menuSlug: "header" },
@@ -104,6 +118,36 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
       select: { themeTokensJson: true },
     }),
     getFirstPublishedAppointmentFormRef(),
+    prisma.appointmentEvent.count({
+      where: {
+        eventType: "reminder_sent",
+        outcome: "success",
+        channel: "email",
+        createdAt: { gte: last24h },
+      },
+    }),
+    prisma.appointmentEvent.count({
+      where: {
+        eventType: "reminder_sent",
+        outcome: "failed",
+        channel: "email",
+        createdAt: { gte: last24h },
+      },
+    }),
+    prisma.appointment.count({
+      where: {
+        status: "approved",
+        startAt: { gte: reminderWindowStart, lte: reminderWindowEnd },
+      },
+    }),
+    prisma.appointmentEvent.findFirst({
+      where: {
+        eventType: "reminder_sent",
+        createdAt: { gte: last24h },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true, actor: true, outcome: true, channel: true },
+    }),
   ]);
   const rows =
     appointmentScope === "self" ? filterAppointmentsForSelfScope(allRows, effectiveSelfLabel) : allRows;
@@ -183,6 +227,33 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
         </p>
       </header>
       <AdminAppointmentPushBanner />
+      <section className="rounded-xl border border-blue-200 bg-blue-50/40 p-4 dark:border-blue-900/40 dark:bg-blue-950/20">
+        <h2 className="text-sm font-semibold text-blue-900 dark:text-blue-100">Hatırlatma Merkezi (son 24 saat)</h2>
+        <div className="mt-2 grid gap-2 text-xs text-blue-900 dark:text-blue-200 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg border border-blue-200 bg-white px-3 py-2 dark:border-blue-900/40 dark:bg-blue-950/40">
+            <div className="text-[11px] text-blue-700 dark:text-blue-300">E-posta başarılı</div>
+            <div className="text-lg font-semibold">{reminderSentLast24h}</div>
+          </div>
+          <div className="rounded-lg border border-blue-200 bg-white px-3 py-2 dark:border-blue-900/40 dark:bg-blue-950/40">
+            <div className="text-[11px] text-blue-700 dark:text-blue-300">E-posta hatalı</div>
+            <div className="text-lg font-semibold">{reminderFailedLast24h}</div>
+          </div>
+          <div className="rounded-lg border border-blue-200 bg-white px-3 py-2 dark:border-blue-900/40 dark:bg-blue-950/40">
+            <div className="text-[11px] text-blue-700 dark:text-blue-300">24 saat içinde hatırlatma adayı</div>
+            <div className="text-lg font-semibold">{upcomingReminderEligibleCount}</div>
+          </div>
+          <div className="rounded-lg border border-blue-200 bg-white px-3 py-2 dark:border-blue-900/40 dark:bg-blue-950/40">
+            <div className="text-[11px] text-blue-700 dark:text-blue-300">Son olay</div>
+            <div className="text-[12px] font-medium">
+              {lastReminderCronEvent
+                ? `${new Date(lastReminderCronEvent.createdAt).toLocaleString("tr-TR")} · ${lastReminderCronEvent.channel ?? "?"} · ${
+                    lastReminderCronEvent.outcome === "success" ? "ok" : "hata"
+                  }`
+                : "Kayıt yok"}
+            </div>
+          </div>
+        </div>
+      </section>
       <ReservationWeekCalendar
         appointments={activeRows.map((r) => ({
           id: r.id,

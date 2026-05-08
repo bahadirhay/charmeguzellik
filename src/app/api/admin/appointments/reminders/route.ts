@@ -79,10 +79,51 @@ export async function POST(req: Request) {
         link,
       ].join("\n");
       const mail = await sendTransactionalEmail({ to: toEmail, subject, text });
-      if (!mail.ok) throw new Error(mail.error);
+      if (!mail.ok) {
+        await prisma.appointmentEvent.create({
+          data: {
+            appointmentId: updated.id,
+            eventType: "reminder_sent",
+            channel: "email",
+            outcome: "failed",
+            actor: "system:cron",
+            detailsJson: JSON.stringify({ error: mail.error }),
+          },
+        });
+        throw new Error(mail.error);
+      }
+      await prisma.appointmentEvent.create({
+        data: {
+          appointmentId: updated.id,
+          eventType: "reminder_sent",
+          channel: "email",
+          outcome: "success",
+          actor: "system:cron",
+        },
+      });
       const tg = await notifyTelegramAppointmentReminder(settings, updated);
       if (!tg.ok && !tg.skipped) {
         console.warn("appointment reminder telegram notify", tg.error);
+        await prisma.appointmentEvent.create({
+          data: {
+            appointmentId: updated.id,
+            eventType: "reminder_sent",
+            channel: "telegram",
+            outcome: "failed",
+            actor: "system:cron",
+            detailsJson: JSON.stringify({ error: tg.error }),
+          },
+        });
+      } else {
+        await prisma.appointmentEvent.create({
+          data: {
+            appointmentId: updated.id,
+            eventType: "reminder_sent",
+            channel: "telegram",
+            outcome: "success",
+            actor: "system:cron",
+          },
+        });
       }
       sent += 1;
     } catch (e) {

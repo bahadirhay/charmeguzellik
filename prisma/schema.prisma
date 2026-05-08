@@ -177,8 +177,24 @@ model Appointment {
   createdAt      DateTime    @default(now())
   crmContactId   String?
   crmContact     CrmContact? @relation(fields: [crmContactId], references: [id], onDelete: SetNull)
+  events         AppointmentEvent[]
 
   @@index([startAt, serviceName, status])
+}
+
+model AppointmentEvent {
+  id            String      @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  eventType     String
+  channel       String?
+  outcome       String
+  actor         String?
+  detailsJson   String?
+  createdAt     DateTime    @default(now())
+
+  @@index([appointmentId, createdAt])
+  @@index([eventType, createdAt])
 }
 
 /// Üst menü / alt menü — parentId null ise kök öğe

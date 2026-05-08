@@ -59,13 +59,57 @@ export async function POST(req: Request, ctx: Ctx) {
       link,
     ].join("\n");
     const sent = await sendTransactionalEmail({ to: toEmail, subject, text });
-    if (sent.ok) emailSent = true;
-    else emailError = sent.error;
+    if (sent.ok) {
+      emailSent = true;
+      await prisma.appointmentEvent.create({
+        data: {
+          appointmentId: updated.id,
+          eventType: "reminder_sent",
+          channel: "email",
+          outcome: "success",
+          actor: auth.username,
+        },
+      });
+    } else {
+      emailError = sent.error;
+      await prisma.appointmentEvent.create({
+        data: {
+          appointmentId: updated.id,
+          eventType: "reminder_sent",
+          channel: "email",
+          outcome: "failed",
+          actor: auth.username,
+          detailsJson: JSON.stringify({ error: sent.error }),
+        },
+      });
+    }
   }
 
   try {
     const tg = await notifyTelegramAppointmentReminder(settings, updated);
-    if (!tg.ok && !tg.skipped) console.warn("manual appointment reminder telegram notify", tg.error);
+    if (!tg.ok && !tg.skipped) {
+      console.warn("manual appointment reminder telegram notify", tg.error);
+      await prisma.appointmentEvent.create({
+        data: {
+          appointmentId: updated.id,
+          eventType: "reminder_sent",
+          channel: "telegram",
+          outcome: "failed",
+          actor: auth.username,
+          detailsJson: JSON.stringify({ error: tg.error }),
+        },
+      });
+    } else {
+      await prisma.appointmentEvent.create({
+        data: {
+          appointmentId: updated.id,
+          eventType: "reminder_sent",
+          channel: "telegram",
+          outcome: "success",
+          actor: auth.username,
+        },
+      });
+    }
   } catch (e) {
     console.warn("manual appointment reminder telegram notify", e);
   }
