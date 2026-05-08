@@ -74,20 +74,15 @@ export async function POST(req: Request) {
     }
 
     let assignedStaff: string | null = null;
-    if (staffCandidates.length > 0) {
-      if (auth.appointmentScope === "self") {
-        if (requestedStaff && requestedStaff.toLocaleLowerCase("tr-TR") !== selfLabel.toLocaleLowerCase("tr-TR")) {
-          return NextResponse.json({ error: "Yalnızca kendi adınıza randevu ekleyebilirsiniz." }, { status: 403 });
-        }
-        const want = requestedStaff || selfLabel;
-        const match = staffCandidates.find((s) => s.toLocaleLowerCase("tr-TR") === want.toLocaleLowerCase("tr-TR"));
-        if (!match) {
-          return NextResponse.json({ error: "Bu hizmet için hesabınız personel listesinde yok." }, { status: 403 });
-        }
-        const occupied = await isStaffOccupiedAt(prisma, startAt, match);
-        if (occupied) return NextResponse.json({ error: "Secilen personel bu saatte musait degil." }, { status: 409 });
-        assignedStaff = match;
-      } else if (requestedStaff) {
+    if (auth.appointmentScope === "self") {
+      if (requestedStaff && requestedStaff.toLocaleLowerCase("tr-TR") !== selfLabel.toLocaleLowerCase("tr-TR")) {
+        return NextResponse.json({ error: "Yalnızca kendi adınıza randevu ekleyebilirsiniz." }, { status: 403 });
+      }
+      const occupied = await isStaffOccupiedAt(prisma, startAt, selfLabel);
+      if (occupied) return NextResponse.json({ error: "Secilen personel bu saatte musait degil." }, { status: 409 });
+      assignedStaff = selfLabel;
+    } else if (staffCandidates.length > 0) {
+      if (requestedStaff) {
         if (!staffCandidates.some((s) => s.toLocaleLowerCase("tr-TR") === requestedStaff.toLocaleLowerCase("tr-TR"))) {
           return NextResponse.json({ error: "Secilen personel bu hizmet icin uygun degil." }, { status: 400 });
         }
@@ -98,8 +93,6 @@ export async function POST(req: Request) {
         assignedStaff = await pickAvailableStaff(prisma, startAt, staffCandidates);
         if (!assignedStaff) return NextResponse.json({ error: "Bu hizmet icin musait personel yok." }, { status: 409 });
       }
-    } else if (auth.appointmentScope === "self" && selfLabel) {
-      assignedStaff = selfLabel;
     }
     const notesWithStaff = withAssignedStaffInNotes(body.notes?.trim() || null, assignedStaff);
     row = await prisma.$transaction(async (tx) =>
