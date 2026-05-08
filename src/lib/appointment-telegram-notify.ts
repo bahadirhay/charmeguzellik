@@ -84,7 +84,8 @@ export async function sendTelegramTestMessage(settings: {
 export async function notifyTelegramAppointmentAction(
   settings: { themeTokensJson: string | null | undefined; siteName?: string | null },
   row: Pick<Appointment, "clientName" | "serviceName" | "startAt" | "clientPhone" | "clientEmail">,
-  action: "customer_rescheduled" | "customer_cancel_request",
+  action: "customer_rescheduled" | "customer_cancel_request" | "appointment_cancelled",
+  meta?: { createdBy?: string | null },
 ): Promise<{ ok: true } | { ok: false; error: string; skipped?: boolean }> {
   const cfg = telegramConfig(settings.themeTokensJson);
   if (!cfg) return { ok: false, error: "Telegram bot token/chat id eksik.", skipped: true };
@@ -93,17 +94,23 @@ export async function notifyTelegramAppointmentAction(
   const title =
     action === "customer_rescheduled"
       ? "Müşteri randevuyu güncelledi"
-      : "Müşteri iptal talebi gönderdi";
+      : action === "customer_cancel_request"
+        ? "Müşteri iptal talebi gönderdi"
+        : "Randevu iptal edildi";
+  const actor = meta?.createdBy?.trim() ? `İşlemi yapan: ${meta.createdBy.trim()}` : null;
   const text = [
     title,
     "",
     `İşletme: ${site}`,
+    actor,
     `Tarih/Saat: ${when}`,
     `Müşteri: ${row.clientName}`,
     `Telefon: ${row.clientPhone ?? "-"}`,
     `E-posta: ${row.clientEmail ?? "-"}`,
     `Hizmet: ${row.serviceName ?? "-"}`,
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
   const sent = await sendTelegramMessage(cfg.botToken, cfg.chatId, text);
   if (!sent.ok) return { ok: false, error: sent.error };
   return { ok: true };

@@ -23,6 +23,7 @@ import { updateAppointmentRecord } from "@/lib/update-appointment-record";
 import { generateAppointmentCancelSecret } from "@/lib/appointment-cancel-token";
 import { withAssignedStaffInNotes } from "@/lib/appointment-staffing";
 import { buildAppointmentCancelUrl } from "@/lib/site-public-url";
+import { notifyTelegramAppointmentAction } from "@/lib/appointment-telegram-notify";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -38,6 +39,7 @@ const DETAIL_KEYS = [
   "notes",
 ] as const;
 const APPOINTMENT_UPDATE_LOCK_MS = 60 * 60 * 1000;
+const PANEL_CANCEL_NOTE_PREFIX = "Panel iptal onayı:";
 
 export async function PATCH(req: Request, ctx: Ctx) {
   const auth = await requireStaffApiAppointments();
@@ -97,10 +99,36 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
     let updated = await prisma.appointment.update({
       where: { id },
-      data: { status: statusRaw },
+      data:
+        statusRaw === "cancelled"
+          ? {
+              status: statusRaw,
+              notes: [existing.notes, `${PANEL_CANCEL_NOTE_PREFIX} ${auth.username} (${new Date().toLocaleString("tr-TR")})`]
+                .filter(Boolean)
+                .join("\n"),
+            }
+          : { status: statusRaw },
     });
 
-    if (statusRaw === "cancelled" || statusRaw === "cancel_request") {
+    if (statusRaw === "cancelled") {
+      try {
+        const settings = await getSiteSettings();
+        const tg = await notifyTelegramAppointmentAction(settings, updated, "appointment_cancelled", {
+          createdBy: auth.username,
+        });
+        if (!tg.ok && !tg.skipped) {
+          console.warn("appointment telegram notify", tg.error);
+        }
+      } catch (e) {
+        console.warn("appointment telegram notify", e);
+      }
+      return NextResponse.json({
+        ok: true,
+        appointment: updated,
+        notifications: null,
+      });
+    }
+    if (statusRaw === "cancel_request") {
       return NextResponse.json({
         ok: true,
         appointment: updated,

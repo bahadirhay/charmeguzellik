@@ -21,6 +21,7 @@ type AppointmentsPageProps = {
 
 const CUSTOMER_RESCHEDULE_NOTE_PREFIX = "Müşteri takvim güncelledi (bağlantı):";
 const CUSTOMER_CANCEL_REQUEST_NOTE_PREFIX = "Müşteri iptal talebi (bağlantı):";
+const PANEL_CANCEL_NOTE_PREFIX = "Panel iptal onayı:";
 const APPOINTMENT_TZ = "Europe/Istanbul";
 
 function formatAppointmentDateTime(d: Date): string {
@@ -29,6 +30,19 @@ function formatAppointmentDateTime(d: Date): string {
 
 function appointmentStaffCell(notes: string | null | undefined): string {
   return parseAssignedStaffFromNotes(notes)?.trim() || "—";
+}
+
+function parseCancelledByFromNotes(notes: string | null | undefined): string | null {
+  const raw = notes?.trim() ?? "";
+  if (!raw) return null;
+  const line = raw
+    .split("\n")
+    .map((x) => x.trim())
+    .find((x) => x.startsWith(PANEL_CANCEL_NOTE_PREFIX));
+  if (!line) return null;
+  const value = line.slice(PANEL_CANCEL_NOTE_PREFIX.length).trim();
+  const actor = value.split(" (")[0]?.trim();
+  return actor || null;
 }
 
 function hasStaffAccessToService(
@@ -107,11 +121,16 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
   const cancelRequestRows = rows.filter((r) => r.status === "cancel_request");
   const rescheduledCount = activeRowsBase.filter((r) => isCustomerRescheduled(r.notes)).length;
   const cancelLinkCount = cancelRequestRows.filter((r) => isCancelRequestFromLink(r.notes)).length;
+  const cancelPanelCount = cancelRequestRows.length - cancelLinkCount;
   const activeRows =
     view === "rescheduled" ? activeRowsBase.filter((r) => isCustomerRescheduled(r.notes)) : activeRowsBase;
   const visibleCancelRequestRows =
     view === "cancel_link" ? cancelRequestRows.filter((r) => isCancelRequestFromLink(r.notes)) : cancelRequestRows;
-  const archivedRows = rows.filter((r) => r.status === "rejected" || r.status === "cancelled");
+  const cancelledRows = rows.filter((r) => r.status === "cancelled");
+  const cancelledByStaffRows = cancelledRows.filter((r) => Boolean(parseCancelledByFromNotes(r.notes)));
+  const archivedRows = rows.filter(
+    (r) => r.status === "rejected" || (r.status === "cancelled" && !parseCancelledByFromNotes(r.notes)),
+  );
   return (
     <div className="min-w-0 max-w-full space-y-8">
       <header className="min-w-0">
@@ -258,8 +277,11 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
       </div>
       <details className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
         <summary className="cursor-pointer text-sm font-semibold text-amber-900 dark:text-amber-100">
-          Müşteri iptal talepleri ({cancelRequestRows.length})
+          İptal onayı bekleyenler ({cancelRequestRows.length})
         </summary>
+        <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">
+          Müşteri linkten gelen talepler: {cancelLinkCount} · Panelden başlatılanlar: {cancelPanelCount}
+        </p>
         <div className="mt-3 overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-amber-200 bg-amber-100/50 dark:border-amber-900/40 dark:bg-amber-950/30">
@@ -291,11 +313,11 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
                     </div>
                   </td>
                   <td className="px-3 py-2 align-top">
-                    {isCancelRequestFromLink(r.notes) ? (
-                      <span className="mb-2 inline-block rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                        Müşteri linkten iptal talebi gönderdi
-                      </span>
-                    ) : null}
+                    <span className="mb-2 inline-block rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                      {isCancelRequestFromLink(r.notes)
+                        ? "Müşteri linkten iptal talebi gönderdi"
+                        : "Panelden iptal talebi başlatıldı"}
+                    </span>
                     <AppointmentRowActions
                       id={r.id}
                       startAtIso={r.startAt.toISOString()}
@@ -314,6 +336,50 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
                 <tr>
                   <td colSpan={5} className="px-3 py-6 text-center text-sm text-zinc-500">
                     Bekleyen müşteri iptal talebi yok.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <details className="rounded-xl border border-rose-200 bg-rose-50/40 p-4 dark:border-rose-900/40 dark:bg-rose-950/20">
+        <summary className="cursor-pointer text-sm font-semibold text-rose-900 dark:text-rose-100">
+          İptal ettiklerim ({cancelledByStaffRows.length})
+        </summary>
+        <p className="mt-2 text-xs text-rose-700 dark:text-rose-300">
+          Panelden iptali onaylanan kayıtlar. İptal eden kullanıcı ayrıca gösterilir.
+        </p>
+        <div className="mt-3 overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="border-b border-rose-200 bg-rose-100/50 dark:border-rose-900/40 dark:bg-rose-950/30">
+              <tr>
+                <th className="px-3 py-2">Başlangıç</th>
+                <th className="px-3 py-2">Hizmet</th>
+                <th className="px-3 py-2">Personel</th>
+                <th className="px-3 py-2">Müşteri</th>
+                <th className="px-3 py-2">İptal eden</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cancelledByStaffRows.map((r) => (
+                <tr key={r.id} className="border-b border-rose-100/70 dark:border-rose-900/20">
+                  <td className="px-3 py-2 whitespace-nowrap">{formatAppointmentDateTime(r.startAt)}</td>
+                  <td className="px-3 py-2">{r.serviceName}</td>
+                  <td className="px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300">{appointmentStaffCell(r.notes)}</td>
+                  <td className="px-3 py-2">
+                    {r.clientName}
+                    <div className="text-xs text-zinc-500">{r.clientPhone}</div>
+                  </td>
+                  <td className="px-3 py-2 text-xs font-medium text-rose-700 dark:text-rose-300">
+                    {parseCancelledByFromNotes(r.notes) ?? "—"}
+                  </td>
+                </tr>
+              ))}
+              {cancelledByStaffRows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-3 py-6 text-center text-sm text-zinc-500">
+                    Henüz panelden onaylanmış iptal yok.
                   </td>
                 </tr>
               ) : null}
