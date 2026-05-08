@@ -121,6 +121,15 @@ export function AppointmentForm({
     if (!staffForSlots || !appointmentFormRef) return timeSlotLabels;
     return staffSlots ?? [];
   }, [staffForSlots, appointmentFormRef, timeSlotLabels, staffSlots]);
+  const visibleSlots = timeSlotLabels;
+  const isStaffSlotUnavailable = useCallback(
+    (slot: string) => {
+      if (!staffForSlots || !appointmentFormRef) return false;
+      if (!staffSlots) return false;
+      return !staffSlots.includes(slot);
+    },
+    [staffForSlots, appointmentFormRef, staffSlots],
+  );
 
   useEffect(() => {
     if (!effectiveSlots.includes(apptTime)) setApptTime("");
@@ -378,9 +387,9 @@ export function AppointmentForm({
                 Saatler yükleniyor…
               </option>
             ) : null}
-            {effectiveSlots.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            {visibleSlots.map((t) => (
+              <option key={t} value={t} disabled={isStaffSlotUnavailable(t)}>
+                {isStaffSlotUnavailable(t) ? `${t} (dolu)` : t}
               </option>
             ))}
           </select>
