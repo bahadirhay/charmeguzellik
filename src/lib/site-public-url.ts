@@ -1,7 +1,6 @@
 /**
- * Canlı alan adı — üretimde:
- * `NEXT_PUBLIC_SITE_URL=https://charmeguzellik.com` (sonunda `/` yok).
- * Yanlışlıkla `*.vercel.app` yazılmışsa müşteri linkleri kötü görünür; API isteği `Host` ile düzeltilir (aşağı).
+ * Çok kiracı / çok domain: mutlak link üretiminde önce HTTP Host.
+ * `NEXT_PUBLIC_SITE_URL` — Cron veya Host olmayan bağlam için yedek (sonunda `/` olmasın).
  */
 
 /** Müşteriye giden e-posta/WhatsApp kısa yol (randevu yönetimi linki). */
@@ -31,17 +30,10 @@ function isVercelDeploymentHost(hostname: string): boolean {
 
 /**
  * Müşteriye giden tam köken (https://alanadiniz.com).
- * Önce env — ancak env hostname `*.vercel.app` ise yoksayılır ve gelen HTTP isteğindeki Host kullanılır
- * (panel https://charmeguzellik.com üzerinden açıksa linkler bu domain ile üretilir).
+ * Çok domain tek deploy: istek varsa önce Host (hangi siteden gelindiyse o kök),
+ * yoksa veya `*.vercel.app` ise `NEXT_PUBLIC_SITE_URL` yedeği.
  */
 export function resolvePublicSiteOrigin(req?: Request): string {
-  const envRaw = normalizePublicSiteUrl();
-  if (envRaw) {
-    const host = parseHostname(envRaw);
-    if (host && !isVercelDeploymentHost(host)) {
-      return envRaw.startsWith("http") ? envRaw : `https://${envRaw}`;
-    }
-  }
   if (req) {
     const raw = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "";
     const first = raw.split(",")[0]?.trim() ?? "";
@@ -49,6 +41,13 @@ export function resolvePublicSiteOrigin(req?: Request): string {
     if (hostname && !isVercelDeploymentHost(hostname)) {
       const proto = (req.headers.get("x-forwarded-proto") ?? "https").split(",")[0].trim() || "https";
       return `${proto}://${hostname}`;
+    }
+  }
+  const envRaw = normalizePublicSiteUrl();
+  if (envRaw) {
+    const host = parseHostname(envRaw);
+    if (host && !isVercelDeploymentHost(host)) {
+      return envRaw.startsWith("http") ? envRaw : `https://${envRaw}`;
     }
   }
   if (envRaw) {
