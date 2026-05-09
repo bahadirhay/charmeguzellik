@@ -23,8 +23,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!page) {
     return { title: settings.siteName };
   }
+  const meta =
+    page.metaTitle?.trim() ||
+    settings.defaultMetaTitle?.trim() ||
+    page.title ||
+    settings.siteName;
   return {
-    title: page.metaTitle ?? page.title,
+    title: meta,
     description: page.metaDescription ?? undefined,
     openGraph: page.ogImage ? { images: [page.ogImage] } : undefined,
     robots: page.noIndex ? { index: false, follow: false } : undefined,

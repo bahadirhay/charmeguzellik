@@ -27,8 +27,11 @@ function toAbsoluteAssetUrl(raw: string | null | undefined): string | undefined 
 
 export async function generateMetadata(): Promise<Metadata> {
   let faviconUrl: string | undefined;
+  let brandTitle = "Güzellik & Hizmet";
   try {
     const settings = await getSiteSettings();
+    const n = settings.siteName?.trim();
+    if (n) brandTitle = n;
     const t = parseThemeTokens(settings.themeTokensJson);
     faviconUrl = toAbsoluteAssetUrl(t.siteFaviconUrl);
   } catch {
@@ -37,8 +40,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title: {
-      default: "Güzellik & Hizmet",
-      template: "%s · Güzellik & Hizmet",
+      default: brandTitle,
+      template: `%s · ${brandTitle}`,
     },
     description: "Yerel olarak düzenleyin, SEO uyumlu yayınlayın.",
     ...(URL.canParse(siteUrl) ? { metadataBase: new URL(siteUrl) } : {}),

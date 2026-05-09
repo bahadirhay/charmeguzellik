@@ -20,8 +20,13 @@ export async function generateMetadata(): Promise<Metadata> {
       description: settings.defaultMetaDescription ?? undefined,
     };
   }
+  const meta =
+    page.metaTitle?.trim() ||
+    settings.defaultMetaTitle?.trim() ||
+    page.title ||
+    settings.siteName;
   return {
-    title: page.metaTitle ?? page.title,
+    title: meta,
     description: page.metaDescription ?? settings.defaultMetaDescription ?? undefined,
     openGraph: page.ogImage ? { images: [page.ogImage] } : undefined,
     robots: page.noIndex ? { index: false, follow: false } : undefined,
