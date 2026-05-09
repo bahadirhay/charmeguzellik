@@ -1,13 +1,16 @@
 import type { MetadataRoute } from "next";
+import { resolvePublicSiteUrl } from "@/lib/public-site-url";
 
-export default function robots(): MetadataRoute.Robots {
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+export const dynamic = "force-dynamic";
+
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const base = await resolvePublicSiteUrl();
   return {
     rules: {
       userAgent: "*",
       allow: "/",
       disallow: ["/admin/", "/api/"],
     },
-    sitemap: `${base.replace(/\/$/, "")}/sitemap.xml`,
+    sitemap: `${base}/sitemap.xml`,
   };
 }

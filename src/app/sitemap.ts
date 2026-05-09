@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
+import { resolvePublicSiteUrl } from "@/lib/public-site-url";
 import { getSiteSettingsForTenant } from "@/lib/site-settings";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import {
@@ -20,8 +21,7 @@ function clampPriority(n: number, fallback: number): number {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const tenantId = await getTenantIdForRequest();
-  const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const base = await resolvePublicSiteUrl();
   if (!process.env.DATABASE_URL?.trim()) {
     return [
       {
@@ -33,7 +33,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ];
   }
 
-  const settings = await getSiteSettingsForTenant(tenantId);
+  try {
+    const tenantId = await getTenantIdForRequest();
+    const settings = await getSiteSettingsForTenant(tenantId);
   const homePriority = clampPriority(settings?.sitemapHomePriority ?? 1, 1);
   const pageDefaultPriority = clampPriority(settings?.sitemapPagePriority ?? 0.7, 0.7);
   const extras = parseSitemapExtrasJson(settings?.sitemapExtrasJson);
@@ -113,5 +115,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   }
 
-  return entries;
+    return entries;
+  } catch (e) {
+    console.error("sitemap generation", e);
+    return [
+      {
+        url: `${base}/`,
+        lastModified: new Date(),
+        changeFrequency: "weekly",
+        priority: 1,
+      },
+    ];
+  }
 }
