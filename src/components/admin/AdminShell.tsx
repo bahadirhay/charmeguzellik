@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LogoutButton } from "@/components/admin/LogoutButton";
 import { hasStaffPermission } from "@/lib/staff-permissions";
 
-type NavItem = { href: string; label: string; perm: string | null };
+type NavItem = { href: string; label: string; perm: string | null; platformOnly?: boolean };
 
 const TOP_NAV: NavItem[] = [
   { href: "/admin/dashboard", label: "Özet", perm: null },
@@ -48,7 +48,16 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   },
 ];
 
-function itemVisible(permissions: readonly string[], item: NavItem): boolean {
+const PLATFORM_NAV: NavItem[] = [
+  { href: "/admin/platform/customers", label: "Müşteri siteleri", perm: "users.manage", platformOnly: true },
+];
+
+function itemVisible(
+  permissions: readonly string[],
+  item: NavItem,
+  opts: { showPlatformNav: boolean },
+): boolean {
+  if (item.platformOnly && !opts.showPlatformNav) return false;
   if (!item.perm) return true;
   if (item.href === "/admin/crm") {
     return hasStaffPermission(permissions, "crm.leads") || hasStaffPermission(permissions, "crm.appointments");
@@ -65,8 +74,12 @@ function itemVisible(permissions: readonly string[], item: NavItem): boolean {
   return hasStaffPermission(permissions, item.perm);
 }
 
-function filterItems(permissions: readonly string[], items: NavItem[]): NavItem[] {
-  return items.filter((i) => itemVisible(permissions, i));
+function filterItems(
+  permissions: readonly string[],
+  items: NavItem[],
+  opts: { showPlatformNav: boolean },
+): NavItem[] {
+  return items.filter((i) => itemVisible(permissions, i, opts));
 }
 
 function NavGroup({
@@ -123,17 +136,25 @@ export function AdminShell({
   roleSlug,
   isLegacy,
   permissions,
+  showPlatformNav = false,
 }: {
   children: React.ReactNode;
   username: string;
   roleSlug: string | null;
   isLegacy: boolean;
   permissions: readonly string[];
+  /** Yalnızca PLATFORM_CONTROL_TENANT_ID kiracısında doğru layout’ta true */
+  showPlatformNav?: boolean;
 }) {
-  const top = filterItems(permissions, TOP_NAV);
-  const groups = NAV_GROUPS.map((g) => ({ title: g.title, items: filterItems(permissions, g.items) })).filter(
-    (g) => g.items.length > 0,
-  );
+  const navOpts = { showPlatformNav };
+  const top = filterItems(permissions, TOP_NAV, navOpts);
+  const baseGroups = NAV_GROUPS.map((g) => ({
+    title: g.title,
+    items: filterItems(permissions, g.items, navOpts),
+  })).filter((g) => g.items.length > 0);
+  const platformItems = filterItems(permissions, PLATFORM_NAV, navOpts);
+  const groups =
+    platformItems.length > 0 ? [...baseGroups, { title: "Platform", items: platformItems }] : baseGroups;
 
   const roleLine = isLegacy ? "Tam yetki (ortam girişi)" : roleSlug ? `Rol: ${roleSlug}` : "Panel";
 
