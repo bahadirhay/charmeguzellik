@@ -11,6 +11,7 @@ import { requirePagePermission } from "@/lib/auth";
 import { buildNavTree, collectServiceLabelsFromNav } from "@/lib/navigation";
 import { getFirstPublishedAppointmentFormRef, getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
 import { prisma } from "@/lib/prisma";
+import { getSiteSettingsForTenant } from "@/lib/site-settings";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export const dynamic = "force-dynamic";
@@ -117,12 +118,9 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
       where: { tenantId, published: true, menuSlug: "footer" },
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
     }),
-    getFirstPublishedAppointmentSchedule(),
-    prisma.siteSettings.findUnique({
-      where: { id: 1 },
-      select: { themeTokensJson: true },
-    }),
-    getFirstPublishedAppointmentFormRef(),
+    getFirstPublishedAppointmentSchedule(tenantId),
+    getSiteSettingsForTenant(tenantId).then((s) => ({ themeTokensJson: s.themeTokensJson })),
+    getFirstPublishedAppointmentFormRef(tenantId),
     prisma.appointmentEvent.count({
       where: {
         tenantId,
@@ -160,7 +158,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
   ]);
   const rows =
     appointmentScope === "self" ? filterAppointmentsForSelfScope(allRows, effectiveSelfLabel) : allRows;
-  const serviceStaffMap = await resolveServiceStaffMap(prisma, settings?.themeTokensJson, tenantId);
+  const serviceStaffMap = await resolveServiceStaffMap(prisma, settings.themeTokensJson, tenantId);
   const fromHeader = collectServiceLabelsFromNav(buildNavTree(headerNav));
   const fromFooter = collectServiceLabelsFromNav(buildNavTree(footerNav));
   const baseServiceOptions =

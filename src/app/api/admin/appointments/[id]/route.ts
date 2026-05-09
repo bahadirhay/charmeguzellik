@@ -226,6 +226,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
         to: emailTo,
         subject: emailSubject,
         text: emailText,
+        tenantId: updated.tenantId,
       });
       if (sent.ok) {
         emailSent = true;

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { z } from "zod";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
-import { prisma } from "@/lib/prisma";
+import { getSiteSettingsForTenant } from "@/lib/site-settings";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
 
 const schema = z.object({
@@ -26,11 +27,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg }, { status: 400 });
   }
 
-  const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
-  const smtpHost = settings?.smtpHost?.trim();
-  const smtpUser = settings?.smtpUser?.trim();
-  const smtpPass = settings?.smtpPass?.trim();
-  const fromDb = settings?.transactionalMailFrom?.trim();
+  const tenantId = await getTenantIdForRequest(req);
+  const settings = await getSiteSettingsForTenant(tenantId);
+  const smtpHost = settings.smtpHost?.trim();
+  const smtpUser = settings.smtpUser?.trim();
+  const smtpPass = settings.smtpPass?.trim();
+  const fromDb = settings.transactionalMailFrom?.trim();
   const resendKey = process.env.RESEND_API_KEY?.trim();
   const fromEnv = process.env.MAIL_FROM?.trim();
   const from = fromDb || fromEnv;
@@ -59,8 +61,8 @@ export async function POST(req: Request) {
 
   if (smtpConfigured) {
     try {
-      const port = settings?.smtpPort ?? (settings?.smtpSecure ? 465 : 587);
-      const secure = settings?.smtpSecure ?? false;
+      const port = settings.smtpPort ?? (settings.smtpSecure ? 465 : 587);
+      const secure = settings.smtpSecure ?? false;
       const transporter = nodemailer.createTransport({
         host: smtpHost!,
         port,
@@ -112,6 +114,7 @@ export async function POST(req: Request) {
     to,
     subject: "SMTP test — Charme Yönetim",
     text: `Bu bir test e-postasıdır.\n\nZaman: ${now}\nGönderen: Yönetim paneli SMTP test aracı`,
+    tenantId,
   });
   if (!result.ok) {
     return NextResponse.json(

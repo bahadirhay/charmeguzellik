@@ -4,6 +4,7 @@ import { coerceAppointmentStaffMapToIds } from "@/lib/appointment-staffing";
 import { requirePagePermission } from "@/lib/auth";
 import { buildNavTree, collectServiceLabelsFromNav } from "@/lib/navigation";
 import { prisma } from "@/lib/prisma";
+import { getSiteSettingsForTenant } from "@/lib/site-settings";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export const dynamic = "force-dynamic";
@@ -12,11 +13,8 @@ export const revalidate = 0;
 export default async function AppointmentStaffPlanningPage() {
   await requirePagePermission("crm.appointments");
   const tenantId = await getTenantIdForRequest();
-  const [row, headerNav, footerNav, staffDirectory] = await Promise.all([
-    prisma.siteSettings.findUnique({
-      where: { id: 1 },
-      select: { themeTokensJson: true },
-    }),
+  const [rowFull, headerNav, footerNav, staffDirectory] = await Promise.all([
+    getSiteSettingsForTenant(tenantId),
     prisma.navItem.findMany({
       where: { tenantId, published: true, menuSlug: "header" },
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
@@ -36,7 +34,8 @@ export default async function AppointmentStaffPlanningPage() {
     }),
   ]);
 
-  const initialIdMap = await coerceAppointmentStaffMapToIds(prisma, row?.themeTokensJson, tenantId);
+  const row = { themeTokensJson: rowFull.themeTokensJson };
+  const initialIdMap = await coerceAppointmentStaffMapToIds(prisma, row.themeTokensJson, tenantId);
   const fromHeader = collectServiceLabelsFromNav(buildNavTree(headerNav));
   const fromFooter = collectServiceLabelsFromNav(buildNavTree(footerNav));
   const serviceOptions =

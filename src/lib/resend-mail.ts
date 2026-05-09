@@ -1,24 +1,16 @@
 /**
  * E-posta: Resend HTTP API (https://resend.com/docs/send-with-nodejs)
- * .env: RESEND_API_KEY, MAIL_FROM="Charme <onboarding@resend.dev>" veya doğrulanmış domain
+ * .env: RESEND_API_KEY + MAIL_FROM veya transactionalEmail çağıranından `from`.
  */
-import { prisma } from "@/lib/prisma";
-
 export async function sendViaResend(opts: {
   to: string;
   subject: string;
   text: string;
+  /** Kiracı göndereni; boşsa MAIL_FROM kullanılır. */
+  from?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const key = process.env.RESEND_API_KEY?.trim();
-  const fromEnv = process.env.MAIL_FROM?.trim();
-  let from = fromEnv;
-  if (!from) {
-    const settings = await prisma.siteSettings.findUnique({
-      where: { id: 1 },
-      select: { transactionalMailFrom: true },
-    });
-    from = settings?.transactionalMailFrom?.trim() || "";
-  }
+  let from = opts.from?.trim() || process.env.MAIL_FROM?.trim() || "";
   if (!key || !from) {
     return { ok: false, error: "RESEND_API_KEY veya gonderen e-posta (MAIL_FROM / transactionalMailFrom) tanımlı değil" };
   }

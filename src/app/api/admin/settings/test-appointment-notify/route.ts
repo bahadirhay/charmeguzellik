@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
 import { appointmentInboundNotifyRecipients } from "@/lib/appointment-inbound-notify";
 import { getSiteSettings } from "@/lib/site-settings";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
 
-export async function POST() {
+export async function POST(req: Request) {
   const auth = await requireStaffApiPerm("site.settings");
   if (auth instanceof NextResponse) return auth;
 
-  const settings = await getSiteSettings();
+  const tenantId = await getTenantIdForRequest(req);
+  const settings = await getSiteSettings(req);
   const recipients = appointmentInboundNotifyRecipients(settings);
   if (recipients.length === 0) {
     return NextResponse.json(
@@ -33,7 +35,7 @@ export async function POST() {
 
   const results = await Promise.all(
     recipients.map(async (to) => {
-      const r = await sendTransactionalEmail({ to, subject, text });
+      const r = await sendTransactionalEmail({ to, subject, text, tenantId });
       return { to, ok: r.ok, error: r.ok ? null : r.error };
     }),
   );

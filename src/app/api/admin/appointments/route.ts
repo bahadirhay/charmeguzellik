@@ -19,7 +19,7 @@ import {
   resolveServiceStaffMap,
   withAssignedStaffInNotes,
 } from "@/lib/appointment-staffing";
-import { getSiteSettings } from "@/lib/site-settings";
+import { getSiteSettingsForTenant } from "@/lib/site-settings";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export async function GET() {
@@ -67,11 +67,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Geçersiz başlangıç tarihi" }, { status: 400 });
     }
     const serviceName = body.serviceName?.trim() || null;
-    const settings = await prisma.siteSettings.findUnique({
-      where: { id: 1 },
-      select: { themeTokensJson: true },
-    });
-    const staffMap = await resolveServiceStaffMap(prisma, settings?.themeTokensJson, tenantId);
+    const settings = await getSiteSettingsForTenant(tenantId);
+    const staffMap = await resolveServiceStaffMap(prisma, settings.themeTokensJson, tenantId);
     const staffCandidates = eligibleStaffForService(serviceName, staffMap);
     const requestedStaff = body.staffName?.trim() || "";
     const selfLabel = auth.appointmentScope === "self" ? auth.selfStaffLabel?.trim() ?? "" : "";
@@ -158,7 +155,7 @@ export async function POST(req: Request) {
     throw e;
   }
   try {
-    const settings = await getSiteSettings();
+    const settings = await getSiteSettingsForTenant(tenantId);
     const tg = await notifyTelegramNewAppointment(settings, row, {
       source: "admin",
       createdBy: auth.username,

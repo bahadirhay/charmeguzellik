@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { normalizeInstagramPermalink } from "@/lib/instagram-url";
 import { prisma } from "@/lib/prisma";
+import { getSiteSettingsForTenant } from "@/lib/site-settings";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
   const auth = await requireStaffApiPerm("social.instagram");
   if (auth instanceof NextResponse) return auth;
   const tenantId = await getTenantIdForRequest(req);
-  const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+  const settings = await getSiteSettingsForTenant(tenantId);
   const userId = settings?.instagramGraphUserId?.trim();
   const token = settings?.instagramAccessToken?.trim();
   if (!userId || !token) {

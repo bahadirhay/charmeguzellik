@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireStaffApiAppointmentsFull } from "@/lib/admin-api-auth";
 import { prisma } from "@/lib/prisma";
 import { coerceAppointmentStaffMapToIds, isLikelyStaffUserId } from "@/lib/appointment-staffing";
+import { getSiteSettingsForTenant } from "@/lib/site-settings";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { parseThemeTokens, themeTokensToJson } from "@/lib/theme-tokens";
 
@@ -9,11 +10,8 @@ export async function GET() {
   const auth = await requireStaffApiAppointmentsFull();
   if (auth instanceof NextResponse) return auth;
   const tenantId = await getTenantIdForRequest();
-  const row = await prisma.siteSettings.findUnique({
-    where: { id: 1 },
-    select: { themeTokensJson: true },
-  });
-  const idMap = await coerceAppointmentStaffMapToIds(prisma, row?.themeTokensJson, tenantId);
+  const row = await getSiteSettingsForTenant(tenantId);
+  const idMap = await coerceAppointmentStaffMapToIds(prisma, row.themeTokensJson, tenantId);
   return NextResponse.json({ ok: true, idMap });
 }
 
@@ -64,13 +62,12 @@ export async function PUT(req: Request) {
     }
   }
 
-  const existing = await prisma.siteSettings.findUnique({ where: { id: 1 } });
-  const tokens = parseThemeTokens(existing?.themeTokensJson);
+  const base = await getSiteSettingsForTenant(tenantId);
+  const tokens = parseThemeTokens(base.themeTokensJson);
   const nextJson = themeTokensToJson({ ...tokens, appointmentStaffByService: normalized });
-  await prisma.siteSettings.upsert({
-    where: { id: 1 },
-    create: { id: 1, themeTokensJson: nextJson },
-    update: { themeTokensJson: nextJson },
+  await prisma.siteSettings.update({
+    where: { id: base.id },
+    data: { themeTokensJson: nextJson },
   });
   return NextResponse.json({ ok: true, idMap: normalized });
 }

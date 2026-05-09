@@ -19,6 +19,7 @@ import { isStaffOccupiedAt, parseAssignedStaffFromNotes } from "@/lib/appointmen
 import { notifyTelegramAppointmentAction } from "@/lib/appointment-telegram-notify";
 import { getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
 import { prisma } from "@/lib/prisma";
+import { getSiteSettingsForTenant } from "@/lib/site-settings";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
 import { resolveWaDigits } from "@/lib/whatsapp-url";
 
@@ -45,6 +46,7 @@ const postSchema = z.discriminatedUnion("action", [cancelSchema, confirmSchema, 
 const CUSTOMER_UPDATE_LOCK_MS = 60 * 60 * 1000;
 
 async function sendCustomerDecisionEmail(opts: {
+  tenantId: string;
   appointment: { clientEmail: string | null; clientName: string; serviceName: string | null; startAt: Date };
   siteName: string;
   kind: "confirmed" | "cancelled";
@@ -71,7 +73,7 @@ async function sendCustomerDecisionEmail(opts: {
           `${when} tarihli "${svc}" randevunuz iptal edilmiştir.`,
           "Yeni randevu için tekrar iletişime geçebilirsiniz.",
         ].join("\n");
-  const sent = await sendTransactionalEmail({ to, subject, text });
+  const sent = await sendTransactionalEmail({ to, subject, text, tenantId: opts.tenantId });
   if (!sent.ok) console.warn("customer decision email", sent.error);
 }
 
@@ -101,7 +103,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: "Bağlantı doğrulanamadı veya süresi dolmuş." }, { status: 400 });
   }
 
-  const cfg = await getFirstPublishedAppointmentSchedule();
+  const cfg = await getFirstPublishedAppointmentSchedule(appt.tenantId);
   const appointmentDays = mergeAppointmentDays(cfg?.appointmentDays);
   const slotDurationMinutes = cfg?.slotDurationMinutes ?? 60;
   const appointmentTimeZone = cfg?.appointmentTimeZone?.trim() || "Europe/Istanbul";
@@ -147,7 +149,7 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    const cfg = await getFirstPublishedAppointmentSchedule();
+    const cfg = await getFirstPublishedAppointmentSchedule(appt.tenantId);
     const scheduleDays = mergeAppointmentDays(cfg?.appointmentDays);
     const slotDur = cfg?.slotDurationMinutes ?? 60;
     const tz = cfg?.appointmentTimeZone?.trim() || "Europe/Istanbul";
@@ -245,11 +247,9 @@ export async function POST(req: Request) {
       },
     });
     try {
-      const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
-      if (settings) {
-        const tg = await notifyTelegramAppointmentAction(settings, updated, "customer_rescheduled");
-        if (!tg.ok && !tg.skipped) console.warn("appointment telegram notify", tg.error);
-      }
+      const settings = await getSiteSettingsForTenant(updated.tenantId);
+      const tg = await notifyTelegramAppointmentAction(settings, updated, "customer_rescheduled");
+      if (!tg.ok && !tg.skipped) console.warn("appointment telegram notify", tg.error);
     } catch (e) {
       console.warn("appointment telegram notify", e);
     }
@@ -270,15 +270,14 @@ export async function POST(req: Request) {
           },
         });
     try {
-      const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
-      const siteName = settings?.siteName?.trim() || "Salon";
-      if (settings) {
-        const tg = await notifyTelegramAppointmentAction(settings, updated, "customer_confirmed", {
-          createdBy: "Müşteri (teyit bağlantısı)",
-        });
-        if (!tg.ok && !tg.skipped) console.warn("appointment telegram notify", tg.error);
-      }
+      const settings = await getSiteSettingsForTenant(updated.tenantId);
+      const siteName = settings.siteName?.trim() || "Salon";
+      const tg = await notifyTelegramAppointmentAction(settings, updated, "customer_confirmed", {
+        createdBy: "Müşteri (teyit bağlantısı)",
+      });
+      if (!tg.ok && !tg.skipped) console.warn("appointment telegram notify", tg.error);
       await sendCustomerDecisionEmail({
+        tenantId: updated.tenantId,
         appointment: updated,
         siteName,
         kind: "confirmed",
@@ -302,16 +301,15 @@ export async function POST(req: Request) {
     },
   });
 
-  const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+  const settings = await getSiteSettingsForTenant(updated.tenantId);
   try {
-    const siteName = settings?.siteName?.trim() || "Salon";
-    if (settings) {
-      const tg = await notifyTelegramAppointmentAction(settings, updated, "appointment_cancelled", {
-        createdBy: "Müşteri (iptal bağlantısı)",
-      });
-      if (!tg.ok && !tg.skipped) console.warn("appointment telegram notify", tg.error);
-    }
+    const siteName = settings.siteName?.trim() || "Salon";
+    const tg = await notifyTelegramAppointmentAction(settings, updated, "appointment_cancelled", {
+      createdBy: "Müşteri (iptal bağlantısı)",
+    });
+    if (!tg.ok && !tg.skipped) console.warn("appointment telegram notify", tg.error);
     await sendCustomerDecisionEmail({
+      tenantId: updated.tenantId,
       appointment: updated,
       siteName,
       kind: "cancelled",
@@ -319,7 +317,7 @@ export async function POST(req: Request) {
   } catch (e) {
     console.warn("appointment telegram notify", e);
   }
-  const waDigits = resolveWaDigits(settings?.whatsappNumber ?? null);
+  const waDigits = resolveWaDigits(settings.whatsappNumber ?? null);
   const waText = `Bilgi: ${updated.clientName} - ${new Date(updated.startAt).toLocaleString("tr-TR")} randevusunu iptal etti.`;
   const whatsappUrl = waDigits ? `https://wa.me/${waDigits}?text=${encodeURIComponent(waText)}` : null;
 

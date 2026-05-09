@@ -1,19 +1,23 @@
 import nodemailer from "nodemailer";
-import { prisma } from "@/lib/prisma";
+import { getSiteSettingsForTenant } from "@/lib/site-settings";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { sendViaResend } from "@/lib/resend-mail";
 
 /**
- * Önce SiteSettings SMTP; eksikse Resend (.env RESEND_API_KEY + MAIL_FROM).
+ * Önce kiracının SiteSettings SMTP'si; eksikse Resend (.env RESEND_API_KEY + MAIL_FROM).
  */
 export async function sendTransactionalEmail(opts: {
   to: string;
   subject: string;
   text: string;
+  /** Yoksa Host’tan kiracı çözülür; iptal/teyit bağlantılarında randevunun tenantId verin. */
+  tenantId?: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const to = opts.to.trim();
   if (!to) return { ok: false, error: "Alıcı yok" };
 
-  const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+  const tenantId = opts.tenantId ?? (await getTenantIdForRequest());
+  const settings = await getSiteSettingsForTenant(tenantId);
   const host = settings?.smtpHost?.trim();
   const user = settings?.smtpUser?.trim();
   const pass = settings?.smtpPass?.trim();
@@ -52,7 +56,12 @@ export async function sendTransactionalEmail(opts: {
         lower.includes("rate limit");
 
       if (smtpRateLimited) {
-        const fallback = await sendViaResend({ ...opts, to });
+        const fallback = await sendViaResend({
+          subject: opts.subject,
+          text: opts.text,
+          to,
+          from: fromDb || fromEnv,
+        });
         if (fallback.ok) {
           console.warn("SMTP 452/rate-limit algılandı; Resend fallback ile gönderildi.");
           return { ok: true };
@@ -67,5 +76,5 @@ export async function sendTransactionalEmail(opts: {
     }
   }
 
-  return sendViaResend({ ...opts, to });
+  return sendViaResend({ subject: opts.subject, text: opts.text, to, from: fromDb || fromEnv });
 }

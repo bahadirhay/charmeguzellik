@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { getSiteSettingsForTenant } from "@/lib/site-settings";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { normalizeSitemapChangeFrequency, sitemapExtrasArraySchema } from "@/lib/sitemap-config";
 
@@ -24,10 +25,7 @@ export async function GET() {
   if (auth instanceof NextResponse) return auth;
   const tenantId = await getTenantIdForRequest();
 
-  let settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
-  if (!settings) {
-    settings = await prisma.siteSettings.create({ data: { id: 1 } });
-  }
+  const settings = await getSiteSettingsForTenant(tenantId);
 
   const pages = await prisma.page.findMany({
     where: { tenantId },
@@ -92,10 +90,10 @@ export async function PUT(req: Request) {
       if (sitemapHomePriority !== undefined) data.sitemapHomePriority = sitemapHomePriority;
       if (sitemapPagePriority !== undefined) data.sitemapPagePriority = sitemapPagePriority;
       if (sitemapExtras !== undefined) data.sitemapExtrasJson = JSON.stringify(sitemapExtras);
-      await prisma.siteSettings.upsert({
-        where: { id: 1 },
-        create: { id: 1, ...data },
-        update: data,
+      const base = await getSiteSettingsForTenant(tenantId);
+      await prisma.siteSettings.update({
+        where: { id: base.id },
+        data,
       });
     }
 
@@ -125,8 +123,7 @@ export async function PUT(req: Request) {
       }
     }
 
-    let settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
-    if (!settings) settings = await prisma.siteSettings.create({ data: { id: 1 } });
+    const settings = await getSiteSettingsForTenant(tenantId);
 
     const pages = await prisma.page.findMany({
       where: { tenantId },

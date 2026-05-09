@@ -224,7 +224,9 @@ export async function POST(req: Request) {
         .filter(Boolean)
         .join("\n");
       const results = await Promise.all(
-        toList.map((to) => sendTransactionalEmail({ to, subject, text }).then((r) => ({ to, r }))),
+        toList.map((to) =>
+          sendTransactionalEmail({ to, subject, text, tenantId: created.tenantId }).then((r) => ({ to, r })),
+        ),
       );
       const failed = results.filter((x) => !x.r.ok);
       if (failed.length) {

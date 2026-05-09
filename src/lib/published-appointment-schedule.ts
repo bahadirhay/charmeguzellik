@@ -3,6 +3,7 @@ import type { ContactFormContext } from "@/lib/contact-form-resolve";
 import { DEFAULT_APPOINTMENT_TIMEZONE, mergeAppointmentDays } from "@/lib/appointment-schedule";
 import type { PublishedAppointmentSchedule } from "@/lib/published-appointment-schedule.types";
 import { prisma } from "@/lib/prisma";
+import { getSiteSettingsForTenant } from "@/lib/site-settings";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export type { PublishedAppointmentSchedule } from "@/lib/published-appointment-schedule.types";
@@ -54,17 +55,17 @@ function findAppointmentFormBlockIdInArray(raw: unknown): string | null {
  * İlk yayın randevu formu bloğunun id + bağlamı (müsait saat API’si ile aynı takvim).
  * Sıra: üst blok → alt blok → yayın sayfaları.
  */
-export async function getFirstPublishedAppointmentFormRef(): Promise<PublishedAppointmentFormRef | null> {
-  const tenantId = await getTenantIdForRequest();
+export async function getFirstPublishedAppointmentFormRef(forTenantId?: string): Promise<PublishedAppointmentFormRef | null> {
+  const tenantId = forTenantId ?? (await getTenantIdForRequest());
   const [pages, settings] = await Promise.all([
     prisma.page.findMany({
       where: { tenantId, published: true },
       select: { slug: true, blocks: true, blocksMobile: true },
     }),
-    prisma.siteSettings.findUnique({
-      where: { id: 1 },
-      select: { headerBlocks: true, footerBlocks: true },
-    }),
+    getSiteSettingsForTenant(tenantId).then((s) => ({
+      headerBlocks: s.headerBlocks,
+      footerBlocks: s.footerBlocks,
+    })),
   ]);
 
   if (settings?.headerBlocks?.trim()) {
@@ -91,17 +92,17 @@ export async function getFirstPublishedAppointmentFormRef(): Promise<PublishedAp
  * Yayında sayfa veya site üst/alt bloklarında ilk «randevu» contactForm ayarlarını bulur.
  * Yoksa null — çağıran varsayılan takvimi kullanır.
  */
-export async function getFirstPublishedAppointmentSchedule(): Promise<PublishedAppointmentSchedule | null> {
-  const tenantId = await getTenantIdForRequest();
+export async function getFirstPublishedAppointmentSchedule(forTenantId?: string): Promise<PublishedAppointmentSchedule | null> {
+  const tenantId = forTenantId ?? (await getTenantIdForRequest());
   const [pages, settings] = await Promise.all([
     prisma.page.findMany({
       where: { tenantId, published: true },
       select: { blocks: true, blocksMobile: true },
     }),
-    prisma.siteSettings.findUnique({
-      where: { id: 1 },
-      select: { headerBlocks: true, footerBlocks: true },
-    }),
+    getSiteSettingsForTenant(tenantId).then((s) => ({
+      headerBlocks: s.headerBlocks,
+      footerBlocks: s.footerBlocks,
+    })),
   ]);
 
   for (const region of [settings?.headerBlocks, settings?.footerBlocks]) {

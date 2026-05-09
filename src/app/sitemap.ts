@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
+import { getSiteSettingsForTenant } from "@/lib/site-settings";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import {
   extraPathToSitemapUrl,
@@ -32,7 +33,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ];
   }
 
-  const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
+  const settings = await getSiteSettingsForTenant(tenantId);
   const homePriority = clampPriority(settings?.sitemapHomePriority ?? 1, 1);
   const pageDefaultPriority = clampPriority(settings?.sitemapPagePriority ?? 0.7, 0.7);
   const extras = parseSitemapExtrasJson(settings?.sitemapExtrasJson);

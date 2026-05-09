@@ -81,7 +81,12 @@ export async function POST(req: Request) {
         "Aşağıdaki bağlantıdan randevuyu teyit edebilir veya iptal edebilirsiniz:",
         link,
       ].join("\n");
-      const mail = await sendTransactionalEmail({ to: toEmail, subject, text });
+      const mail = await sendTransactionalEmail({
+        to: toEmail,
+        subject,
+        text,
+        tenantId: updated.tenantId,
+      });
       if (!mail.ok) {
         await prisma.appointmentEvent.create({
           data: {
