@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import {
   allStaffPermissions,
@@ -40,7 +41,15 @@ export async function getStaffAccess(): Promise<StaffAccess | null> {
   const s = await getAdminSession();
   if (!s.isLoggedIn) return null;
   const currentTenantId = await getTenantIdForRequest();
-  if (s.tenantId !== currentTenantId) return null;
+  // Kiracılık öncesi oturumlarda session.tenantId yoktu; aksi halde her istek "çıkış" sayılıyordu.
+  if (s.tenantId != null && s.tenantId !== currentTenantId) return null;
+  if (s.staffUserId) {
+    const u = await prisma.staffUser.findUnique({
+      where: { id: s.staffUserId },
+      select: { tenantId: true, active: true },
+    });
+    if (!u?.active || u.tenantId !== currentTenantId) return null;
+  }
   const raw = permissionsFromSession(s);
   const permissions = raw.length ? raw : allStaffPermissions();
   const username = (s.username ?? s.email ?? "admin").trim();
