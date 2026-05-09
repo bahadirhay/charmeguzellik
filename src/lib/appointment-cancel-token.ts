@@ -31,3 +31,8 @@ export function verifyCancelToken(inputToken: string, tokenHash: string | null |
   if (!tokenHash) return false;
   return sha256(inputToken.trim()) === tokenHash;
 }
+
+/** DB sorgusu için: `Appointment.cancelTokenHash` alanı bu değer ile eşlenir. */
+export function hashCancelTokenLookup(inputToken: string): string {
+  return sha256(inputToken.trim());
+}

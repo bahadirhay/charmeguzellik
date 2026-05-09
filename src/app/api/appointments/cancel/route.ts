@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { verifyCancelToken } from "@/lib/appointment-cancel-token";
+import { hashCancelTokenLookup } from "@/lib/appointment-cancel-token";
 import {
   mergeAppointmentDays,
   naiveLocalToAppointmentIso,
@@ -77,18 +77,16 @@ async function sendCustomerDecisionEmail(opts: {
   if (!sent.ok) console.warn("customer decision email", sent.error);
 }
 
-async function findTokenAppointment(token: string) {
-  const rows = await prisma.appointment.findMany({
-    where: { status: { in: ["approved", "confirmed"] } },
-    orderBy: { createdAt: "desc" },
-    take: 300,
+async function findAppointmentByCancelToken(rawToken: string) {
+  const tokenHash = hashCancelTokenLookup(rawToken);
+  const now = new Date();
+  return prisma.appointment.findFirst({
+    where: {
+      cancelTokenHash: tokenHash,
+      status: { in: ["approved", "confirmed"] },
+      OR: [{ cancelTokenExpiresAt: null }, { cancelTokenExpiresAt: { gt: now } }],
+    },
   });
-
-  return rows.find(
-    (r) =>
-      verifyCancelToken(token, r.cancelTokenHash) &&
-      (!r.cancelTokenExpiresAt || r.cancelTokenExpiresAt.getTime() > Date.now()),
-  );
 }
 
 export async function GET(req: Request) {
@@ -98,7 +96,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: "Bağlantı geçersiz." }, { status: 400 });
   }
 
-  const appt = await findTokenAppointment(parsed.data.token);
+  const appt = await findAppointmentByCancelToken(parsed.data.token);
   if (!appt) {
     return NextResponse.json({ ok: false, error: "Bağlantı doğrulanamadı veya süresi dolmuş." }, { status: 400 });
   }
@@ -136,7 +134,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Bağlantı veya işlem geçersiz." }, { status: 400 });
   }
 
-  const appt = await findTokenAppointment(parsed.data.token);
+  const appt = await findAppointmentByCancelToken(parsed.data.token);
 
   if (!appt) {
     return NextResponse.json({ ok: false, error: "Bağlantı doğrulanamadı veya süresi dolmuş." }, { status: 400 });

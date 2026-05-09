@@ -251,6 +251,7 @@ model Appointment {
   events         AppointmentEvent[]
 
   @@index([tenantId, startAt, serviceName, status])
+  @@index([cancelTokenHash])
 }
 
 model AppointmentEvent {
