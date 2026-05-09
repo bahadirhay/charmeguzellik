@@ -18,8 +18,8 @@ export function sanitizeSiteSettingsForAdminClient(row: SiteSettings): SiteSetti
   };
 }
 
-export async function getSiteSettings(req?: Request) {
-  const tenantId = await getTenantIdForRequest(req);
+/** İstekteki kiracıya ait SiteSettings — admin ve herkese açık site aynı satırı kullanmalı. */
+export async function getSiteSettingsForTenant(tenantId: string): Promise<SiteSettings> {
   let rowByTenant = await withPrismaEngine(() =>
     prisma.siteSettings.findUnique({ where: { tenantId } }),
   );
@@ -90,6 +90,11 @@ export async function getSiteSettings(req?: Request) {
     }),
   );
   return rowByTenant;
+}
+
+export async function getSiteSettings(req?: Request) {
+  const tenantId = await getTenantIdForRequest(req);
+  return getSiteSettingsForTenant(tenantId);
 }
 
 export function parseBusinessJson(raw: string | null | undefined) {

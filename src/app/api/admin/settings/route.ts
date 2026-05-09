@@ -3,7 +3,8 @@ import { blocksArraySchema, type PageBlock } from "@/lib/blocks/schema";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApi, staffPermDenied, type StaffAccess } from "@/lib/staff-auth";
 import { hasAnyStaffPermission, hasStaffPermission } from "@/lib/staff-permissions";
-import { sanitizeSiteSettingsForAdminClient } from "@/lib/site-settings";
+import { getSiteSettingsForTenant, sanitizeSiteSettingsForAdminClient } from "@/lib/site-settings";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { normalizeThemeId } from "@/themes/registry";
 
 const SETTINGS_PUT_KEYS = [
@@ -99,7 +100,7 @@ function normalizeNullableString(v: unknown): string | null {
   return s;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const auth = await requireStaffApi();
   if (auth instanceof NextResponse) return auth;
   if (
@@ -112,10 +113,8 @@ export async function GET() {
   ) {
     return staffPermDenied();
   }
-  let row = await prisma.siteSettings.findUnique({ where: { id: 1 } });
-  if (!row) {
-    row = await prisma.siteSettings.create({ data: { id: 1 } });
-  }
+  const tenantId = await getTenantIdForRequest(req);
+  const row = await getSiteSettingsForTenant(tenantId);
   return NextResponse.json(sanitizeSiteSettingsForAdminClient(row));
 }
 
@@ -183,10 +182,11 @@ export async function PUT(req: Request) {
   }
 
   try {
-    const row = await prisma.siteSettings.upsert({
-      where: { id: 1 },
-      create: { id: 1, ...data },
-      update: data,
+    const tenantId = await getTenantIdForRequest(req);
+    const base = await getSiteSettingsForTenant(tenantId);
+    const row = await prisma.siteSettings.update({
+      where: { id: base.id },
+      data,
     });
     return NextResponse.json(sanitizeSiteSettingsForAdminClient(row));
   } catch (e) {

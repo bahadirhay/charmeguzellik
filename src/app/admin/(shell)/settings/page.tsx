@@ -1,15 +1,13 @@
 import Link from "next/link";
 import { SettingsForm } from "@/components/admin/SettingsForm";
 import { requirePagePermission } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { sanitizeSiteSettingsForAdminClient } from "@/lib/site-settings";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
+import { getSiteSettingsForTenant, sanitizeSiteSettingsForAdminClient } from "@/lib/site-settings";
 
 export default async function SettingsPage() {
   await requirePagePermission("site.settings");
-  let row = await prisma.siteSettings.findUnique({ where: { id: 1 } });
-  if (!row) {
-    row = await prisma.siteSettings.create({ data: { id: 1 } });
-  }
+  const tenantId = await getTenantIdForRequest();
+  const row = await getSiteSettingsForTenant(tenantId);
   const initial = sanitizeSiteSettingsForAdminClient(row);
   return (
     <div className="space-y-6">
