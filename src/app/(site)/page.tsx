@@ -20,14 +20,17 @@ export async function generateMetadata(): Promise<Metadata> {
       description: settings.defaultMetaDescription ?? undefined,
     };
   }
+  /** Varsayılan meta doluysa ana sayfasında sayfa-meta üstünde (klon Charme başlığı kalmasın). */
   const meta =
-    page.metaTitle?.trim() ||
     settings.defaultMetaTitle?.trim() ||
-    page.title ||
-    settings.siteName;
+    page.metaTitle?.trim() ||
+    page.title?.trim() ||
+    settings.siteName?.trim();
+  const desc =
+    settings.defaultMetaDescription?.trim() || page.metaDescription?.trim() || undefined;
   return {
-    title: meta,
-    description: page.metaDescription ?? settings.defaultMetaDescription ?? undefined,
+    title: { absolute: meta || settings.siteName },
+    description: desc,
     openGraph: page.ogImage ? { images: [page.ogImage] } : undefined,
     robots: page.noIndex ? { index: false, follow: false } : undefined,
     alternates: page.canonicalPath ? { canonical: page.canonicalPath } : undefined,
