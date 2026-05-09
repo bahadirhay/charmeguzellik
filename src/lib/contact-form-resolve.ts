@@ -2,7 +2,7 @@ import type { PageBlock } from "@/lib/blocks/schema";
 import { parseBlocks } from "@/lib/blocks/schema";
 import { getSiteSettings } from "@/lib/site-settings";
 import { prisma } from "@/lib/prisma";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export type ContactFormContext = "page" | "header" | "footer";
 
@@ -12,11 +12,12 @@ export async function resolvePublishedContactFormBlock(
   blockId: string,
 ): Promise<Extract<PageBlock, { type: "contactForm" }> | null> {
   if (!blockId.trim()) return null;
+  const tenantId = await getTenantIdForRequest();
   if (ctx === "page") {
     const slug = pageSlug?.trim();
     if (!slug) return null;
     const page = await prisma.page.findFirst({
-      where: { tenantId: BOOTSTRAP_TENANT_ID, slug, published: true },
+      where: { tenantId, slug, published: true },
       select: { blocks: true, blocksMobile: true },
     });
     if (!page) return null;

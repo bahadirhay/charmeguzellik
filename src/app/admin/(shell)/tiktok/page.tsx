@@ -1,12 +1,13 @@
 import { TiktokAdminClient } from "@/components/admin/TiktokAdminClient";
 import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export default async function AdminTiktokPage() {
   await requirePagePermission("social.tiktok");
+  const tenantId = await getTenantIdForRequest();
   const videos = await prisma.siteTiktokVideo.findMany({
-    where: { tenantId: BOOTSTRAP_TENANT_ID },
+    where: { tenantId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
   });
   return (

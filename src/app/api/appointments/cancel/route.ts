@@ -210,7 +210,7 @@ export async function POST(req: Request) {
     }
     const assignedStaff = parseAssignedStaffFromNotes(appt.notes);
     if (assignedStaff) {
-      const staffBusy = await isStaffOccupiedAt(prisma, nextStart, assignedStaff, appt.id, appt.tenantId);
+      const staffBusy = await isStaffOccupiedAt(prisma, nextStart, assignedStaff, appt.tenantId, appt.id);
       if (staffBusy) {
         return NextResponse.json(
           { ok: false, error: `Secili personel (${assignedStaff}) bu saatte musait degil.` },

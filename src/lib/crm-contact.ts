@@ -1,5 +1,4 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 /** Türkiye odaklı: rakamlar; 0 ile veya 5 ile başlayan 10 hane → 90… */
 export function normalizePhoneKey(raw: string | null | undefined): string | null {
@@ -20,7 +19,7 @@ export function normalizeClientNameKey(name: string): string {
 export async function appointmentDuplicateExists(
   db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
   params: {
-    tenantId?: string;
+    tenantId: string;
     startAt: Date;
     serviceName: string | null;
     nameKey: string;
@@ -29,7 +28,7 @@ export async function appointmentDuplicateExists(
     excludeAppointmentId?: string;
   },
 ): Promise<boolean> {
-  const tenantId = params.tenantId ?? BOOTSTRAP_TENANT_ID;
+  const tenantId = params.tenantId;
   const rows = await db.appointment.findMany({
     where: {
       tenantId,
@@ -73,7 +72,7 @@ function istanbulYmd(d: Date): string {
 export async function appointmentConflictExists(
   db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
   params: {
-    tenantId?: string;
+    tenantId: string;
     startAt: Date;
     serviceName: string | null;
     nameKey: string;
@@ -81,7 +80,7 @@ export async function appointmentConflictExists(
     excludeAppointmentId?: string;
   },
 ): Promise<boolean> {
-  const tenantId = params.tenantId ?? BOOTSTRAP_TENANT_ID;
+  const tenantId = params.tenantId;
   const rows = await db.appointment.findMany({
     where: {
       tenantId,
@@ -122,7 +121,7 @@ export async function appointmentConflictExists(
 export async function pendingSameDaySameServiceExists(
   db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
   params: {
-    tenantId?: string;
+    tenantId: string;
     startAt: Date;
     serviceName: string | null;
     nameKey: string;
@@ -130,7 +129,7 @@ export async function pendingSameDaySameServiceExists(
     excludeAppointmentId?: string;
   },
 ): Promise<boolean> {
-  const tenantId = params.tenantId ?? BOOTSTRAP_TENANT_ID;
+  const tenantId = params.tenantId;
   const svc = params.serviceName?.trim().toLocaleLowerCase("tr-TR") || null;
   if (!svc) return false;
 
@@ -170,7 +169,7 @@ export async function pendingSameDaySameServiceExists(
 export async function withinOneHourOtherServiceExists(
   db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
   params: {
-    tenantId?: string;
+    tenantId: string;
     startAt: Date;
     serviceName: string | null;
     nameKey: string;
@@ -178,7 +177,7 @@ export async function withinOneHourOtherServiceExists(
     excludeAppointmentId?: string;
   },
 ): Promise<boolean> {
-  const tenantId = params.tenantId ?? BOOTSTRAP_TENANT_ID;
+  const tenantId = params.tenantId;
   const targetService = params.serviceName?.trim().toLocaleLowerCase("tr-TR") || null;
   const rows = await db.appointment.findMany({
     where: {
@@ -215,9 +214,9 @@ export async function withinOneHourOtherServiceExists(
  */
 export async function slotOccupiedExists(
   db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
-  params: { tenantId?: string; startAt: Date; excludeAppointmentId?: string },
+  params: { tenantId: string; startAt: Date; excludeAppointmentId?: string },
 ): Promise<boolean> {
-  const tenantId = params.tenantId ?? BOOTSTRAP_TENANT_ID;
+  const tenantId = params.tenantId;
   const count = await db.appointment.count({
     where: {
       tenantId,
@@ -231,9 +230,9 @@ export async function slotOccupiedExists(
 
 export async function upsertCrmContactForAppointment(
   db: Pick<PrismaClient | Prisma.TransactionClient, "crmContact">,
-  opts: { tenantId?: string; phoneKey: string; name: string; email: string | null },
+  opts: { tenantId: string; phoneKey: string; name: string; email: string | null },
 ) {
-  const tenantId = opts.tenantId ?? BOOTSTRAP_TENANT_ID;
+  const tenantId = opts.tenantId;
   return db.crmContact.upsert({
     where: { tenantId_phoneKey: { tenantId, phoneKey: opts.phoneKey } },
     create: {

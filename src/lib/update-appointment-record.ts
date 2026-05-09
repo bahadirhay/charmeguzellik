@@ -86,6 +86,7 @@ export async function updateAppointmentRecord(
   });
   if (tooClose) throw new AppointmentTooCloseOtherServiceError();
   const slotOccupied = await slotOccupiedExists(tx, {
+    tenantId: existing.tenantId,
     startAt: nextStart,
     excludeAppointmentId: appointmentId,
   });

@@ -48,6 +48,15 @@ async function main() {
     update: {},
   });
 
+  const defaultHost = (process.env.DEFAULT_TENANT_HOST ?? "localhost").trim().toLowerCase();
+  if (defaultHost) {
+    await prisma.tenantDomain.upsert({
+      where: { host: defaultHost },
+      create: { tenantId: TENANT_ID, host: defaultHost, isPrimary: true },
+      update: { tenantId: TENANT_ID, isPrimary: true },
+    });
+  }
+
   await prisma.siteSettings.upsert({
     where: { id: 1 },
     create: { id: 1, tenantId: TENANT_ID, ...salonSettingsData },

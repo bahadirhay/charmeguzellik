@@ -17,6 +17,7 @@ model Tenant {
   status                 String              @default("active")
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
+  domains                TenantDomain[]
   siteSettings           SiteSettings[]
   pages                  Page[]
   leads                  Lead[]
@@ -30,6 +31,18 @@ model Tenant {
   siteYoutubeVideos      SiteYoutubeVideo[]
   siteTiktokVideos       SiteTiktokVideo[]
   cookieConsentLogs      CookieConsentLog[]
+}
+
+model TenantDomain {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  host      String   @unique
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
 }
 
 model Page {

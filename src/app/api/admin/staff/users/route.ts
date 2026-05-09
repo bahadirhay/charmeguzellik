@@ -3,14 +3,15 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
 import { ensureDefaultStaffRoles } from "@/lib/staff-roles-defaults";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export async function GET() {
   const auth = await requireStaffApiPerm("users.manage");
   if (auth instanceof NextResponse) return auth;
-  await ensureDefaultStaffRoles(prisma);
+  const tenantId = await getTenantIdForRequest();
+  await ensureDefaultStaffRoles(prisma, tenantId);
   const users = await prisma.staffUser.findMany({
-    where: { tenantId: BOOTSTRAP_TENANT_ID },
+    where: { tenantId },
     include: { role: true },
     orderBy: { username: "asc" },
   });
@@ -31,7 +32,8 @@ export async function GET() {
 export async function POST(req: Request) {
   const auth = await requireStaffApiPerm("users.manage");
   if (auth instanceof NextResponse) return auth;
-  await ensureDefaultStaffRoles(prisma);
+  const tenantId = await getTenantIdForRequest(req);
+  await ensureDefaultStaffRoles(prisma, tenantId);
   const body = (await req.json()) as {
     username?: string;
     password?: string;
@@ -51,7 +53,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Rol seçin" }, { status: 400 });
   }
   const role = await prisma.staffRole.findFirst({
-    where: { id: roleId, tenantId: BOOTSTRAP_TENANT_ID },
+    where: { id: roleId, tenantId },
   });
   if (!role) {
     return NextResponse.json({ error: "Geçersiz rol" }, { status: 400 });
@@ -60,7 +62,7 @@ export async function POST(req: Request) {
   try {
     const user = await prisma.staffUser.create({
       data: {
-        tenantId: BOOTSTRAP_TENANT_ID,
+        tenantId,
         username,
         passwordHash: hash,
         displayName: body.displayName?.trim() || null,

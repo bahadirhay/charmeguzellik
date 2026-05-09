@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export async function GET() {
   const auth = await requireStaffApiPerm("content.nav");
   if (auth instanceof NextResponse) return auth;
+  const tenantId = await getTenantIdForRequest();
   const items = await prisma.navItem.findMany({
-    where: { tenantId: BOOTSTRAP_TENANT_ID },
+    where: { tenantId },
     orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
   });
   return NextResponse.json({ items });
@@ -16,6 +17,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const auth = await requireStaffApiPerm("content.nav");
   if (auth instanceof NextResponse) return auth;
+  const tenantId = await getTenantIdForRequest(req);
   const body = (await req.json()) as {
     label?: string;
     href?: string;
@@ -30,14 +32,14 @@ export async function POST(req: Request) {
   const menuSlug = body.menuSlug === "footer" ? "footer" : "header";
 
   const agg = await prisma.navItem.aggregate({
-    where: { tenantId: BOOTSTRAP_TENANT_ID, parentId, menuSlug },
+    where: { tenantId, parentId, menuSlug },
     _max: { sortOrder: true },
   });
   const sortOrder = (agg._max?.sortOrder ?? -1) + 1;
 
   const row = await prisma.navItem.create({
     data: {
-      tenantId: BOOTSTRAP_TENANT_ID,
+      tenantId,
       label,
       href,
       parentId,

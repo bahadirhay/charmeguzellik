@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/session";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 import {
   allStaffPermissions,
   hasAnyStaffPermission,
@@ -38,6 +39,8 @@ function permissionsFromSession(s: {
 export async function getStaffAccess(): Promise<StaffAccess | null> {
   const s = await getAdminSession();
   if (!s.isLoggedIn) return null;
+  const currentTenantId = await getTenantIdForRequest();
+  if (s.tenantId !== currentTenantId) return null;
   const raw = permissionsFromSession(s);
   const permissions = raw.length ? raw : allStaffPermissions();
   const username = (s.username ?? s.email ?? "admin").trim();

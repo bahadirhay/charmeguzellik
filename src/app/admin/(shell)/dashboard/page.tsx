@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { filterAppointmentsForSelfScope, resolveAppointmentPanelScope } from "@/lib/appointment-panel-access";
 import { prisma } from "@/lib/prisma";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { requireStaffPage } from "@/lib/auth";
 import { hasStaffPermission } from "@/lib/staff-permissions";
 
@@ -12,7 +12,7 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
   const access = await requireStaffPage();
   const p = access.permissions;
   const { scope: apptScope, selfStaffLabel } = resolveAppointmentPanelScope(access);
-  const t = BOOTSTRAP_TENANT_ID;
+  const t = await getTenantIdForRequest();
 
   const pages = prisma.page.count({ where: { tenantId: t } });
   const leads = prisma.lead.count({ where: { tenantId: t, status: "new" } });

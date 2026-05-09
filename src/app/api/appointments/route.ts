@@ -30,6 +30,7 @@ import {
   appointmentPhoneTurkeyHint,
   isValidTurkeyMobileAppointmentPhone,
 } from "@/lib/appointment-phone";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 const postSchema = z.object({
   clientName: z.string().min(1).max(120),
@@ -55,6 +56,7 @@ const postSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const tenantId = await getTenantIdForRequest(req);
   let raw: unknown;
   try {
     raw = await req.json();
@@ -114,7 +116,7 @@ export async function POST(req: Request) {
   if (body.clientPhone?.trim()) notesParts.unshift(`Telefon: ${body.clientPhone.trim()}`);
   const notes = notesParts.length ? notesParts.join("\n") : null;
   const settings = await getSiteSettings();
-  const staffMap = await resolveServiceStaffMap(prisma, settings.themeTokensJson);
+  const staffMap = await resolveServiceStaffMap(prisma, settings.themeTokensJson, tenantId);
   const staffCandidates = eligibleStaffForService(serviceName, staffMap);
   const requestedStaff = body.staffName?.trim() || "";
   let assignedStaff: string | null = null;
@@ -123,13 +125,13 @@ export async function POST(req: Request) {
       if (!staffCandidates.some((s) => s.toLocaleLowerCase("tr-TR") === requestedStaff.toLocaleLowerCase("tr-TR"))) {
         return NextResponse.json({ ok: false, error: "Secilen personel bu hizmet icin uygun degil." }, { status: 400 });
       }
-      const occupied = await isStaffOccupiedAt(prisma, start, requestedStaff);
+      const occupied = await isStaffOccupiedAt(prisma, start, requestedStaff, tenantId);
       if (occupied) {
         return NextResponse.json({ ok: false, error: "Secilen personelin bu saatte baska randevusu var." }, { status: 409 });
       }
       assignedStaff = requestedStaff;
     } else {
-      assignedStaff = await pickAvailableStaff(prisma, start, staffCandidates);
+      assignedStaff = await pickAvailableStaff(prisma, start, staffCandidates, tenantId);
       if (!assignedStaff) {
         return NextResponse.json({ ok: false, error: "Bu hizmet icin uygun personel bu saatte musait degil." }, { status: 409 });
       }
@@ -141,6 +143,7 @@ export async function POST(req: Request) {
   try {
     created = await prisma.$transaction(async (tx) =>
       createAppointmentRecord(tx, {
+        tenantId,
         startAt: start,
         endAt: end,
         serviceName,

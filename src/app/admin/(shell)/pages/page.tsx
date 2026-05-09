@@ -2,12 +2,13 @@ import Link from "next/link";
 import { AdminDeletePageButton } from "@/components/admin/AdminDeletePageButton";
 import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export default async function AdminPagesPage() {
   await requirePagePermission("content.pages");
+  const tenantId = await getTenantIdForRequest();
   const pages = await prisma.page.findMany({
-    where: { tenantId: BOOTSTRAP_TENANT_ID },
+    where: { tenantId },
     orderBy: { updatedAt: "desc" },
   });
   return (

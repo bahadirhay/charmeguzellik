@@ -4,29 +4,30 @@ import { coerceAppointmentStaffMapToIds } from "@/lib/appointment-staffing";
 import { requirePagePermission } from "@/lib/auth";
 import { buildNavTree, collectServiceLabelsFromNav } from "@/lib/navigation";
 import { prisma } from "@/lib/prisma";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function AppointmentStaffPlanningPage() {
   await requirePagePermission("crm.appointments");
+  const tenantId = await getTenantIdForRequest();
   const [row, headerNav, footerNav, staffDirectory] = await Promise.all([
     prisma.siteSettings.findUnique({
       where: { id: 1 },
       select: { themeTokensJson: true },
     }),
     prisma.navItem.findMany({
-      where: { tenantId: BOOTSTRAP_TENANT_ID, published: true, menuSlug: "header" },
+      where: { tenantId, published: true, menuSlug: "header" },
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
     }),
     prisma.navItem.findMany({
-      where: { tenantId: BOOTSTRAP_TENANT_ID, published: true, menuSlug: "footer" },
+      where: { tenantId, published: true, menuSlug: "footer" },
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
     }),
     prisma.staffUser.findMany({
       where: {
-        tenantId: BOOTSTRAP_TENANT_ID,
+        tenantId,
         active: true,
         displayName: { not: null },
       },
@@ -35,7 +36,7 @@ export default async function AppointmentStaffPlanningPage() {
     }),
   ]);
 
-  const initialIdMap = await coerceAppointmentStaffMapToIds(prisma, row?.themeTokensJson);
+  const initialIdMap = await coerceAppointmentStaffMapToIds(prisma, row?.themeTokensJson, tenantId);
   const fromHeader = collectServiceLabelsFromNav(buildNavTree(headerNav));
   const fromFooter = collectServiceLabelsFromNav(buildNavTree(footerNav));
   const serviceOptions =

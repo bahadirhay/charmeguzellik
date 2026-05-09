@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { normalizeInstagramPermalink } from "@/lib/instagram-url";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 type GraphMedia = {
   id: string;
@@ -13,9 +13,10 @@ type GraphMedia = {
   thumbnail_url?: string;
 };
 
-export async function POST() {
+export async function POST(req: Request) {
   const auth = await requireStaffApiPerm("social.instagram");
   if (auth instanceof NextResponse) return auth;
+  const tenantId = await getTenantIdForRequest(req);
   const settings = await prisma.siteSettings.findUnique({ where: { id: 1 } });
   const userId = settings?.instagramGraphUserId?.trim();
   const token = settings?.instagramAccessToken?.trim();
@@ -49,7 +50,7 @@ export async function POST() {
   const items = json.data ?? [];
   let imported = 0;
   const agg = await prisma.siteInstagramPost.aggregate({
-    where: { tenantId: BOOTSTRAP_TENANT_ID },
+    where: { tenantId },
     _max: { sortOrder: true },
   });
   let nextOrder = (agg._max.sortOrder ?? -1) + 1;
@@ -60,7 +61,7 @@ export async function POST() {
 
     const existing = await prisma.siteInstagramPost.findFirst({
       where: {
-        tenantId: BOOTSTRAP_TENANT_ID,
+        tenantId,
         OR: [{ instagramId: item.id }, { permalink }],
       },
     });
@@ -81,7 +82,7 @@ export async function POST() {
     } else {
       await prisma.siteInstagramPost.create({
         data: {
-          tenantId: BOOTSTRAP_TENANT_ID,
+          tenantId,
           instagramId: item.id,
           permalink,
           caption: item.caption ?? null,

@@ -3,7 +3,7 @@ import type { ContactFormContext } from "@/lib/contact-form-resolve";
 import { DEFAULT_APPOINTMENT_TIMEZONE, mergeAppointmentDays } from "@/lib/appointment-schedule";
 import type { PublishedAppointmentSchedule } from "@/lib/published-appointment-schedule.types";
 import { prisma } from "@/lib/prisma";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export type { PublishedAppointmentSchedule } from "@/lib/published-appointment-schedule.types";
 
@@ -55,9 +55,10 @@ function findAppointmentFormBlockIdInArray(raw: unknown): string | null {
  * Sıra: üst blok → alt blok → yayın sayfaları.
  */
 export async function getFirstPublishedAppointmentFormRef(): Promise<PublishedAppointmentFormRef | null> {
+  const tenantId = await getTenantIdForRequest();
   const [pages, settings] = await Promise.all([
     prisma.page.findMany({
-      where: { tenantId: BOOTSTRAP_TENANT_ID, published: true },
+      where: { tenantId, published: true },
       select: { slug: true, blocks: true, blocksMobile: true },
     }),
     prisma.siteSettings.findUnique({
@@ -91,9 +92,10 @@ export async function getFirstPublishedAppointmentFormRef(): Promise<PublishedAp
  * Yoksa null — çağıran varsayılan takvimi kullanır.
  */
 export async function getFirstPublishedAppointmentSchedule(): Promise<PublishedAppointmentSchedule | null> {
+  const tenantId = await getTenantIdForRequest();
   const [pages, settings] = await Promise.all([
     prisma.page.findMany({
-      where: { tenantId: BOOTSTRAP_TENANT_ID, published: true },
+      where: { tenantId, published: true },
       select: { blocks: true, blocksMobile: true },
     }),
     prisma.siteSettings.findUnique({

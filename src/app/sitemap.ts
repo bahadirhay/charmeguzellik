@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 import {
   extraPathToSitemapUrl,
   normalizeSitemapChangeFrequency,
@@ -19,6 +19,7 @@ function clampPriority(n: number, fallback: number): number {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const tenantId = await getTenantIdForRequest();
   const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
   if (!process.env.DATABASE_URL?.trim()) {
     return [
@@ -38,7 +39,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const pages = await prisma.page.findMany({
     where: {
-      tenantId: BOOTSTRAP_TENANT_ID,
+      tenantId,
       published: true,
       noIndex: false,
       includeInSitemap: true,

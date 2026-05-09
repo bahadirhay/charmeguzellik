@@ -6,7 +6,10 @@ import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
  * Veritabanında rol satırı yoksa (seed atlanmış vb.) varsayılan üç rolü upsert eder.
  * Personel sayfası ve staff API’leri açılışta çağırır.
  */
-export async function ensureDefaultStaffRoles(prisma: PrismaClient) {
+export async function ensureDefaultStaffRoles(
+  prisma: PrismaClient,
+  tenantId: string = BOOTSTRAP_TENANT_ID,
+) {
   const roleSpecs: { slug: string; label: string; permissions: string[] }[] = [
     { slug: "admin", label: "Yönetici", permissions: [...allStaffPermissions()] },
     {
@@ -27,9 +30,9 @@ export async function ensureDefaultStaffRoles(prisma: PrismaClient) {
   ];
   for (const r of roleSpecs) {
     await prisma.staffRole.upsert({
-      where: { tenantId_slug: { tenantId: BOOTSTRAP_TENANT_ID, slug: r.slug } },
+      where: { tenantId_slug: { tenantId, slug: r.slug } },
       create: {
-        tenantId: BOOTSTRAP_TENANT_ID,
+        tenantId,
         slug: r.slug,
         label: r.label,
         permissionsJson: JSON.stringify(r.permissions),

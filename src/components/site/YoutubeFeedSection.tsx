@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { clampSocialEmbedHeightPx, socialFeedColClass } from "@/lib/social-feed-layout";
 import { prisma } from "@/lib/prisma";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { youtubeEmbedUrl, youtubeThumbnailUrl, youtubeWatchUrl } from "@/lib/youtube-url";
 
 export async function YoutubeFeedSection({
@@ -15,8 +15,9 @@ export async function YoutubeFeedSection({
   embedHeightPx?: number;
   displayMode?: "mediaCard" | "iframe";
 }) {
+  const tenantId = await getTenantIdForRequest();
   const videos = await prisma.siteYoutubeVideo.findMany({
-    where: { tenantId: BOOTSTRAP_TENANT_ID, published: true },
+    where: { tenantId, published: true },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
   });
   if (!videos.length) return null;

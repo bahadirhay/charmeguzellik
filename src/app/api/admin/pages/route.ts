@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 function slugify(input: string): string {
   return input
@@ -20,6 +20,7 @@ function slugify(input: string): string {
 export async function POST(req: Request) {
   const auth = await requireStaffApiPerm("content.pages");
   if (auth instanceof NextResponse) return auth;
+  const tenantId = await getTenantIdForRequest(req);
   const body = (await req.json()) as {
     title?: string;
     slug?: string;
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
   }
   if (rawSlug === "home") {
     const exists = await prisma.page.findUnique({
-      where: { tenantId_slug: { tenantId: BOOTSTRAP_TENANT_ID, slug: "home" } },
+      where: { tenantId_slug: { tenantId, slug: "home" } },
     });
     if (exists) {
       return NextResponse.json({ error: "home slug tek olabilir" }, { status: 400 });
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
   }
 
   const clash = await prisma.page.findUnique({
-    where: { tenantId_slug: { tenantId: BOOTSTRAP_TENANT_ID, slug: rawSlug } },
+    where: { tenantId_slug: { tenantId, slug: rawSlug } },
   });
   if (clash) {
     return NextResponse.json({ error: "Bu slug kullanılıyor" }, { status: 409 });
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
 
   const page = await prisma.page.create({
     data: {
-      tenantId: BOOTSTRAP_TENANT_ID,
+      tenantId,
       slug: rawSlug,
       title,
       published: !!body.published,

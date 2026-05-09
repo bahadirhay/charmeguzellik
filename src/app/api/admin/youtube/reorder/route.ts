@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export async function PUT(req: Request) {
   const auth = await requireStaffApiPerm("social.youtube");
   if (auth instanceof NextResponse) return auth;
+  const tenantId = await getTenantIdForRequest(req);
   const body = (await req.json()) as { orderedIds?: string[] };
   const ids = body.orderedIds;
   if (!ids?.length) {
     return NextResponse.json({ error: "orderedIds gerekli" }, { status: 400 });
   }
   const all = await prisma.siteYoutubeVideo.findMany({
-    where: { tenantId: BOOTSTRAP_TENANT_ID },
+    where: { tenantId },
     select: { id: true },
   });
   const set = new Set(all.map((a) => a.id));

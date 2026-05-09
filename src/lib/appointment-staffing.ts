@@ -1,6 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { parseThemeTokens } from "@/lib/theme-tokens";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 const STAFF_MARKER_PREFIX = "[[STAFF:";
 const STAFF_MARKER_SUFFIX = "]]";
@@ -81,7 +80,7 @@ function buildStaffResolution(users: StaffUserPick[]): {
 export async function coerceAppointmentStaffMapToIds(
   db: Pick<PrismaClient, "staffUser">,
   themeTokensJson: string | null | undefined,
-  tenantId: string = BOOTSTRAP_TENANT_ID,
+  tenantId: string,
 ): Promise<Record<string, string[]>> {
   const raw = parseRawAppointmentStaffByService(themeTokensJson);
   const users = await db.staffUser.findMany({
@@ -109,7 +108,7 @@ export async function coerceAppointmentStaffMapToIds(
 export async function resolveServiceStaffMap(
   db: Pick<PrismaClient, "staffUser">,
   themeTokensJson: string | null | undefined,
-  tenantId: string = BOOTSTRAP_TENANT_ID,
+  tenantId: string,
 ): Promise<ServiceStaffMap> {
   const idByService = await coerceAppointmentStaffMapToIds(db, themeTokensJson, tenantId);
   const allIds = [...new Set(Object.values(idByService).flat())];
@@ -143,8 +142,8 @@ export async function isStaffOccupiedAt(
   db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
   startAt: Date,
   staffName: string,
+  tenantId: string,
   excludeAppointmentId?: string,
-  tenantId: string = BOOTSTRAP_TENANT_ID,
 ): Promise<boolean> {
   const rows = await db.appointment.findMany({
     where: {
@@ -163,11 +162,11 @@ export async function pickAvailableStaff(
   db: Pick<PrismaClient | Prisma.TransactionClient, "appointment">,
   startAt: Date,
   staffCandidates: string[],
+  tenantId: string,
   excludeAppointmentId?: string,
-  tenantId: string = BOOTSTRAP_TENANT_ID,
 ): Promise<string | null> {
   for (const s of staffCandidates) {
-    const occupied = await isStaffOccupiedAt(db, startAt, s, excludeAppointmentId, tenantId);
+    const occupied = await isStaffOccupiedAt(db, startAt, s, tenantId, excludeAppointmentId);
     if (!occupied) return s;
   }
   return null;

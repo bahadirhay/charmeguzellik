@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireStaffApiAny } from "@/lib/admin-api-auth";
 import { prisma } from "@/lib/prisma";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 const subscriptionSchema = z.object({
   endpoint: z.string().url(),
@@ -14,12 +14,13 @@ const subscriptionSchema = z.object({
 });
 
 async function resolveStaffId(
+  tenantId: string,
   staffUserId: string | undefined,
   username: string,
 ): Promise<string | null> {
   if (staffUserId?.trim()) return staffUserId;
   const u = await prisma.staffUser.findFirst({
-    where: { tenantId: BOOTSTRAP_TENANT_ID, username: username.trim() },
+    where: { tenantId, username: username.trim() },
     select: { id: true },
   });
   return u?.id ?? null;
@@ -29,6 +30,7 @@ async function resolveStaffId(
 export async function POST(req: Request) {
   const auth = await requireStaffApiAny(["crm.appointments", "crm.appointments.self"]);
   if (auth instanceof NextResponse) return auth;
+  const tenantId = await getTenantIdForRequest(req);
 
   let raw: unknown;
   try {
@@ -41,7 +43,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Geçersiz push aboneliği" }, { status: 400 });
   }
   const sub = parsed.data;
-  const staffId = await resolveStaffId(auth.staffUserId, auth.username);
+  const staffId = await resolveStaffId(tenantId, auth.staffUserId, auth.username);
   if (!staffId) {
     return NextResponse.json(
       { error: "Personel hesabı ile eşleşme yok — Web Push yalnızca personel oturumu için kullanılabilir." },
@@ -73,6 +75,7 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   const auth = await requireStaffApiAny(["crm.appointments", "crm.appointments.self"]);
   if (auth instanceof NextResponse) return auth;
+  const tenantId = await getTenantIdForRequest(req);
   let endpoint: string | null = null;
   try {
     const u = new URL(req.url);
@@ -92,7 +95,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "endpoint gerekli" }, { status: 400 });
   }
 
-  const staffId = await resolveStaffId(auth.staffUserId, auth.username);
+  const staffId = await resolveStaffId(tenantId, auth.staffUserId, auth.username);
   if (!staffId) {
     return NextResponse.json({ error: "Personel bulunamadı" }, { status: 400 });
   }

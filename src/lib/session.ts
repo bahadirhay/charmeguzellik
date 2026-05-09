@@ -11,6 +11,7 @@ export type AdminSession = {
   /** Personel kullanıcısında randevu ataması ile eşleşecek görünen ad (Personel Planlama isimleriyle aynı olmalı) */
   staffDisplayName?: string | null;
   roleSlug?: string;
+  tenantId?: string;
   /** JSON.stringify(string[]) — panel yetkileri */
   permissionsJson?: string;
 };

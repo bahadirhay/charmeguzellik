@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { buildAppointmentCancelUrl } from "@/lib/site-public-url";
 import { getSiteSettings } from "@/lib/site-settings";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 const REMINDER_NOTE_PREFIX = "Teyit hatırlatması gönderildi:";
 
@@ -24,6 +24,7 @@ function hasValidCronSecret(req: Request): boolean {
 }
 
 export async function POST(req: Request) {
+  const tenantId = await getTenantIdForRequest(req);
   if (!hasValidCronSecret(req)) {
     const auth = await requireStaffApiAppointmentsFull();
     if (auth instanceof NextResponse) return auth;
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
   const siteName = settings.siteName?.trim() || "Salon";
   const rows = await prisma.appointment.findMany({
     where: {
-      tenantId: BOOTSTRAP_TENANT_ID,
+      tenantId,
       status: "approved",
       startAt: { gte: from, lte: to },
       clientEmail: { not: null },

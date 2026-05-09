@@ -6,13 +6,14 @@ import {
 } from "@/lib/tiktok-url";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export async function GET() {
   const auth = await requireStaffApiPerm("social.tiktok");
   if (auth instanceof NextResponse) return auth;
+  const tenantId = await getTenantIdForRequest();
   const videos = await prisma.siteTiktokVideo.findMany({
-    where: { tenantId: BOOTSTRAP_TENANT_ID },
+    where: { tenantId },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
   });
   return NextResponse.json({ videos });
@@ -21,6 +22,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const auth = await requireStaffApiPerm("social.tiktok");
   if (auth instanceof NextResponse) return auth;
+  const tenantId = await getTenantIdForRequest(req);
   const body = (await req.json()) as { permalink?: string };
   const permalink = normalizeTiktokPermalink(body.permalink ?? "");
   if (!permalink) {
@@ -30,7 +32,7 @@ export async function POST(req: Request) {
     );
   }
   const existing = await prisma.siteTiktokVideo.findUnique({
-    where: { tenantId_permalink: { tenantId: BOOTSTRAP_TENANT_ID, permalink } },
+    where: { tenantId_permalink: { tenantId, permalink } },
   });
   if (existing) {
     return NextResponse.json({ error: "Bu video zaten listede" }, { status: 409 });
@@ -38,14 +40,14 @@ export async function POST(req: Request) {
   const videoId = extractTiktokVideoIdFromPermalink(permalink);
   const oembed = await fetchTiktokOembed(permalink);
   const agg = await prisma.siteTiktokVideo.aggregate({
-    where: { tenantId: BOOTSTRAP_TENANT_ID },
+    where: { tenantId },
     _max: { sortOrder: true },
   });
   const sortOrder = (agg._max.sortOrder ?? -1) + 1;
   try {
     const row = await prisma.siteTiktokVideo.create({
       data: {
-        tenantId: BOOTSTRAP_TENANT_ID,
+        tenantId,
         permalink,
         videoId,
         thumbnailUrl: oembed?.thumbnail_url ?? null,

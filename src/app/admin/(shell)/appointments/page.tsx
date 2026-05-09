@@ -11,7 +11,7 @@ import { requirePagePermission } from "@/lib/auth";
 import { buildNavTree, collectServiceLabelsFromNav } from "@/lib/navigation";
 import { getFirstPublishedAppointmentFormRef, getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
 import { prisma } from "@/lib/prisma";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -73,12 +73,13 @@ function hasStaffAccessToService(
 
 export default async function AppointmentsPage({ searchParams }: AppointmentsPageProps) {
   const access = await requirePagePermission(["crm.appointments", "crm.appointments.self"]);
+  const tenantId = await getTenantIdForRequest();
   const { scope: appointmentScope, selfStaffLabel } = resolveAppointmentPanelScope(access);
 
   let effectiveSelfLabel = selfStaffLabel;
   if (appointmentScope === "self" && access.staffUserId) {
-    const su = await prisma.staffUser.findUnique({
-      where: { id: access.staffUserId },
+    const su = await prisma.staffUser.findFirst({
+      where: { id: access.staffUserId, tenantId },
       select: { displayName: true },
     });
     effectiveSelfLabel = su?.displayName?.trim() ?? null;
@@ -105,15 +106,15 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     lastReminderCronEvent,
   ] = await Promise.all([
     prisma.appointment.findMany({
-      where: { tenantId: BOOTSTRAP_TENANT_ID },
+      where: { tenantId },
       orderBy: { startAt: "asc" },
     }),
     prisma.navItem.findMany({
-      where: { tenantId: BOOTSTRAP_TENANT_ID, published: true, menuSlug: "header" },
+      where: { tenantId, published: true, menuSlug: "header" },
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
     }),
     prisma.navItem.findMany({
-      where: { tenantId: BOOTSTRAP_TENANT_ID, published: true, menuSlug: "footer" },
+      where: { tenantId, published: true, menuSlug: "footer" },
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
     }),
     getFirstPublishedAppointmentSchedule(),
@@ -124,7 +125,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     getFirstPublishedAppointmentFormRef(),
     prisma.appointmentEvent.count({
       where: {
-        tenantId: BOOTSTRAP_TENANT_ID,
+        tenantId,
         eventType: "reminder_sent",
         outcome: "success",
         channel: "email",
@@ -133,7 +134,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     }),
     prisma.appointmentEvent.count({
       where: {
-        tenantId: BOOTSTRAP_TENANT_ID,
+        tenantId,
         eventType: "reminder_sent",
         outcome: "failed",
         channel: "email",
@@ -142,14 +143,14 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     }),
     prisma.appointment.count({
       where: {
-        tenantId: BOOTSTRAP_TENANT_ID,
+        tenantId,
         status: "approved",
         startAt: { gte: reminderWindowStart, lte: reminderWindowEnd },
       },
     }),
     prisma.appointmentEvent.findFirst({
       where: {
-        tenantId: BOOTSTRAP_TENANT_ID,
+        tenantId,
         eventType: "reminder_sent",
         createdAt: { gte: last24h },
       },
@@ -159,7 +160,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
   ]);
   const rows =
     appointmentScope === "self" ? filterAppointmentsForSelfScope(allRows, effectiveSelfLabel) : allRows;
-  const serviceStaffMap = await resolveServiceStaffMap(prisma, settings?.themeTokensJson);
+  const serviceStaffMap = await resolveServiceStaffMap(prisma, settings?.themeTokensJson, tenantId);
   const fromHeader = collectServiceLabelsFromNav(buildNavTree(headerNav));
   const fromFooter = collectServiceLabelsFromNav(buildNavTree(footerNav));
   const baseServiceOptions =

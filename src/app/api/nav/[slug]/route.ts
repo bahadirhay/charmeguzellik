@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildNavTree } from "@/lib/navigation";
 import { prisma } from "@/lib/prisma";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 const ALLOWED = new Set(["header", "footer"]);
 
@@ -9,12 +9,13 @@ type Ctx = { params: Promise<{ slug: string }> };
 
 /** Yayınlanmış menü (salt okunur) — önizleme ve genel kullanım */
 export async function GET(_req: Request, ctx: Ctx) {
+  const tenantId = await getTenantIdForRequest();
   const { slug } = await ctx.params;
   if (!ALLOWED.has(slug)) {
     return NextResponse.json({ error: "Geçersiz menü" }, { status: 404 });
   }
   const items = await prisma.navItem.findMany({
-    where: { tenantId: BOOTSTRAP_TENANT_ID, published: true, menuSlug: slug },
+    where: { tenantId, published: true, menuSlug: slug },
     orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
   });
   const nodes = buildNavTree(items);

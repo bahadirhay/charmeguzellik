@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: Request, ctx: Ctx) {
   const auth = await requireStaffApiPerm("users.manage");
   if (auth instanceof NextResponse) return auth;
+  const tenantId = await getTenantIdForRequest(req);
   const { id } = await ctx.params;
   const body = (await req.json()) as {
     password?: string;
@@ -18,7 +19,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
   };
 
   const existing = await prisma.staffUser.findFirst({
-    where: { id, tenantId: BOOTSTRAP_TENANT_ID },
+    where: { id, tenantId },
   });
   if (!existing) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
@@ -59,7 +60,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
   }
 
   const user = await prisma.staffUser.update({
-    where: { id, tenantId: BOOTSTRAP_TENANT_ID },
+    where: { id },
     data,
     include: { role: true },
   });

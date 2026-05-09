@@ -19,11 +19,12 @@ import {
 import { prisma } from "@/lib/prisma";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
 import { getSiteSettings } from "@/lib/site-settings";
-import { updateAppointmentRecord } from "@/lib/update-appointment-record";
+import { type UpdateAppointmentRecordInput, updateAppointmentRecord } from "@/lib/update-appointment-record";
 import { generateAppointmentCancelSecret } from "@/lib/appointment-cancel-token";
 import { withAssignedStaffInNotes } from "@/lib/appointment-staffing";
 import { buildAppointmentCancelUrl } from "@/lib/site-public-url";
 import { notifyTelegramAppointmentAction } from "@/lib/appointment-telegram-notify";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -42,10 +43,30 @@ const APPOINTMENT_UPDATE_LOCK_MS = 60 * 60 * 1000;
 const PANEL_CANCEL_NOTE_PREFIX = "Panel iptal onayı:";
 const PANEL_CANCEL_UNDO_NOTE_PREFIX = "Panel iptal geri alındı:";
 
+function valuesEqual(a: unknown, b: unknown): boolean {
+  if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
+  return Object.is(a, b);
+}
+
+/** Yalnızca dahili not değişiyorsa; randuvuya çok yakınsa tarih müşteri vb. kitli kalır, not yazılabilsin diye ayırım. */
+function isOnlyNotesDetailChange(existing: Appointment, input: UpdateAppointmentRecordInput): boolean {
+  if (input.notes === undefined) return false;
+  const keys = Object.keys(input) as (keyof UpdateAppointmentRecordInput)[];
+  for (const k of keys) {
+    if (k === "notes") continue;
+    const nv = input[k];
+    if (nv === undefined) continue;
+    const ev = existing[k as keyof Appointment];
+    if (!valuesEqual(nv, ev)) return false;
+  }
+  return true;
+}
+
 export async function PATCH(req: Request, ctx: Ctx) {
   const auth = await requireStaffApiAppointments();
   if (auth instanceof NextResponse) return auth;
 
+  const tenantId = await getTenantIdForRequest(req);
   const { id } = await ctx.params;
   let body: Record<string, unknown>;
   try {
@@ -71,7 +92,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
       );
     }
 
-    const existing = await prisma.appointment.findUnique({ where: { id } });
+    const existing = await prisma.appointment.findFirst({ where: { id, tenantId } });
     const rowForbidden = appointmentRowForbiddenForStaff(auth, existing);
     if (rowForbidden) return rowForbidden;
     if (!existing) {
@@ -134,7 +155,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
     if (statusRaw === "cancelled") {
       try {
-        const settings = await getSiteSettings();
+        const settings = await getSiteSettings(req);
         const tg = await notifyTelegramAppointmentAction(settings, updated, "appointment_cancelled", {
           createdBy: auth.username,
         });
@@ -165,7 +186,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
       });
     }
 
-    const settings = await getSiteSettings();
+    const settings = await getSiteSettings(req);
     const siteName = settings.siteName?.trim() || "Salon";
     let cancelInfo:
       | {
@@ -230,20 +251,14 @@ export async function PATCH(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Güncellenecek alan yok" }, { status: 400 });
   }
 
-  const existing = await prisma.appointment.findUnique({ where: { id } });
+  const existing = await prisma.appointment.findFirst({ where: { id, tenantId } });
   const rowForbidden2 = appointmentRowForbiddenForStaff(auth, existing);
   if (rowForbidden2) return rowForbidden2;
   if (!existing) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
   }
-  if (existing.startAt.getTime() - Date.now() < APPOINTMENT_UPDATE_LOCK_MS) {
-    return NextResponse.json(
-      { error: "Randevu başlangıcına 1 saatten az kala detay güncellemesi yapılamaz." },
-      { status: 400 },
-    );
-  }
 
-  const input: Parameters<typeof updateAppointmentRecord>[2] = {};
+  const input: UpdateAppointmentRecordInput = {};
 
   if (typeof body.startAt === "string") {
     const d = new Date(body.startAt);
@@ -306,6 +321,16 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
   if (auth.appointmentScope === "self" && auth.selfStaffLabel && input.notes !== undefined) {
     input.notes = withAssignedStaffInNotes(input.notes, auth.selfStaffLabel);
+  }
+
+  if (
+    !isOnlyNotesDetailChange(existing, input) &&
+    existing.startAt.getTime() - Date.now() < APPOINTMENT_UPDATE_LOCK_MS
+  ) {
+    return NextResponse.json(
+      { error: "Randevu başlangıcına 1 saatten az kala müşteri/tarih/saat değiştirilemez. Yalnızca not ekleyebilirsiniz." },
+      { status: 400 },
+    );
   }
 
   try {

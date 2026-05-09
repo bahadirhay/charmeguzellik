@@ -5,23 +5,24 @@ import { parseAssignedStaffFromNotes } from "@/lib/appointment-staffing";
 import { requirePagePermission } from "@/lib/auth";
 import { hasStaffPermission } from "@/lib/staff-permissions";
 import { prisma } from "@/lib/prisma";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export default async function CrmPage() {
   const access = await requirePagePermission(["crm.leads", "crm.appointments"]);
+  const tenantId = await getTenantIdForRequest();
   const showLeads = hasStaffPermission(access.permissions, "crm.leads");
   const showContacts = hasStaffPermission(access.permissions, "crm.appointments");
 
   const [leads, contacts] = await Promise.all([
     showLeads
       ? prisma.lead.findMany({
-          where: { tenantId: BOOTSTRAP_TENANT_ID },
+          where: { tenantId },
           orderBy: { createdAt: "desc" },
         })
       : Promise.resolve([]),
     showContacts
       ? prisma.crmContact.findMany({
-          where: { tenantId: BOOTSTRAP_TENANT_ID },
+          where: { tenantId },
           orderBy: { updatedAt: "desc" },
           include: {
             appointments: {

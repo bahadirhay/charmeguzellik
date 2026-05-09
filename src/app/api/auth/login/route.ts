@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/session";
 import { allStaffPermissions, parsePermissionsJson } from "@/lib/staff-permissions";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 type Body = { login?: string; email?: string; password?: string };
 
@@ -17,9 +17,10 @@ export async function POST(req: Request) {
   }
 
   const session = await getAdminSession();
+  const tenantId = await getTenantIdForRequest(req);
 
   const staff = await prisma.staffUser.findFirst({
-    where: { tenantId: BOOTSTRAP_TENANT_ID, username: loginRaw, active: true },
+    where: { tenantId, username: loginRaw, active: true },
     include: { role: true },
   });
 
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
     session.username = staff.username;
     session.staffDisplayName = staff.displayName?.trim() || null;
     session.roleSlug = staff.role.slug;
+    session.tenantId = tenantId;
     session.permissionsJson = JSON.stringify(perms.length ? perms : allStaffPermissions());
     session.email = undefined;
     await session.save();
@@ -67,6 +69,7 @@ export async function POST(req: Request) {
   session.staffUserId = undefined;
   session.staffDisplayName = undefined;
   session.roleSlug = undefined;
+  session.tenantId = tenantId;
   session.permissionsJson = JSON.stringify(allStaffPermissions());
   await session.save();
 

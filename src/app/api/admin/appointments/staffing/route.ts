@@ -2,23 +2,25 @@ import { NextResponse } from "next/server";
 import { requireStaffApiAppointmentsFull } from "@/lib/admin-api-auth";
 import { prisma } from "@/lib/prisma";
 import { coerceAppointmentStaffMapToIds, isLikelyStaffUserId } from "@/lib/appointment-staffing";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { parseThemeTokens, themeTokensToJson } from "@/lib/theme-tokens";
 
 export async function GET() {
   const auth = await requireStaffApiAppointmentsFull();
   if (auth instanceof NextResponse) return auth;
+  const tenantId = await getTenantIdForRequest();
   const row = await prisma.siteSettings.findUnique({
     where: { id: 1 },
     select: { themeTokensJson: true },
   });
-  const idMap = await coerceAppointmentStaffMapToIds(prisma, row?.themeTokensJson);
+  const idMap = await coerceAppointmentStaffMapToIds(prisma, row?.themeTokensJson, tenantId);
   return NextResponse.json({ ok: true, idMap });
 }
 
 export async function PUT(req: Request) {
   const auth = await requireStaffApiAppointmentsFull();
   if (auth instanceof NextResponse) return auth;
+  const tenantId = await getTenantIdForRequest(req);
   const body = (await req.json().catch(() => ({}))) as { map?: unknown };
   const src = body.map;
   if (!src || typeof src !== "object" || Array.isArray(src)) {
@@ -48,7 +50,7 @@ export async function PUT(req: Request) {
   const allIds = [...new Set(Object.values(normalized).flat())];
   if (allIds.length) {
     const users = await prisma.staffUser.findMany({
-      where: { id: { in: allIds }, active: true, tenantId: BOOTSTRAP_TENANT_ID },
+      where: { id: { in: allIds }, active: true, tenantId },
       select: { id: true, displayName: true },
     });
     if (users.length !== allIds.length) {

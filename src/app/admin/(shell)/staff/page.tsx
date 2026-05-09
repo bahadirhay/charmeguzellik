@@ -2,18 +2,19 @@ import { StaffAdminClient } from "@/components/admin/StaffAdminClient";
 import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureDefaultStaffRoles } from "@/lib/staff-roles-defaults";
-import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export default async function StaffAdminPage() {
   await requirePagePermission("users.manage");
-  await ensureDefaultStaffRoles(prisma);
+  const tenantId = await getTenantIdForRequest();
+  await ensureDefaultStaffRoles(prisma, tenantId);
   const [roles, users] = await Promise.all([
     prisma.staffRole.findMany({
-      where: { tenantId: BOOTSTRAP_TENANT_ID },
+      where: { tenantId },
       orderBy: { slug: "asc" },
     }),
     prisma.staffUser.findMany({
-      where: { tenantId: BOOTSTRAP_TENANT_ID },
+      where: { tenantId },
       include: { role: true },
       orderBy: { username: "asc" },
     }),

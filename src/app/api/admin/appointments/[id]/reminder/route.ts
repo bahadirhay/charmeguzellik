@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { buildAppointmentCancelUrl } from "@/lib/site-public-url";
 import { getSiteSettings } from "@/lib/site-settings";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -15,8 +16,9 @@ const REMINDER_NOTE_PREFIX = "Teyit hatırlatması gönderildi:";
 export async function POST(req: Request, ctx: Ctx) {
   const auth = await requireStaffApiAppointments();
   if (auth instanceof NextResponse) return auth;
+  const tenantId = await getTenantIdForRequest(req);
   const { id } = await ctx.params;
-  const row = await prisma.appointment.findUnique({ where: { id } });
+  const row = await prisma.appointment.findFirst({ where: { id, tenantId } });
   const rowForbidden = appointmentRowForbiddenForStaff(auth, row);
   if (rowForbidden) return rowForbidden;
   if (!row) return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
@@ -24,7 +26,7 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Teyit mesajı sadece onaylı/teyitli randevu için gönderilir." }, { status: 400 });
   }
 
-  const settings = await getSiteSettings();
+  const settings = await getSiteSettings(req);
   const siteName = settings.siteName?.trim() || "Salon";
   const sec = generateAppointmentCancelSecret();
   const updated = await prisma.appointment.update({

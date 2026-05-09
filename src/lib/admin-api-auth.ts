@@ -9,6 +9,7 @@ import { notesAssignedStaffMatchesLabel, resolveAppointmentPanelScope, type Appo
 import { hasAnyStaffPermission, hasStaffPermission } from "@/lib/staff-permissions";
 import type { Appointment } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export async function requireStaffApiPerm(perm: string): Promise<StaffAccess | NextResponse> {
   const auth = await requireStaffApi();
@@ -42,8 +43,9 @@ export async function requireStaffApiAppointments(): Promise<StaffAppointmentAut
   if (!scope) return staffPermDenied();
   let selfStaffLabel = fromPerm;
   if (scope === "self" && auth.staffUserId) {
-    const u = await prisma.staffUser.findUnique({
-      where: { id: auth.staffUserId },
+    const tenantId = await getTenantIdForRequest();
+    const u = await prisma.staffUser.findFirst({
+      where: { id: auth.staffUserId, tenantId },
       select: { displayName: true },
     });
     selfStaffLabel = u?.displayName?.trim() || null;
