@@ -41,14 +41,19 @@ export async function getStaffAccess(): Promise<StaffAccess | null> {
   const s = await getAdminSession();
   if (!s.isLoggedIn) return null;
   const currentTenantId = await getTenantIdForRequest();
-  // Kiracılık öncesi oturumlarda session.tenantId yoktu; aksi halde her istek "çıkış" sayılıyordu.
-  if (s.tenantId != null && s.tenantId !== currentTenantId) return null;
+  /**
+   * Personel oturumu: yetkiyi host’tan çözülen kiracı ile StaffUser.tenantId üzerinden doğrularız.
+   * Eski bug’larda session.tenantId ile header çözümü uyuşmasa bile aynı personel doğru kiracıdaysa panele düşmez.
+   * Legacy (staffUserId yok): session.tenantId hâlâ zorunlu — yoksa çapraz site denemesi açılırdı.
+   */
   if (s.staffUserId) {
     const u = await prisma.staffUser.findUnique({
       where: { id: s.staffUserId },
       select: { tenantId: true, active: true },
     });
     if (!u?.active || u.tenantId !== currentTenantId) return null;
+  } else if (s.tenantId != null && s.tenantId !== currentTenantId) {
+    return null;
   }
   const raw = permissionsFromSession(s);
   const permissions = raw.length ? raw : allStaffPermissions();

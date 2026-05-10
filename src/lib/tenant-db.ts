@@ -15,6 +15,25 @@ export function normalizeHost(host: string | null | undefined): string | null {
 }
 
 /**
+ * X-Forwarded-Host bazen virgülle zincir gelir ("uç host, üst proxy"). Tek string ile
+ * TenantDomain eşleşmez → bootstrap kiracı + girişte/sessionda farklı tenantId görülür → panel sürekli "çıkmış".
+ * Her segment sırayla denenir; duplikasyon atlanır.
+ */
+export function hostHeaderToDistinctSegments(primary: string | null | undefined): string[] {
+  const raw = primary?.trim().toLowerCase() ?? "";
+  if (!raw) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const chunk of raw.split(",")) {
+    const n = normalizeHost(chunk.trim());
+    if (!n || seen.has(n)) continue;
+    seen.add(n);
+    out.push(n);
+  }
+  return out;
+}
+
+/**
  * Apex ↔ www TenantDomain tek satırında tutulunca ikisi de aynı kiracıya düşer;
  * oturum (tenantId) ile çözüm aynı host ailesinde kalır — aksi halde panel "çıkış" görünür.
  */
@@ -46,15 +65,19 @@ export async function getRequestHost(req?: Request): Promise<string | null> {
 }
 
 export async function resolveTenantByHost(host: string | null | undefined) {
-  const normalizedHost = normalizeHost(host);
-  const candidates = hostAliasesForTenantLookup(normalizedHost);
-  if (candidates.length === 0) return null;
-  for (const cand of candidates) {
-    const row = await prisma.tenantDomain.findUnique({
-      where: { host: cand },
-      select: { tenantId: true },
-    });
-    if (row) return row;
+  const segments = hostHeaderToDistinctSegments(host ?? "");
+  if (segments.length === 0) return null;
+  const triedHosts = new Set<string>();
+  for (const seg of segments) {
+    for (const cand of hostAliasesForTenantLookup(seg)) {
+      if (triedHosts.has(cand)) continue;
+      triedHosts.add(cand);
+      const row = await prisma.tenantDomain.findUnique({
+        where: { host: cand },
+        select: { tenantId: true },
+      });
+      if (row) return row;
+    }
   }
   return null;
 }
