@@ -55,9 +55,15 @@ const PLATFORM_NAV: NavItem[] = [
 function itemVisible(
   permissions: readonly string[],
   item: NavItem,
-  opts: { showPlatformNav: boolean },
+  opts: { showPlatformNav: boolean; appointmentsModuleEnabled: boolean },
 ): boolean {
   if (item.platformOnly && !opts.showPlatformNav) return false;
+  if (
+    !opts.appointmentsModuleEnabled &&
+    (item.href === "/admin/appointments" || item.href === "/admin/appointments/personel-planlama")
+  ) {
+    return false;
+  }
   if (!item.perm) return true;
   if (item.href === "/admin/crm") {
     return hasStaffPermission(permissions, "crm.leads") || hasStaffPermission(permissions, "crm.appointments");
@@ -77,7 +83,7 @@ function itemVisible(
 function filterItems(
   permissions: readonly string[],
   items: NavItem[],
-  opts: { showPlatformNav: boolean },
+  opts: { showPlatformNav: boolean; appointmentsModuleEnabled: boolean },
 ): NavItem[] {
   return items.filter((i) => itemVisible(permissions, i, opts));
 }
@@ -137,6 +143,7 @@ export function AdminShell({
   isLegacy,
   permissions,
   showPlatformNav = false,
+  appointmentsModuleEnabled = true,
 }: {
   children: React.ReactNode;
   username: string;
@@ -145,8 +152,10 @@ export function AdminShell({
   permissions: readonly string[];
   /** Yalnızca PLATFORM_CONTROL_TENANT_ID kiracısında doğru layout’ta true */
   showPlatformNav?: boolean;
+  /** Tenant.featuresJson: randevu modülü kapalıysa false */
+  appointmentsModuleEnabled?: boolean;
 }) {
-  const navOpts = { showPlatformNav };
+  const navOpts = { showPlatformNav, appointmentsModuleEnabled };
   const top = filterItems(permissions, TOP_NAV, navOpts);
   const baseGroups = NAV_GROUPS.map((g) => ({
     title: g.title,

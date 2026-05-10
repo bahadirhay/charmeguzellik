@@ -9,6 +9,7 @@ export type TenantListRow = {
   name: string;
   status: string;
   isPlatformTenant: boolean;
+  appointmentsEnabled: boolean;
   pageCount: number;
   hosts: Array<{ host: string; primary: boolean }>;
 };
@@ -26,6 +27,8 @@ export function PlatformCustomersClient({
   const [name, setName] = useState("");
   const [host, setHost] = useState("");
   const [cloneContent, setCloneContent] = useState(true);
+  const [newTenantAppointments, setNewTenantAppointments] = useState(true);
+  const [featureBusyId, setFeatureBusyId] = useState<string | null>(null);
   const [adminUser, setAdminUser] = useState("admin");
   const [adminPass, setAdminPass] = useState("");
   const [busy, setBusy] = useState(false);
@@ -43,6 +46,7 @@ export function PlatformCustomersClient({
         name: name.trim(),
         host: host.trim().toLowerCase(),
         cloneContent,
+        appointmentsEnabled: newTenantAppointments,
       };
       const p = adminPass.trim();
       if (p.length > 0) {
@@ -79,6 +83,27 @@ export function PlatformCustomersClient({
       if (listed?.tenants) setRows(listed.tenants);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function setTenantAppointmentsEnabled(tenantId: string, next: boolean) {
+    setFeatureBusyId(tenantId);
+    try {
+      const res = await fetch(`/api/admin/platform/tenants/${tenantId}/features`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ appointmentsEnabled: next }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setFeedback({ ok: false, text: j.error ?? `Özellik güncellenemedi (${res.status})` });
+        return;
+      }
+      setRows((prev) => prev.map((r) => (r.id === tenantId ? { ...r, appointmentsEnabled: next } : r)));
+      setFeedback({ ok: true, text: next ? "Randevu modülü açıldı." : "Randevu modülü kapatıldı." });
+    } finally {
+      setFeatureBusyId(null);
     }
   }
 
@@ -142,6 +167,15 @@ export function PlatformCustomersClient({
           />
           Varsayılan şablondan sayfa ve menü kopyala (önerilen)
         </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={newTenantAppointments}
+            onChange={(e) => setNewTenantAppointments(e.target.checked)}
+            className="rounded border-zinc-400"
+          />
+          Randevu modülünü başlangıçta aç (işareti kaldırırsanız müşteri sitesinde randevu kapalı oluşur)
+        </label>
         <div className="rounded-lg bg-zinc-50 p-3 text-xs text-zinc-600 dark:bg-zinc-950 dark:text-zinc-400">
           <p className="font-medium text-zinc-800 dark:text-zinc-200">İlk panel kullanıcısı (isteğe bağlı)</p>
           <div className="mt-2 grid gap-3 sm:grid-cols-2">
@@ -189,6 +223,7 @@ export function PlatformCustomersClient({
                 <th className="px-3 py-2 font-medium">Slug</th>
                 <th className="px-3 py-2 font-medium">Ad</th>
                 <th className="px-3 py-2 font-medium">Alan adları</th>
+                <th className="px-3 py-2 font-medium">Randevu</th>
                 <th className="px-3 py-2 font-medium">Sayfa</th>
                 <th className="px-3 py-2 font-medium">Not</th>
               </tr>
@@ -214,6 +249,22 @@ export function PlatformCustomersClient({
                       </ul>
                     ) : (
                       "—"
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {t.isPlatformTenant ? (
+                      <span className="text-zinc-400">—</span>
+                    ) : (
+                      <label className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={t.appointmentsEnabled}
+                          disabled={featureBusyId === t.id}
+                          onChange={(e) => void setTenantAppointmentsEnabled(t.id, e.target.checked)}
+                          className="rounded border-zinc-400"
+                        />
+                        <span className="text-zinc-500">{featureBusyId === t.id ? "…" : t.appointmentsEnabled ? "açık" : "kapalı"}</span>
+                      </label>
                     )}
                   </td>
                   <td className="px-3 py-2">{t.pageCount}</td>

@@ -9,6 +9,8 @@ export type ProvisionTenantParams = {
   name: string;
   host: string;
   cloneContent: boolean;
+  /** false ise randevu modülü kapalı (tenant.featuresJson). Varsayılan: açık. */
+  appointmentsEnabled?: boolean;
   bootstrapAdmin?: { username: string; passwordPlain: string };
 };
 
@@ -99,6 +101,13 @@ export async function provisionTenant(
     create: { tenantId: tenant.id, host, isPrimary: true },
     update: { tenantId: tenant.id, isPrimary: true },
   });
+
+  if (params.appointmentsEnabled === false) {
+    await prisma.tenant.update({
+      where: { id: tenant.id },
+      data: { featuresJson: { appointments: false } },
+    });
+  }
 
   const settings = defaultTenant.siteSettings[0];
   if (!settings) {

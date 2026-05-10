@@ -31,6 +31,7 @@ import {
   isValidTurkeyMobileAppointmentPhone,
 } from "@/lib/appointment-phone";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
+import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
 
 const postSchema = z.object({
   clientName: z.string().min(1).max(120),
@@ -56,6 +57,8 @@ const postSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const apptForbidden = await denyIfAppointmentsDisabled(req);
+  if (apptForbidden) return apptForbidden;
   const tenantId = await getTenantIdForRequest(req);
   let raw: unknown;
   try {

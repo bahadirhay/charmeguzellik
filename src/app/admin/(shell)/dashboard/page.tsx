@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { filterAppointmentsForSelfScope, resolveAppointmentPanelScope } from "@/lib/appointment-panel-access";
 import { prisma } from "@/lib/prisma";
+import { isAppointmentsModuleEnabled } from "@/lib/tenant-features";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { requireStaffPage } from "@/lib/auth";
 import { hasStaffPermission } from "@/lib/staff-permissions";
@@ -13,17 +14,21 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
   const p = access.permissions;
   const { scope: apptScope, selfStaffLabel } = resolveAppointmentPanelScope(access);
   const t = await getTenantIdForRequest();
+  const tenantRow = await prisma.tenant.findUnique({ where: { id: t }, select: { featuresJson: true } });
+  const appointmentsModuleEnabled = isAppointmentsModuleEnabled(tenantRow?.featuresJson);
 
   const pages = prisma.page.count({ where: { tenantId: t } });
   const leads = prisma.lead.count({ where: { tenantId: t, status: "new" } });
   const appointmentsCountPromise =
-    apptScope === "self"
-      ? prisma.appointment
-          .findMany({ where: { tenantId: t, status: "pending" }, select: { notes: true } })
-          .then((rows) => filterAppointmentsForSelfScope(rows, selfStaffLabel).length)
-      : hasStaffPermission(p, "crm.appointments")
-        ? prisma.appointment.count({ where: { tenantId: t, status: "pending" } })
-        : Promise.resolve(0);
+    !appointmentsModuleEnabled
+      ? Promise.resolve(0)
+      : apptScope === "self"
+        ? prisma.appointment
+            .findMany({ where: { tenantId: t, status: "pending" }, select: { notes: true } })
+            .then((rows) => filterAppointmentsForSelfScope(rows, selfStaffLabel).length)
+        : hasStaffPermission(p, "crm.appointments")
+          ? prisma.appointment.count({ where: { tenantId: t, status: "pending" } })
+          : Promise.resolve(0);
 
   const [pagesCount, leadsCount, appointments] = await Promise.all([pages, leads, appointmentsCountPromise]);
 
@@ -35,7 +40,9 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
       </div>
       {sp.forbidden ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
-          Bu bölüme erişim yetkiniz yok. Sol menüden size açık olan sayfaları kullanın.
+          {sp.forbidden === "appointment_module"
+            ? "Bu site için randevu modülü kapalı; Genel ayarlardan açabilirsiniz."
+            : "Bu bölüme erişim yetkiniz yok. Sol menüden size açık olan sayfaları kullanın."}
         </p>
       ) : null}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -75,7 +82,8 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
             </Link>
           </div>
         ) : null}
-        {hasStaffPermission(p, "crm.appointments") || hasStaffPermission(p, "crm.appointments.self") ? (
+        {appointmentsModuleEnabled &&
+        (hasStaffPermission(p, "crm.appointments") || hasStaffPermission(p, "crm.appointments.self")) ? (
           <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
             <p className="text-sm text-zinc-500">Bekleyen randevu</p>
             <p className="text-2xl font-semibold">{appointments}</p>

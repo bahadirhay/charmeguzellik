@@ -19,6 +19,7 @@ import { isStaffOccupiedAt, parseAssignedStaffFromNotes } from "@/lib/appointmen
 import { notifyTelegramAppointmentAction } from "@/lib/appointment-telegram-notify";
 import { getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
 import { prisma } from "@/lib/prisma";
+import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
 import { getSiteSettingsForTenant } from "@/lib/site-settings";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
 import { resolveWaDigits } from "@/lib/whatsapp-url";
@@ -123,6 +124,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const apptForbidden = await denyIfAppointmentsDisabled(req);
+  if (apptForbidden) return apptForbidden;
   let raw: unknown;
   try {
     raw = await req.json();

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePagePermission } from "@/lib/auth";
 import { redirectUnlessPlatformProvisioner } from "@/lib/platform-provision-auth";
 import { platformControlTenantId } from "@/lib/platform-control-tenant";
+import { isAppointmentsModuleEnabled } from "@/lib/tenant-features";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export default async function PlatformCustomersPage() {
     name: t.name,
     status: t.status,
     isPlatformTenant: platformId !== null && t.id === platformId,
+    appointmentsEnabled: isAppointmentsModuleEnabled(t.featuresJson),
     pageCount: t._count.pages,
     hosts: t.domains.map((d) => ({ host: d.host, primary: d.isPrimary })),
   }));

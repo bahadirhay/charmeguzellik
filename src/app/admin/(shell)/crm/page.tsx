@@ -5,13 +5,17 @@ import { parseAssignedStaffFromNotes } from "@/lib/appointment-staffing";
 import { requirePagePermission } from "@/lib/auth";
 import { hasStaffPermission } from "@/lib/staff-permissions";
 import { prisma } from "@/lib/prisma";
+import { isAppointmentsModuleEnabled } from "@/lib/tenant-features";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export default async function CrmPage() {
   const access = await requirePagePermission(["crm.leads", "crm.appointments"]);
   const tenantId = await getTenantIdForRequest();
+  const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { featuresJson: true } });
+  const appointmentsModuleEnabled = isAppointmentsModuleEnabled(tenantRow?.featuresJson);
   const showLeads = hasStaffPermission(access.permissions, "crm.leads");
-  const showContacts = hasStaffPermission(access.permissions, "crm.appointments");
+  const showContacts =
+    appointmentsModuleEnabled && hasStaffPermission(access.permissions, "crm.appointments");
 
   const [leads, contacts] = await Promise.all([
     showLeads

@@ -20,11 +20,14 @@ import {
   withAssignedStaffInNotes,
 } from "@/lib/appointment-staffing";
 import { getSiteSettingsForTenant } from "@/lib/site-settings";
+import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export async function GET() {
   const auth = await requireStaffApiAppointments();
   if (auth instanceof NextResponse) return auth;
+  const apptForbidden = await denyIfAppointmentsDisabled();
+  if (apptForbidden) return apptForbidden;
   const tenantId = await getTenantIdForRequest();
   const list = await prisma.appointment.findMany({
     where: { tenantId },
@@ -39,6 +42,8 @@ export async function GET() {
 export async function POST(req: Request) {
   const auth = await requireStaffApiAppointments();
   if (auth instanceof NextResponse) return auth;
+  const apptForbidden = await denyIfAppointmentsDisabled(req);
+  if (apptForbidden) return apptForbidden;
   const tenantId = await getTenantIdForRequest(req);
   const body = (await req.json()) as {
     startAt: string;

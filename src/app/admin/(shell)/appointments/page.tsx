@@ -12,6 +12,7 @@ import { buildNavTree, collectServiceLabelsFromNav } from "@/lib/navigation";
 import { getFirstPublishedAppointmentFormRef, getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
 import { prisma } from "@/lib/prisma";
 import { getSiteSettingsForTenant } from "@/lib/site-settings";
+import { requireAppointmentModulePage } from "@/lib/require-appointment-module-page";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export const dynamic = "force-dynamic";
@@ -74,6 +75,7 @@ function hasStaffAccessToService(
 
 export default async function AppointmentsPage({ searchParams }: AppointmentsPageProps) {
   const access = await requirePagePermission(["crm.appointments", "crm.appointments.self"]);
+  await requireAppointmentModulePage();
   const tenantId = await getTenantIdForRequest();
   const { scope: appointmentScope, selfStaffLabel } = resolveAppointmentPanelScope(access);
 

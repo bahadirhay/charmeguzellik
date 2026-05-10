@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { normalizePhoneKey } from "@/lib/crm-contact";
 import { prisma } from "@/lib/prisma";
+import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 /** Randevu formu: kayıtlı telefon için ad / e-posta önerisi (yalnız okuma) */
 export async function GET(req: Request) {
+  const apptForbidden = await denyIfAppointmentsDisabled(req);
+  if (apptForbidden) return apptForbidden;
   const tenantId = await getTenantIdForRequest(req);
   const phone = new URL(req.url).searchParams.get("phone");
   if (!phone?.trim()) {

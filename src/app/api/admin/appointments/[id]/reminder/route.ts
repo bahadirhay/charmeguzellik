@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { buildAppointmentCancelUrl } from "@/lib/site-public-url";
 import { getSiteSettings } from "@/lib/site-settings";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
+import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -16,6 +17,8 @@ const REMINDER_NOTE_PREFIX = "Teyit hatırlatması gönderildi:";
 export async function POST(req: Request, ctx: Ctx) {
   const auth = await requireStaffApiAppointments();
   if (auth instanceof NextResponse) return auth;
+  const apptForbidden = await denyIfAppointmentsDisabled(req);
+  if (apptForbidden) return apptForbidden;
   const tenantId = await getTenantIdForRequest(req);
   const { id } = await ctx.params;
   const row = await prisma.appointment.findFirst({ where: { id, tenantId } });

@@ -32,11 +32,12 @@ async function main() {
 
   if (!slug || !name || !host) {
     throw new Error(
-      "Kullanim: npm run tenant:create -- --slug=<slug> --name=<ad> --host=<alan-adi> [--clone-content] [--bootstrap-admin]",
+      "Kullanim: npm run tenant:create -- --slug=<slug> --name=<ad> --host=<alan-adi> [--clone-content] [--no-appointments] [--bootstrap-admin]",
     );
   }
 
   const cloneContent = hasFlag("clone-content");
+  const noAppointments = hasFlag("no-appointments");
   const bootstrapAdmin = hasFlag("bootstrap-admin");
 
   let bootstrapAdminParams: { username: string; passwordPlain: string } | undefined;
@@ -55,6 +56,7 @@ async function main() {
     name,
     host,
     cloneContent,
+    appointmentsEnabled: noAppointments ? false : undefined,
     bootstrapAdmin: bootstrapAdminParams,
   });
 

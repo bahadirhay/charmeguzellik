@@ -24,6 +24,7 @@ import { generateAppointmentCancelSecret } from "@/lib/appointment-cancel-token"
 import { withAssignedStaffInNotes } from "@/lib/appointment-staffing";
 import { buildAppointmentCancelUrl } from "@/lib/site-public-url";
 import { notifyTelegramAppointmentAction } from "@/lib/appointment-telegram-notify";
+import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -65,6 +66,8 @@ function isOnlyNotesDetailChange(existing: Appointment, input: UpdateAppointment
 export async function PATCH(req: Request, ctx: Ctx) {
   const auth = await requireStaffApiAppointments();
   if (auth instanceof NextResponse) return auth;
+  const apptForbidden = await denyIfAppointmentsDisabled(req);
+  if (apptForbidden) return apptForbidden;
 
   const tenantId = await getTenantIdForRequest(req);
   const { id } = await ctx.params;

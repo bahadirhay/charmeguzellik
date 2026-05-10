@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { SiteSettingsAdminClient } from "@/lib/site-settings";
 import { normalizeUploadSlug } from "@/lib/upload-slug";
@@ -43,8 +44,18 @@ type AppointmentNotifyTestDetail = {
 
 type SettingsRow = SiteSettingsAdminClient;
 
-export function SettingsForm({ initial }: { initial: SettingsRow }) {
+export function SettingsForm({
+  initial,
+  appointmentsEnabledInitial,
+}: {
+  initial: SettingsRow;
+  appointmentsEnabledInitial: boolean;
+}) {
+  const router = useRouter();
   const [row, setRow] = useState<SettingsRow>(initial);
+  const [appointmentsEnabled, setAppointmentsEnabled] = useState(appointmentsEnabledInitial);
+  const [apptModuleBusy, setApptModuleBusy] = useState(false);
+  const [apptModuleFeedback, setApptModuleFeedback] = useState<Feedback | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [testMailTo, setTestMailTo] = useState("");
   const [testMailBusy, setTestMailBusy] = useState(false);
@@ -137,6 +148,38 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
       text: `Kaydedildi. ${n} görsel indirildi (${data.total ?? n} deneme). Örnek yol: ${data.hintFirst ?? `/uploads/${slug}/…`}`,
       error: false,
     });
+  }
+
+  async function patchAppointmentsModule(next: boolean) {
+    setApptModuleBusy(true);
+    setApptModuleFeedback(null);
+    try {
+      const res = await fetch("/api/admin/tenant-features", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ appointmentsEnabled: next }),
+      });
+      if (!res.ok) {
+        let msg = `Kayıt başarısız (${res.status})`;
+        try {
+          const j = (await res.json()) as { error?: unknown };
+          if (typeof j.error === "string" && j.error.trim()) msg = j.error;
+        } catch {
+          /* ignore */
+        }
+        setApptModuleFeedback({ text: msg, error: true });
+        return;
+      }
+      setAppointmentsEnabled(next);
+      setApptModuleFeedback({
+        text: next ? "Randevu modülü açıldı." : "Randevu modülü kapatıldı; site ve panel randevu özellikleri devre dışı.",
+        error: false,
+      });
+      router.refresh();
+    } finally {
+      setApptModuleBusy(false);
+    }
   }
 
   function field<K extends keyof SettingsRow>(key: K, value: SettingsRow[K]) {
@@ -293,6 +336,31 @@ export function SettingsForm({ initial }: { initial: SettingsRow }) {
 
   return (
     <form onSubmit={save} className="mx-auto max-w-3xl space-y-6">
+      <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+        <h2 className="font-medium">Randevu modülü</h2>
+        <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+          Kapalıyken sitede randevu formu / API ve panelde Randevular menüsü kullanılamaz. Açmak için işaretleyin ve
+          bekleyin (sayfayı yenileyebilirsiniz).
+        </p>
+        <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={appointmentsEnabled}
+            disabled={apptModuleBusy}
+            onChange={(e) => void patchAppointmentsModule(e.target.checked)}
+            className="rounded border-zinc-400"
+          />
+          <span>Randevu özellikleri aktif</span>
+        </label>
+        {apptModuleFeedback ? (
+          <p
+            className={`mt-2 text-xs ${apptModuleFeedback.error ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}
+          >
+            {apptModuleFeedback.text}
+          </p>
+        ) : null}
+      </section>
+
       <nav className="sticky top-2 z-20 rounded-xl border border-zinc-200 bg-white/90 p-2 backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/90">
         <div className="flex flex-wrap gap-2">
           {settingsSections.map((s) => (

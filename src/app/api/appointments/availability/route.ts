@@ -8,12 +8,15 @@ import {
 } from "@/lib/appointment-schedule";
 import { isStaffOccupiedAt } from "@/lib/appointment-staffing";
 import { prisma } from "@/lib/prisma";
+import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Müşteri formu: seçilen personel için o gün müsait saat etiketleri (HH:mm). */
 export async function GET(req: Request) {
+  const apptForbidden = await denyIfAppointmentsDisabled(req);
+  if (apptForbidden) return apptForbidden;
   const tenantId = await getTenantIdForRequest(req);
   const { searchParams } = new URL(req.url);
   const dateYmd = searchParams.get("date") ?? "";

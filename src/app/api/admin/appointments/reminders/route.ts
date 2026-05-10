@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { buildAppointmentCancelUrl } from "@/lib/site-public-url";
 import { getSiteSettings } from "@/lib/site-settings";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
+import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 const REMINDER_NOTE_PREFIX = "Teyit hatırlatması gönderildi:";
@@ -24,6 +25,8 @@ function hasValidCronSecret(req: Request): boolean {
 }
 
 export async function POST(req: Request) {
+  const apptForbidden = await denyIfAppointmentsDisabled(req);
+  if (apptForbidden) return apptForbidden;
   const tenantId = await getTenantIdForRequest(req);
   if (!hasValidCronSecret(req)) {
     const auth = await requireStaffApiAppointmentsFull();

@@ -5,6 +5,7 @@ import { requirePagePermission } from "@/lib/auth";
 import { buildNavTree, collectServiceLabelsFromNav } from "@/lib/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSiteSettingsForTenant } from "@/lib/site-settings";
+import { requireAppointmentModulePage } from "@/lib/require-appointment-module-page";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +13,7 @@ export const revalidate = 0;
 
 export default async function AppointmentStaffPlanningPage() {
   await requirePagePermission("crm.appointments");
+  await requireAppointmentModulePage();
   const tenantId = await getTenantIdForRequest();
   const [rowFull, headerNav, footerNav, staffDirectory] = await Promise.all([
     getSiteSettingsForTenant(tenantId),

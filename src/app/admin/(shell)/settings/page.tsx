@@ -1,14 +1,20 @@
 import Link from "next/link";
 import { SettingsForm } from "@/components/admin/SettingsForm";
 import { requirePagePermission } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { isAppointmentsModuleEnabled } from "@/lib/tenant-features";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { getSiteSettingsForTenant, sanitizeSiteSettingsForAdminClient } from "@/lib/site-settings";
 
 export default async function SettingsPage() {
   await requirePagePermission("site.settings");
   const tenantId = await getTenantIdForRequest();
-  const row = await getSiteSettingsForTenant(tenantId);
+  const [row, tenantRow] = await Promise.all([
+    getSiteSettingsForTenant(tenantId),
+    prisma.tenant.findUnique({ where: { id: tenantId }, select: { featuresJson: true } }),
+  ]);
   const initial = sanitizeSiteSettingsForAdminClient(row);
+  const appointmentsEnabledInitial = isAppointmentsModuleEnabled(tenantRow?.featuresJson);
   return (
     <div className="space-y-6">
       <div>
@@ -28,7 +34,7 @@ export default async function SettingsPage() {
           (Expo) yapılandırmasını buradan üretebilirsiniz.
         </p>
       </div>
-      <SettingsForm initial={initial} />
+      <SettingsForm initial={initial} appointmentsEnabledInitial={appointmentsEnabledInitial} />
     </div>
   );
 }

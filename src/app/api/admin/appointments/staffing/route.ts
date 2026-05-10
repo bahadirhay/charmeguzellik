@@ -3,6 +3,7 @@ import { requireStaffApiAppointmentsFull } from "@/lib/admin-api-auth";
 import { prisma } from "@/lib/prisma";
 import { coerceAppointmentStaffMapToIds, isLikelyStaffUserId } from "@/lib/appointment-staffing";
 import { getSiteSettingsForTenant } from "@/lib/site-settings";
+import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { parseThemeTokens, themeTokensToJson } from "@/lib/theme-tokens";
 
@@ -18,6 +19,8 @@ export async function GET() {
 export async function PUT(req: Request) {
   const auth = await requireStaffApiAppointmentsFull();
   if (auth instanceof NextResponse) return auth;
+  const apptForbidden = await denyIfAppointmentsDisabled(req);
+  if (apptForbidden) return apptForbidden;
   const tenantId = await getTenantIdForRequest(req);
   const body = (await req.json().catch(() => ({}))) as { map?: unknown };
   const src = body.map;

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { platformControlTenantId } from "@/lib/platform-control-tenant";
+import { prisma } from "@/lib/prisma";
 import { requireStaffPage } from "@/lib/staff-auth";
+import { isAppointmentsModuleEnabled } from "@/lib/tenant-features";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +19,8 @@ export default async function AdminShellLayout({
   children: React.ReactNode;
 }) {
   const [access, tenantId] = await Promise.all([requireStaffPage(), getTenantIdForRequest()]);
+  const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { featuresJson: true } });
+  const appointmentsModuleEnabled = isAppointmentsModuleEnabled(tenantRow?.featuresJson);
   const plat = platformControlTenantId();
   const showPlatformNav = Boolean(plat && tenantId === plat);
   return (
@@ -26,6 +30,7 @@ export default async function AdminShellLayout({
       isLegacy={access.isLegacy}
       permissions={access.permissions}
       showPlatformNav={showPlatformNav}
+      appointmentsModuleEnabled={appointmentsModuleEnabled}
     >
       {children}
     </AdminShell>
