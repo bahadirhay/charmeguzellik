@@ -13,11 +13,7 @@ import { normalizeThemeId, THEMES } from "@/themes/registry";
 
 export const dynamic = "force-dynamic";
 
-export default async function SiteLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+async function SiteLayoutInner({ children }: { children: React.ReactNode }) {
   const settings = await getSiteSettings();
   const nav = await getPublishedNavTree("header");
   const business = parseBusinessJson(settings.businessJson);
@@ -63,10 +59,22 @@ export default async function SiteLayout({
       }
     : { name: settings.siteName };
 
+  const fontHref = tokens.googleFontsHref?.trim() ?? "";
+  const safeFontHref =
+    fontHref &&
+    (() => {
+      try {
+        const u = new URL(fontHref);
+        return u.protocol === "http:" || u.protocol === "https:" ? fontHref : "";
+      } catch {
+        return "";
+      }
+    })();
+
   return (
     <>
-      {tokens.googleFontsHref ? (
-        <link rel="stylesheet" href={tokens.googleFontsHref} crossOrigin="anonymous" />
+      {safeFontHref ? (
+        <link rel="stylesheet" href={safeFontHref} crossOrigin="anonymous" />
       ) : null}
       <style dangerouslySetInnerHTML={{ __html: themeOverrideCss }} />
       <JsonLdLocalBusiness {...jsonLdPayload} />
@@ -155,4 +163,31 @@ export default async function SiteLayout({
       <CookieConsentBanner rawConfig={settings.cookieConsentJson} />
     </>
   );
+}
+
+/** Ayar/veri bozulunca tüm site 500 vermesin — içerik yine denenir */
+export default async function SiteLayout({ children }: { children: React.ReactNode }) {
+  try {
+    return await SiteLayoutInner({ children });
+  } catch (err) {
+    console.error("[SiteLayout] render hatası (ayarlari kontrol edin veya site:reset-basics --repair)", err);
+    return (
+      <>
+        <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-white text-zinc-900">
+          <header className="border-b border-zinc-200 px-4 py-3">
+            <Link href="/" className="text-sm font-semibold text-rose-600">
+              Ana sayfaya dön
+            </Link>
+            <p className="mt-2 max-w-xl text-xs text-zinc-600">
+              Site çerçevesi yüklenirken hata oluştu. Sayfa içeriği aşağıda görünmeyebilir; Neon veritabanında{" "}
+              <code className="rounded bg-zinc-100 px-1">npm run site:reset-basics -- --host=… --repair</code>{" "}
+              komutunu çalıştırın.
+            </p>
+          </header>
+          <main className="mx-auto w-full min-w-0 max-w-4xl flex-1 px-4 py-8">{children}</main>
+        </div>
+        <CookieConsentBanner rawConfig={null} />
+      </>
+    );
+  }
 }

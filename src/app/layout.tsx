@@ -25,6 +25,18 @@ function toAbsoluteAssetUrl(raw: string | null | undefined): string | undefined 
   return undefined;
 }
 
+/** Bozuk favicon/metadata URL Next.js Metadata’da sayfa hatasına yol açmasın diye doğrulanır */
+function safeIconMetadataUrl(candidate: string | undefined): string | undefined {
+  if (!candidate?.trim()) return undefined;
+  try {
+    const u = new URL(candidate.trim());
+    if (u.protocol !== "http:" && u.protocol !== "https:") return undefined;
+    return u.href;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   let faviconUrl: string | undefined;
   let brandTitle = "Güzellik & Hizmet";
@@ -33,7 +45,7 @@ export async function generateMetadata(): Promise<Metadata> {
     const n = settings.siteName?.trim();
     if (n) brandTitle = n;
     const t = parseThemeTokens(settings.themeTokensJson);
-    faviconUrl = toAbsoluteAssetUrl(t.siteFaviconUrl);
+    faviconUrl = safeIconMetadataUrl(toAbsoluteAssetUrl(t.siteFaviconUrl));
   } catch {
     faviconUrl = undefined;
   }

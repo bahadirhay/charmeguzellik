@@ -5,8 +5,12 @@ import { PrismaClient } from "@prisma/client";
 import { provisionTenant } from "../src/lib/provision-tenant";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-config({ path: resolve(root, ".env.local"), override: true });
+const databaseUrlFromShell = process.env.DATABASE_URL?.trim() || "";
 config({ path: resolve(root, ".env") });
+config({ path: resolve(root, ".env.local"), override: true });
+if (databaseUrlFromShell) {
+  process.env.DATABASE_URL = databaseUrlFromShell;
+}
 
 const prisma = new PrismaClient();
 

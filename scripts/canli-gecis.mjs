@@ -23,7 +23,8 @@ function printSection(title, lines) {
 function printOzeti() {
   printTitle("CANLIYA ALMAK — EN BASİT 5 ADIM (Neon + GitHub + Vercel düzeni)");
   printSection("Adımlar", [
-    "1) Neon konsolda projene gir → Branch: «production» → «Connect» → connection string kopyala.",
+    "1) Neon konsolda projene gir → Branch: «production» (varsayılan aktif dal) → «Connect» → URI kopyala.",
+    "   «production_old_...» yedek dallarında sıkça compute yoktur; bağlantı çalışmaz. Yardım: npm run neon:baglanti-yardim",
     "   Bu adres = üretim DATABASE_URL. Asla GitHub’a koyma; sadece hosting ortamına.",
     "",
     "2) Vercel’de projene git → Settings → Environment Variables:",

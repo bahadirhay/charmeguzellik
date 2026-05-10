@@ -152,6 +152,31 @@ export async function PUT(req: Request) {
       } else if (key === "siteName") {
         const s = String(v ?? "").trim();
         data.siteName = s || "Güzellik Merkezi";
+      } else if (key === "themeTokensJson") {
+        if (v == null || v === "") {
+          data.themeTokensJson = null;
+        } else {
+          const rawStr = typeof v === "string" ? v.trim() : String(v ?? "").trim();
+          if (!rawStr) {
+            data.themeTokensJson = null;
+          } else {
+            try {
+              const parsed = JSON.parse(rawStr);
+              if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+                return NextResponse.json(
+                  { error: "Tema özellikleri (logo/favicon) geçerli bir JSON nesnesi olmalıdır." },
+                  { status: 400 },
+                );
+              }
+              data.themeTokensJson = rawStr;
+            } catch {
+              return NextResponse.json(
+                { error: "Tema özellikleri (themeTokensJson) bozuk JSON; kaydetme iptal edildi." },
+                { status: 400 },
+              );
+            }
+          }
+        }
       } else {
         data[key] = normalizeNullableString(v);
       }
