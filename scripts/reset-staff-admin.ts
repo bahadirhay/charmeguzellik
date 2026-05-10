@@ -4,7 +4,8 @@
  *
  * .env: DATABASE_URL, ADMIN_PASSWORD (>=6), isteğe ADMIN_STAFF_USERNAME (varsayılan admin)
  *
- *   npm run reset:admin
+ * Varsayılan kiracı (bootstrap):  npm run reset:admin
+ * Belirli alan adı (çok kiracılı): npm run reset:admin -- --host=randevu.techizmet.com
  */
 import { config } from "dotenv";
 import { dirname, resolve } from "node:path";
@@ -13,6 +14,12 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 config({ path: resolve(root, ".env"), override: true });
 config({ path: resolve(root, ".env.local"), override: true });
+
+function parseHostArg(): string | null {
+  const p = "--host=";
+  const hit = process.argv.find((a) => a.startsWith(p));
+  return hit ? hit.slice(p.length).trim() : null;
+}
 
 async function main() {
   const plain = process.env.ADMIN_PASSWORD?.trim();
@@ -24,25 +31,38 @@ async function main() {
   const bcrypt = bcryptMod.default ?? bcryptMod;
   const { PrismaClient } = await import("@prisma/client");
   const { ensureDefaultStaffRoles } = await import("../src/lib/staff-roles-defaults");
-  const { BOOTSTRAP_TENANT_ID } = await import("../src/lib/tenant-db");
+  const { BOOTSTRAP_TENANT_ID, resolveTenantByHost } = await import("../src/lib/tenant-db");
 
   const prisma = new PrismaClient();
 
   try {
-    await ensureDefaultStaffRoles(prisma);
+    const hostArg = parseHostArg()?.trim().toLowerCase();
+    let tenantId: string = BOOTSTRAP_TENANT_ID;
+    if (hostArg) {
+      const mapped = await resolveTenantByHost(hostArg);
+      if (!mapped?.tenantId) {
+        throw new Error(
+          `Bu alan için TenantDomain kaydı yok: "${hostArg}". Önce kiracı + domain oluşturun veya doğru host girin.`,
+        );
+      }
+      tenantId = mapped.tenantId;
+      console.log(`[reset-staff-admin] Kiracı: ${tenantId} (host=${hostArg})`);
+    }
+
+    await ensureDefaultStaffRoles(prisma, tenantId);
     const adminRole = await prisma.staffRole.findUnique({
-      where: { tenantId_slug: { tenantId: BOOTSTRAP_TENANT_ID, slug: "admin" } },
+      where: { tenantId_slug: { tenantId, slug: "admin" } },
     });
-    if (!adminRole) throw new Error('StaffRole "admin" bulunamadı.');
+    if (!adminRole) throw new Error(`StaffRole "admin" bulunamadı (tenant=${tenantId}).`);
 
     const raw = (process.env.ADMIN_STAFF_USERNAME ?? "admin").trim().toLowerCase().replace(/\s+/g, "");
     const username = raw.length >= 2 ? raw : "admin";
     const hash = await bcrypt.hash(plain, 12);
 
     await prisma.staffUser.upsert({
-      where: { tenantId_username: { tenantId: BOOTSTRAP_TENANT_ID, username } },
+      where: { tenantId_username: { tenantId, username } },
       create: {
-        tenantId: BOOTSTRAP_TENANT_ID,
+        tenantId,
         username,
         passwordHash: hash,
         displayName: "Yönetici",
@@ -56,7 +76,7 @@ async function main() {
       },
     });
 
-    console.log(`[reset-staff-admin] Tamam: "${username}" şifresi ADMIN_PASSWORD ile güncellendi.`);
+    console.log(`[reset-staff-admin] Tamam: tenant=${tenantId} kullanıcı="${username}" → şifre = .env ADMIN_PASSWORD`);
   } finally {
     await prisma.$disconnect();
   }

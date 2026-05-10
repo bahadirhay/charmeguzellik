@@ -1,36 +1,59 @@
 import Link from "next/link";
 import { filterAppointmentsForSelfScope, resolveAppointmentPanelScope } from "@/lib/appointment-panel-access";
-import { prisma } from "@/lib/prisma";
+import { prisma, withPrismaEngine } from "@/lib/prisma";
 import { isAppointmentsModuleEnabled } from "@/lib/tenant-features";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { requireStaffPage } from "@/lib/auth";
 import { hasStaffPermission } from "@/lib/staff-permissions";
 
-type Props = { searchParams?: Promise<{ forbidden?: string }> };
+export const dynamic = "force-dynamic";
+
+type Props = {
+  /** Next can pass sync object veya Promise; ikisini güvenli kabul et */
+  searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>;
+};
+
+function firstSearchParam(v: string | string[] | undefined): string | undefined {
+  if (typeof v === "string") return v;
+  if (Array.isArray(v) && typeof v[0] === "string") return v[0];
+  return undefined;
+}
 
 export default async function AdminDashboardPage({ searchParams }: Props) {
-  const sp = (await searchParams) ?? {};
+  const qp = await Promise.resolve(searchParams ?? {});
+  const forbiddenKey = firstSearchParam(qp.forbidden);
   const access = await requireStaffPage();
   const p = access.permissions;
   const { scope: apptScope, selfStaffLabel } = resolveAppointmentPanelScope(access);
   const t = await getTenantIdForRequest();
-  const tenantRow = await prisma.tenant.findUnique({ where: { id: t }, select: { featuresJson: true } });
-  const appointmentsModuleEnabled = isAppointmentsModuleEnabled(tenantRow?.featuresJson);
 
-  const pages = prisma.page.count({ where: { tenantId: t } });
-  const leads = prisma.lead.count({ where: { tenantId: t, status: "new" } });
-  const appointmentsCountPromise =
-    !appointmentsModuleEnabled
-      ? Promise.resolve(0)
-      : apptScope === "self"
-        ? prisma.appointment
-            .findMany({ where: { tenantId: t, status: "pending" }, select: { notes: true } })
-            .then((rows) => filterAppointmentsForSelfScope(rows, selfStaffLabel).length)
-        : hasStaffPermission(p, "crm.appointments")
-          ? prisma.appointment.count({ where: { tenantId: t, status: "pending" } })
-          : Promise.resolve(0);
+  const { pagesCount, leadsCount, appointments, appointmentsModuleEnabled } = await withPrismaEngine(async () => {
+    const tenantRow = await prisma.tenant.findUnique({ where: { id: t }, select: { featuresJson: true } });
+    const appointmentsModuleEnabledInner = isAppointmentsModuleEnabled(tenantRow?.featuresJson);
 
-  const [pagesCount, leadsCount, appointments] = await Promise.all([pages, leads, appointmentsCountPromise]);
+    const pagesCountInner = await prisma.page.count({ where: { tenantId: t } });
+    const leadsCountInner = await prisma.lead.count({ where: { tenantId: t, status: "new" } });
+
+    let appointmentsInner = 0;
+    if (appointmentsModuleEnabledInner) {
+      if (apptScope === "self") {
+        const rows = await prisma.appointment.findMany({
+          where: { tenantId: t, status: "pending" },
+          select: { notes: true },
+        });
+        appointmentsInner = filterAppointmentsForSelfScope(rows, selfStaffLabel).length;
+      } else if (hasStaffPermission(p, "crm.appointments")) {
+        appointmentsInner = await prisma.appointment.count({ where: { tenantId: t, status: "pending" } });
+      }
+    }
+
+    return {
+      pagesCount: pagesCountInner,
+      leadsCount: leadsCountInner,
+      appointments: appointmentsInner,
+      appointmentsModuleEnabled: appointmentsModuleEnabledInner,
+    };
+  });
 
   return (
     <div className="space-y-8">
@@ -38,9 +61,9 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Özet</h1>
         <p className="text-sm text-zinc-500">Site, CRM ve randevu durumu.</p>
       </div>
-      {sp.forbidden ? (
+      {forbiddenKey ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
-          {sp.forbidden === "appointment_module"
+          {forbiddenKey === "appointment_module"
             ? "Bu site için randevu modülü kapalı; Genel ayarlardan açabilirsiniz."
             : "Bu bölüme erişim yetkiniz yok. Sol menüden size açık olan sayfaları kullanın."}
         </p>
