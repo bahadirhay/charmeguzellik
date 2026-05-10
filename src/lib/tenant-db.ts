@@ -82,18 +82,44 @@ export async function resolveTenantByHost(host: string | null | undefined) {
   return null;
 }
 
-export async function getTenantForRequest(req?: Request) {
-  const host = await getRequestHost(req);
-  const mapped = await resolveTenantByHost(host);
-  const tenantId = mapped?.tenantId ?? BOOTSTRAP_TENANT_ID;
-  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-  if (tenant) return tenant;
-  return prisma.tenant.findUnique({ where: { id: BOOTSTRAP_TENANT_ID } });
+/**
+ * Host TenantDomain ile eşlenmeyince kullanılacak kiracı.
+ * Neon DB’de yalnızca cuid’li Tenant varken `tenant_single_site_default` yoksa doğrudan
+ * bootstrap id ile SiteSettings/Page FK’leri kırılıp RSC 500 üretebilir.
+ * Varsayılan: önce migrate seed id’si, yoksa isPrimary domain, sonra herhangi bir domain / ilk Tenant satırı.
+ */
+async function tenantIdWhenNoDomainMaps(): Promise<string> {
+  const boot = await prisma.tenant.findUnique({ where: { id: BOOTSTRAP_TENANT_ID }, select: { id: true } });
+  if (boot) return BOOTSTRAP_TENANT_ID;
+
+  const primary = await prisma.tenantDomain.findFirst({
+    where: { isPrimary: true },
+    select: { tenantId: true },
+    orderBy: { updatedAt: "asc" },
+  });
+  if (primary?.tenantId) return primary.tenantId;
+
+  const viaDomain = await prisma.tenantDomain.findFirst({
+    select: { tenantId: true },
+    orderBy: { updatedAt: "asc" },
+  });
+  if (viaDomain?.tenantId) return viaDomain.tenantId;
+
+  const anyTenant = await prisma.tenant.findFirst({ select: { id: true }, orderBy: { createdAt: "asc" } });
+  return anyTenant?.id ?? BOOTSTRAP_TENANT_ID;
 }
 
 export async function getTenantIdForRequest(req?: Request): Promise<string> {
   const host = await getRequestHost(req);
   const mapped = await resolveTenantByHost(host);
   if (mapped?.tenantId) return mapped.tenantId;
-  return BOOTSTRAP_TENANT_ID;
+  return tenantIdWhenNoDomainMaps();
+}
+
+export async function getTenantForRequest(req?: Request) {
+  const tenantId = await getTenantIdForRequest(req);
+  let tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+  if (tenant) return tenant;
+  tenant = await prisma.tenant.findFirst({ orderBy: { createdAt: "asc" } });
+  return tenant;
 }
