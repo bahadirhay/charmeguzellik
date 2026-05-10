@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { getSiteSettings } from "@/lib/site-settings";
+import { resolvePublicSiteUrl } from "@/lib/public-site-url";
 import { parseThemeTokens } from "@/lib/theme-tokens";
 import "./globals.css";
+
+/** Çok domain: favicon/site adı metadata’sı istek host’una göre kiracı ayarlarından gelsin */
+export const dynamic = "force-dynamic";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,14 +18,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-
-function toAbsoluteAssetUrl(raw: string | null | undefined): string | undefined {
+function toAbsoluteAssetUrl(raw: string | null | undefined, siteOrigin: string): string | undefined {
   const v = raw?.trim();
   if (!v) return undefined;
   if (v.startsWith("http://") || v.startsWith("https://")) return v;
-  if (!URL.canParse(siteUrl)) return undefined;
-  if (v.startsWith("/")) return `${siteUrl.replace(/\/+$/, "")}${v}`;
+  const origin = siteOrigin.replace(/\/+$/, "");
+  if (!URL.canParse(origin)) return undefined;
+  if (v.startsWith("/")) return `${origin}${v}`;
   return undefined;
 }
 
@@ -38,6 +41,7 @@ function safeIconMetadataUrl(candidate: string | undefined): string | undefined 
 }
 
 export async function generateMetadata(): Promise<Metadata> {
+  const siteOrigin = await resolvePublicSiteUrl();
   let faviconUrl: string | undefined;
   let brandTitle = "Güzellik & Hizmet";
   try {
@@ -45,7 +49,7 @@ export async function generateMetadata(): Promise<Metadata> {
     const n = settings.siteName?.trim();
     if (n) brandTitle = n;
     const t = parseThemeTokens(settings.themeTokensJson);
-    faviconUrl = safeIconMetadataUrl(toAbsoluteAssetUrl(t.siteFaviconUrl));
+    faviconUrl = safeIconMetadataUrl(toAbsoluteAssetUrl(t.siteFaviconUrl, siteOrigin));
   } catch {
     faviconUrl = undefined;
   }
@@ -56,7 +60,7 @@ export async function generateMetadata(): Promise<Metadata> {
       template: `%s · ${brandTitle}`,
     },
     description: "Yerel olarak düzenleyin, SEO uyumlu yayınlayın.",
-    ...(URL.canParse(siteUrl) ? { metadataBase: new URL(siteUrl) } : {}),
+    ...(URL.canParse(siteOrigin) ? { metadataBase: new URL(siteOrigin) } : {}),
     ...(faviconUrl
       ? {
           icons: {

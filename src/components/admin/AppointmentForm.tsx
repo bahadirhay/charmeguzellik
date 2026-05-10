@@ -279,7 +279,6 @@ export function AppointmentForm({
           <select
             name="serviceName"
             required
-            defaultValue=""
             value={serviceNameValue}
             onChange={(e) => {
               setServiceNameValue(e.target.value);
