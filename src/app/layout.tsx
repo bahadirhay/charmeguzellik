@@ -5,7 +5,10 @@ import { resolvePublicSiteUrl } from "@/lib/public-site-url";
 import { parseThemeTokens } from "@/lib/theme-tokens";
 import "./globals.css";
 
-/** Çok domain: favicon/site adı metadata’sı istek host’una göre kiracı ayarlarından gelsin */
+/**
+ * Çok domain: favicon/site adı metadata’sı istek host’una göre kiracı ayarlarından gelsin.
+ * `src/app/favicon.ico` eklemeyin: Next.js onu otomatik metadata’ya koyup tema `siteFaviconUrl` önüne geçirir.
+ */
 export const dynamic = "force-dynamic";
 
 const geistSans = Geist({
