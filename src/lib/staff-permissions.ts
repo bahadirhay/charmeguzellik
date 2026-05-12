@@ -2,6 +2,8 @@
 export const STAFF_PERMISSION_KEYS = [
   "site.settings",
   "site.theme",
+  /** Kiracı randevu/ticaret modül anahtarları — yalnızca tam yönetici rolünde (editörde yok). */
+  "site.modules",
   "content.pages",
   "content.regions",
   "content.nav",
@@ -24,9 +26,11 @@ export function allStaffPermissions(): string[] {
   return [...STAFF_PERMISSION_KEYS];
 }
 
-/** Editör: `site.settings` ve `site.theme` dışındaki tüm panel yetkileri (ticaret, CRM, personel vb.). */
+/** Editör: `site.settings`, `site.theme`, `site.modules` dışındaki tüm panel yetkileri. */
 export function editorStaffPermissions(): string[] {
-  return STAFF_PERMISSION_KEYS.filter((k) => k !== "site.settings" && k !== "site.theme");
+  return STAFF_PERMISSION_KEYS.filter(
+    (k) => k !== "site.settings" && k !== "site.theme" && k !== "site.modules",
+  );
 }
 
 export function parsePermissionsJson(raw: string | null | undefined): string[] {

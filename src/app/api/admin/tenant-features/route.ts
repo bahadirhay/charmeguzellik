@@ -15,7 +15,7 @@ const patchSchema = z
   });
 
 export async function PATCH(req: Request) {
-  const auth = await requireStaffApiPerm("site.settings");
+  const auth = await requireStaffApiPerm("site.modules");
   if (auth instanceof NextResponse) return auth;
 
   let body: unknown;

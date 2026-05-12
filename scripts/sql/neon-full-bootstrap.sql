@@ -546,7 +546,7 @@ INSERT INTO "NavItem" ("id", "menuSlug", "parentId", "label", "href", "sortOrder
 VALUES ($d0$cmseednav018$d0$, $d0$header$d0$, NULL, $d0$İLETİŞİM$d0$, $d0$/iletisim$d0$, 7, true, false);
 
 INSERT INTO "StaffRole" ("id", "slug", "label", "permissionsJson")
-VALUES ($d0$cmseedrole_admin$d0$, $d0$admin$d0$, $d0$Yönetici$d0$, $d0$["site.settings","site.theme","content.pages","content.regions","content.nav","content.sitemap","social.instagram","social.youtube","social.tiktok","crm.leads","crm.appointments","crm.appointments.self","commerce.manage","users.manage"]$d0$)
+VALUES ($d0$cmseedrole_admin$d0$, $d0$admin$d0$, $d0$Yönetici$d0$, $d0$["site.settings","site.theme","site.modules","content.pages","content.regions","content.nav","content.sitemap","social.instagram","social.youtube","social.tiktok","crm.leads","crm.appointments","crm.appointments.self","commerce.manage","users.manage"]$d0$)
 ON CONFLICT ("slug") DO UPDATE SET
   "label" = EXCLUDED."label",
   "permissionsJson" = EXCLUDED."permissionsJson";
