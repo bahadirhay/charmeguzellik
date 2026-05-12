@@ -33,7 +33,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false }, { status: 401 });
     }
     const roles = staff.roleAssignments.map((a) => a.role);
-    const perms = mergePermissionsFromRoles(roles);
+    /** `admin` rolü tam yönetici: DB’deki permissionsJson gecikse bile koddeki güncel liste (ör. site.modules) oturuma yazılır. */
+    const perms = roles.some((r) => r.slug === "admin")
+      ? allStaffPermissions()
+      : mergePermissionsFromRoles(roles);
     const roleSlug = roles
       .map((r) => r.slug)
       .sort()
