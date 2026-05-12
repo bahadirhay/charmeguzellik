@@ -1,5 +1,10 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { normalizeServiceKey } from "@/lib/commerce/service-key";
+
+type CommercePriceDb = Pick<
+  PrismaClient | Prisma.TransactionClient,
+  "commerceServicePrice" | "commerceCustomerPriceOverride"
+>;
 
 export type ResolvedServicePrice = {
   label: string;
@@ -9,7 +14,7 @@ export type ResolvedServicePrice = {
 };
 
 export async function resolvePricesForLabels(
-  prisma: PrismaClient,
+  prisma: CommercePriceDb,
   tenantId: string,
   labels: string[],
   crmContactId: string | null,
@@ -42,7 +47,7 @@ export async function resolvePricesForLabels(
 }
 
 export async function resolveQuotedPriceForAppointment(
-  prisma: PrismaClient,
+  prisma: CommercePriceDb,
   tenantId: string,
   serviceName: string | null | undefined,
   crmContactId: string | null,

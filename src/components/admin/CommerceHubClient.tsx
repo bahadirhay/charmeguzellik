@@ -615,11 +615,21 @@ function LedgerTab({ onError, onOk }: { onError: (s: string) => void; onOk: (s: 
   const [amt, setAmt] = useState("");
   const [memo, setMemo] = useState("");
   const [products, setProducts] = useState<
-    { id: string; name: string; sku: string; salePriceMinor: number; trackStock: boolean; stockQty: number | null }[]
+    {
+      id: string;
+      name: string;
+      sku: string;
+      salePriceMinor: number;
+      trackStock: boolean;
+      stockQty: number | null;
+      active?: boolean;
+    }[]
   >([]);
   const [productId, setProductId] = useState("");
   const [productQty, setProductQty] = useState("1");
-  const [packageTemplates, setPackageTemplates] = useState<{ id: string; name: string; listPriceMinor: number }[]>([]);
+  const [packageTemplates, setPackageTemplates] = useState<
+    { id: string; name: string; listPriceMinor: number; active?: boolean }[]
+  >([]);
   const [packageTemplateId, setPackageTemplateId] = useState("");
   const [packageSaleTry, setPackageSaleTry] = useState("");
 
