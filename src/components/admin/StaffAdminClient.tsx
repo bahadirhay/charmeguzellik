@@ -107,9 +107,24 @@ export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRo
         <h1 className="text-2xl font-semibold">Personel & roller</h1>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
           Her kullanıcıya <strong>birden fazla rol</strong> atanabilir; yetkiler rollerin birleşimidir.{" "}
-          <strong>Yönetici</strong> tüm modüller; <strong>Ticaret</strong> yalnızca kasa, paket ve cari;{" "}
-          <strong>Editör</strong> sayfa ve menü; <strong>Randevu operatörü</strong> randevu ekranı. Ortam
-          değişkeniyle giriş yapan hesap tam yetkilidir.
+          <strong>Yönetici</strong> tam yetki; <strong>Editör</strong> genel ayarlar ve tema hariç panel;{" "}
+          <strong>Ticaret</strong> kasa/cari/paket; <strong>Randevu operatörü</strong> randevu ekranı. Ortam
+          değişkeniyle giriş tam yetkilidir.
+        </p>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+          <strong>Silme yok.</strong> İşten ayrılan için <strong>Aktif</strong> kutusunu kapatın: giriş yapamaz,
+          randevu <strong>Personel planlama</strong> seçim listesinde görünmez; geçmiş randevulardaki atama
+          metni ve kayıtlar veritabanında kalır. Bu tabloda pasif personeli yalnızca buradan yönetenler görür.
+        </p>
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-500">
+          Kiracıda ticaret/randevu modülü: <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">Tenant.featuresJson</code>{" "}
+          (ör. <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">{`{"commerce":true,"appointments":true}`}</code>
+          — boş veya alan yoksa varsayılan açık). Neon SQL Editor:{" "}
+          <code className="break-all rounded bg-zinc-100 px-1 dark:bg-zinc-800">
+            {`UPDATE "Tenant" SET "featuresJson" = '{"commerce":true,"appointments":true}'::jsonb WHERE "id" = '…kiracı-id…';`}
+          </code>{" "}
+          Rol yetkileri: <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">StaffRole.permissionsJson</code>{" "}
+          (string içinde JSON dizi); migration veya bu sayfayı açınca senkron olan varsayılan rollerle güncellenir.
         </p>
       </div>
 
@@ -128,9 +143,21 @@ export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRo
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id} className="border-b border-zinc-100 dark:border-zinc-800">
+              <tr
+                key={u.id}
+                className={
+                  u.active
+                    ? "border-b border-zinc-100 dark:border-zinc-800"
+                    : "border-b border-zinc-100 bg-zinc-50/90 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/50 dark:text-zinc-400"
+                }
+              >
                 <td className="px-3 py-2 align-top">
                   <span className="font-mono font-medium">{u.username}</span>
+                  {!u.active ? (
+                    <span className="ml-2 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-medium uppercase text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">
+                      Pasif
+                    </span>
+                  ) : null}
                   {u.displayName ? <div className="text-xs text-zinc-500">{u.displayName}</div> : null}
                 </td>
                 <td className="px-3 py-2 align-top">
