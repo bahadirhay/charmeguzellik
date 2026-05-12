@@ -44,7 +44,13 @@ async function ensureStaffRolesAndBootstrapUser() {
 async function main() {
   await prisma.tenant.upsert({
     where: { id: TENANT_ID },
-    create: { id: TENANT_ID, slug: "default", name: "Varsayılan site", status: "active" },
+    create: {
+      id: TENANT_ID,
+      slug: "default",
+      name: "Varsayılan site",
+      status: "active",
+      featuresJson: { appointments: true, commerce: true },
+    },
     update: {},
   });
 

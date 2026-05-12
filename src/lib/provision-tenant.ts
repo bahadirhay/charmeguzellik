@@ -12,7 +12,7 @@ export type ProvisionTenantParams = {
   cloneContent: boolean;
   /** false ise randevu modülü kapalı (tenant.featuresJson). Varsayılan: açık. */
   appointmentsEnabled?: boolean;
-  /** false ise ticaret modülü kapalı. Varsayılan: açık. */
+  /** true ise ticaret modülü açık. Atlanırsa kapalı (açık seçim). */
   commerceEnabled?: boolean;
   bootstrapAdmin?: { username: string; passwordPlain: string };
 };
@@ -105,10 +105,11 @@ export async function provisionTenant(
     update: { tenantId: tenant.id, isPrimary: true },
   });
 
-  const featurePatch: TenantFeaturesJson = {};
-  if (params.appointmentsEnabled === false) featurePatch.appointments = false;
-  if (params.commerceEnabled === false) featurePatch.commerce = false;
-  if (Object.keys(featurePatch).length > 0) {
+  const featurePatch: TenantFeaturesJson = {
+    appointments: params.appointmentsEnabled !== false,
+    commerce: params.commerceEnabled === true,
+  };
+  {
     const cur = await prisma.tenant.findUnique({ where: { id: tenant.id }, select: { featuresJson: true } });
     const base: TenantFeaturesJson =
       cur?.featuresJson != null && typeof cur.featuresJson === "object" && !Array.isArray(cur.featuresJson)

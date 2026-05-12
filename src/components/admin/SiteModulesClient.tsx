@@ -86,9 +86,9 @@ export function SiteModulesClient({
         <h1 className="text-2xl font-semibold">Site modülleri</h1>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
           Bu ekran yalnızca <strong>yönetici</strong> yetkisine sahip hesaplara açıktır. Her alan adı (kiracı) için{" "}
-          <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">Tenant.featuresJson</code> güncellenir; kapalı
-          modüller menü ve API’de görünmez. Çok kiracılı projede aynı bayrakları{" "}
-          <strong>Müşteri siteleri</strong> üzerinden de yönetebilirsiniz.
+          <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">Tenant.featuresJson</code> güncellenir. Randevu
+          varsayılan açık; ticaret <strong>yalnızca burada veya</strong> <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">commerce: true</code>{" "}
+          ile açılır. Çok kiracılı projede <strong>Müşteri siteleri</strong> üzerinden de yönetebilirsiniz.
         </p>
       </div>
 
@@ -121,8 +121,9 @@ export function SiteModulesClient({
               <span className="font-medium">Ticaret modülü aktif</span>
             </label>
             <p className="mt-1 pl-6 text-xs text-zinc-500">
-              Kapalıyken Ticaret menüsü ve <code className="rounded bg-zinc-100 px-0.5 dark:bg-zinc-800">/api/admin/commerce</code>{" "}
-              uçları kullanılamaz.
+              Yalnızca açıkken Ticaret menüsü ve{" "}
+              <code className="rounded bg-zinc-100 px-0.5 dark:bg-zinc-800">/api/admin/commerce</code> kullanılır; kapalıyken
+              panel ve API ticareti göstermez.
             </p>
           </div>
         </div>

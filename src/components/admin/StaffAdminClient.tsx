@@ -117,14 +117,15 @@ export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRo
           metni ve kayıtlar veritabanında kalır. Bu tabloda pasif personeli yalnızca buradan yönetenler görür.
         </p>
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-500">
-          Kiracıda ticaret/randevu modülü: <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">Tenant.featuresJson</code>{" "}
-          (ör. <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">{`{"commerce":true,"appointments":true}`}</code>
-          — boş veya alan yoksa varsayılan açık). Neon SQL Editor:{" "}
+          Kiracı <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">Tenant.featuresJson</code>: randevu
+          varsayılan açık; <strong>ticaret yalnızca</strong>{" "}
+          <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">commerce: true</code> ile açılır (panel: Site
+          modülleri). Neon örnek:{" "}
           <code className="break-all rounded bg-zinc-100 px-1 dark:bg-zinc-800">
-            {`UPDATE "Tenant" SET "featuresJson" = '{"commerce":true,"appointments":true}'::jsonb WHERE "id" = '…kiracı-id…';`}
+            {`UPDATE "Tenant" SET "featuresJson" = COALESCE("featuresJson", '{}'::jsonb) || '{"commerce":true}'::jsonb WHERE "slug" = '…';`}
           </code>{" "}
           Rol yetkileri: <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">StaffRole.permissionsJson</code>{" "}
-          (string içinde JSON dizi); migration veya bu sayfayı açınca senkron olan varsayılan rollerle güncellenir.
+          (string içinde JSON dizi).
         </p>
       </div>
 
