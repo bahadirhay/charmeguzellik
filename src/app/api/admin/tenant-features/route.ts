@@ -5,9 +5,14 @@ import { requireStaffApiPerm } from "@/lib/admin-api-auth";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import type { TenantFeaturesJson } from "@/lib/tenant-features";
 
-const patchSchema = z.object({
-  appointmentsEnabled: z.boolean(),
-});
+const patchSchema = z
+  .object({
+    appointmentsEnabled: z.boolean().optional(),
+    commerceEnabled: z.boolean().optional(),
+  })
+  .refine((d) => d.appointmentsEnabled !== undefined || d.commerceEnabled !== undefined, {
+    message: "appointmentsEnabled veya commerceEnabled gönderin",
+  });
 
 export async function PATCH(req: Request) {
   const auth = await requireStaffApiPerm("site.settings");
@@ -35,15 +40,22 @@ export async function PATCH(req: Request) {
       ? ({ ...(cur.featuresJson as TenantFeaturesJson) } as TenantFeaturesJson)
       : {};
 
-  const nextJson: TenantFeaturesJson = {
-    ...base,
-    appointments: parsed.data.appointmentsEnabled,
-  };
+  const nextJson: TenantFeaturesJson = { ...base };
+  if (parsed.data.appointmentsEnabled !== undefined) {
+    nextJson.appointments = parsed.data.appointmentsEnabled;
+  }
+  if (parsed.data.commerceEnabled !== undefined) {
+    nextJson.commerce = parsed.data.commerceEnabled;
+  }
 
   await prisma.tenant.update({
     where: { id: tenantId },
     data: { featuresJson: nextJson as object },
   });
 
-  return NextResponse.json({ ok: true, appointmentsEnabled: parsed.data.appointmentsEnabled });
+  return NextResponse.json({
+    ok: true,
+    appointmentsEnabled: parsed.data.appointmentsEnabled,
+    commerceEnabled: parsed.data.commerceEnabled,
+  });
 }

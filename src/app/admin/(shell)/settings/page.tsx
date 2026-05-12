@@ -2,7 +2,7 @@ import Link from "next/link";
 import { SettingsForm } from "@/components/admin/SettingsForm";
 import { requirePagePermission } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { isAppointmentsModuleEnabled } from "@/lib/tenant-features";
+import { isAppointmentsModuleEnabled, isCommerceModuleEnabled } from "@/lib/tenant-features";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { getSiteSettingsForTenant, sanitizeSiteSettingsForAdminClient } from "@/lib/site-settings";
 
@@ -15,6 +15,7 @@ export default async function SettingsPage() {
   ]);
   const initial = sanitizeSiteSettingsForAdminClient(row);
   const appointmentsEnabledInitial = isAppointmentsModuleEnabled(tenantRow?.featuresJson);
+  const commerceEnabledInitial = isCommerceModuleEnabled(tenantRow?.featuresJson);
   return (
     <div className="space-y-6">
       <div>
@@ -34,7 +35,11 @@ export default async function SettingsPage() {
           (Expo) yapılandırmasını buradan üretebilirsiniz.
         </p>
       </div>
-      <SettingsForm initial={initial} appointmentsEnabledInitial={appointmentsEnabledInitial} />
+      <SettingsForm
+        initial={initial}
+        appointmentsEnabledInitial={appointmentsEnabledInitial}
+        commerceEnabledInitial={commerceEnabledInitial}
+      />
     </div>
   );
 }

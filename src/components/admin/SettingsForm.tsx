@@ -47,15 +47,20 @@ type SettingsRow = SiteSettingsAdminClient;
 export function SettingsForm({
   initial,
   appointmentsEnabledInitial,
+  commerceEnabledInitial,
 }: {
   initial: SettingsRow;
   appointmentsEnabledInitial: boolean;
+  commerceEnabledInitial: boolean;
 }) {
   const router = useRouter();
   const [row, setRow] = useState<SettingsRow>(initial);
   const [appointmentsEnabled, setAppointmentsEnabled] = useState(appointmentsEnabledInitial);
+  const [commerceEnabled, setCommerceEnabled] = useState(commerceEnabledInitial);
   const [apptModuleBusy, setApptModuleBusy] = useState(false);
+  const [commerceModuleBusy, setCommerceModuleBusy] = useState(false);
   const [apptModuleFeedback, setApptModuleFeedback] = useState<Feedback | null>(null);
+  const [commerceModuleFeedback, setCommerceModuleFeedback] = useState<Feedback | null>(null);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [testMailTo, setTestMailTo] = useState("");
   const [testMailBusy, setTestMailBusy] = useState(false);
@@ -179,6 +184,38 @@ export function SettingsForm({
       router.refresh();
     } finally {
       setApptModuleBusy(false);
+    }
+  }
+
+  async function patchCommerceModule(next: boolean) {
+    setCommerceModuleBusy(true);
+    setCommerceModuleFeedback(null);
+    try {
+      const res = await fetch("/api/admin/tenant-features", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ commerceEnabled: next }),
+      });
+      if (!res.ok) {
+        let msg = `Kayıt başarısız (${res.status})`;
+        try {
+          const j = (await res.json()) as { error?: unknown };
+          if (typeof j.error === "string" && j.error.trim()) msg = j.error;
+        } catch {
+          /* ignore */
+        }
+        setCommerceModuleFeedback({ text: msg, error: true });
+        return;
+      }
+      setCommerceEnabled(next);
+      setCommerceModuleFeedback({
+        text: next ? "Ticaret modülü açıldı." : "Ticaret modülü kapatıldı; panel ve API ticaret özellikleri devre dışı.",
+        error: false,
+      });
+      router.refresh();
+    } finally {
+      setCommerceModuleBusy(false);
     }
   }
 
@@ -337,29 +374,60 @@ export function SettingsForm({
   return (
     <form onSubmit={save} className="mx-auto max-w-3xl space-y-6">
       <section className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
-        <h2 className="font-medium">Randevu modülü</h2>
+        <h2 className="font-medium">Site modülleri</h2>
         <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-          Kapalıyken sitede randevu formu / API ve panelde Randevular menüsü kullanılamaz. Açmak için işaretleyin ve
-          bekleyin (sayfayı yenileyebilirsiniz).
+          Her kiracı (alan adı) için ayrı kayıt: veritabanında <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">Tenant.featuresJson</code>{" "}
+          alanında tutulur. Kapalı modüller menü ve API’de görünmez; tablolar paylaşımlı şemada kalır (normal).
         </p>
-        <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={appointmentsEnabled}
-            disabled={apptModuleBusy}
-            onChange={(e) => void patchAppointmentsModule(e.target.checked)}
-            className="rounded border-zinc-400"
-          />
-          <span>Randevu özellikleri aktif</span>
-        </label>
+        <div className="mt-4 space-y-4 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+          <div>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={appointmentsEnabled}
+                disabled={apptModuleBusy}
+                onChange={(e) => void patchAppointmentsModule(e.target.checked)}
+                className="rounded border-zinc-400"
+              />
+              <span className="font-medium">Randevu özellikleri aktif</span>
+            </label>
+            <p className="mt-1 pl-6 text-xs text-zinc-500">
+              Kapalıyken sitede randevu formu / API ve panelde Randevular menüsü kullanılamaz.
+            </p>
+          </div>
+          <div>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={commerceEnabled}
+                disabled={commerceModuleBusy}
+                onChange={(e) => void patchCommerceModule(e.target.checked)}
+                className="rounded border-zinc-400"
+              />
+              <span className="font-medium">Ticaret modülü aktif</span>
+            </label>
+            <p className="mt-1 pl-6 text-xs text-zinc-500">
+              Kapalıyken Ticaret menüsü ve <code className="rounded bg-zinc-100 px-0.5 dark:bg-zinc-800">/api/admin/commerce</code>{" "}
+              uçları kullanılamaz. Çok kiracılı yönetim için platform hesabında{" "}
+              <strong>Müşteri siteleri</strong> ekranında da aynı bayraklar vardır.
+            </p>
+          </div>
+        </div>
         {apptModuleFeedback ? (
           <p
-            className={`mt-2 text-xs ${apptModuleFeedback.error ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}
+            className={`mt-3 text-xs ${apptModuleFeedback.error ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}
           >
             {apptModuleFeedback.text}
           </p>
         ) : null}
-        <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm">
+        {commerceModuleFeedback ? (
+          <p
+            className={`mt-3 text-xs ${commerceModuleFeedback.error ? "text-red-600 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}
+          >
+            {commerceModuleFeedback.text}
+          </p>
+        ) : null}
+        <label className="mt-4 flex cursor-pointer items-start gap-2 border-t border-zinc-100 pt-4 text-sm dark:border-zinc-800">
           <input
             type="checkbox"
             checked={row.appointmentPanelShowListPrices === true}
