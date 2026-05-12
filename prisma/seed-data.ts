@@ -3,7 +3,7 @@
  * Yerel seed ile Neon SQL bootstrap aynı kaynaktan beslenir.
  */
 import { DEFAULT_APPOINTMENT_DAYS } from "../src/lib/appointment-schedule";
-import { allStaffPermissions } from "../src/lib/staff-permissions";
+import { allStaffPermissions, editorStaffPermissions } from "../src/lib/staff-permissions";
 import { TESTIMONIAL_LAYOUT_ADMIN_HINT } from "../src/lib/testimonial-admin-footnotes";
 
 export const SALON_PHONE_E164 = "905519784348";
@@ -439,7 +439,7 @@ export const SEED_STAFF_ROLES = [
     id: "cmseedrole_editor",
     slug: "editor",
     label: "Editör",
-    permissionsJson: JSON.stringify(["content.pages", "content.regions", "content.nav"]),
+    permissionsJson: JSON.stringify([...editorStaffPermissions()]),
   },
   {
     id: "cmseedrole_scheduler",

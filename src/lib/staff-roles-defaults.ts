@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { allStaffPermissions } from "@/lib/staff-permissions";
+import { allStaffPermissions, editorStaffPermissions } from "@/lib/staff-permissions";
 import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 /**
@@ -15,7 +15,7 @@ export async function ensureDefaultStaffRoles(
     {
       slug: "editor",
       label: "Editör",
-      permissions: ["content.pages", "content.regions", "content.nav"],
+      permissions: [...editorStaffPermissions()],
     },
     {
       slug: "scheduler",

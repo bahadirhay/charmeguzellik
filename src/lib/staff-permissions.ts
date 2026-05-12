@@ -24,6 +24,11 @@ export function allStaffPermissions(): string[] {
   return [...STAFF_PERMISSION_KEYS];
 }
 
+/** Editör: `site.settings` ve `site.theme` dışındaki tüm panel yetkileri (ticaret, CRM, personel vb.). */
+export function editorStaffPermissions(): string[] {
+  return STAFF_PERMISSION_KEYS.filter((k) => k !== "site.settings" && k !== "site.theme");
+}
+
 export function parsePermissionsJson(raw: string | null | undefined): string[] {
   if (!raw?.trim()) return [];
   try {
