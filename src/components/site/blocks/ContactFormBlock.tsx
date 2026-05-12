@@ -17,6 +17,7 @@ import {
   appointmentPhoneTurkeyHint,
   isValidTurkeyMobileAppointmentPhone,
 } from "@/lib/appointment-phone";
+import { formatTryFromMinor } from "@/lib/commerce/format-money";
 
 const DEFAULT_APPOINTMENT_PRIVACY_HREF = "https://charmeguzellik.com/gizlilik-sozlesmesi";
 
@@ -61,6 +62,8 @@ type Props = {
   previewDisabled?: boolean;
   /** Yalnızca admin önizlemesi: menü/hizmet kaynağı yapılandırma uyarıları */
   showConfigHints?: boolean;
+  /** Randevu: hizmet seçiminde fiyat göster (liste + kayıtlı telefonda özel fiyat). Açıkça `false` değilse varsayılan açıktır. */
+  appointmentShowServicePrices?: boolean;
 };
 
 function on(prop: boolean | undefined): boolean {
@@ -103,6 +106,7 @@ export function ContactFormBlock({
   formContext = "page",
   previewDisabled,
   showConfigHints,
+  appointmentShowServicePrices,
 }: Props) {
   const pathname = usePathname();
   const [status, setStatus] = useState<"idle" | "ok" | "err">("idle");
@@ -114,6 +118,8 @@ export function ContactFormBlock({
   const [selectedServiceId, setSelectedServiceId] = useState("");
   const [selectedStaff, setSelectedStaff] = useState("");
   const [serviceStaffMap, setServiceStaffMap] = useState<Record<string, string[]>>({});
+  const [phoneForPricing, setPhoneForPricing] = useState("");
+  const [servicePriceLabels, setServicePriceLabels] = useState<Record<string, string>>({});
   const clearAppointmentSubmitFeedback = useCallback(() => {
     setSubmitError(null);
     setStatus("idle");
@@ -121,6 +127,8 @@ export function ContactFormBlock({
 
   const isAppointment = mode === "appointment";
   const showApptService = isAppointment && on(appointmentShowService);
+  /** Eski sayfalarda alan yoktu; açıkça kapatılmadıysa randevu formunda fiyat gösterilir. */
+  const showApptServicePrices = isAppointment && showApptService && appointmentShowServicePrices !== false;
   const showApptEmail = isAppointment && on(appointmentShowEmail);
   // Randevu talebinde telefon zorunlu: alan her zaman görünür.
   const showApptPhone = isAppointment;
@@ -305,6 +313,7 @@ export function ContactFormBlock({
     async (e: React.FocusEvent<HTMLInputElement>) => {
       if (!showApptPhone || previewDisabled) return;
       const raw = e.currentTarget.value.trim();
+      setPhoneForPricing(raw);
       if (!raw) return;
       try {
         const res = await fetch(`/api/appointments/contact?phone=${encodeURIComponent(raw)}`);
@@ -331,6 +340,48 @@ export function ContactFormBlock({
     },
     [showApptPhone, previewDisabled],
   );
+
+  const serviceLabelsKey = useMemo(
+    () => selectOptions.map((o) => `${o.id}:${o.label}`).join("|"),
+    [selectOptions],
+  );
+
+  useEffect(() => {
+    if (!showApptServicePrices || previewDisabled || selectOptions.length === 0) {
+      setServicePriceLabels({});
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/appointments/service-prices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            labels: selectOptions.map((o) => o.label),
+            phone: phoneForPricing.trim() || null,
+          }),
+        });
+        const j = (await res.json()) as {
+          ok?: boolean;
+          prices?: { label: string; priceMinor: number | null; source: string | null }[];
+        };
+        if (cancelled || !res.ok || !j.prices) return;
+        const m: Record<string, string> = {};
+        for (const p of j.prices) {
+          if (p.priceMinor == null) continue;
+          const tag = p.source === "override" ? " (size özel)" : "";
+          m[p.label] = ` — ${formatTryFromMinor(p.priceMinor)}${tag}`;
+        }
+        setServicePriceLabels(m);
+      } catch {
+        if (!cancelled) setServicePriceLabels({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showApptServicePrices, previewDisabled, serviceLabelsKey, phoneForPricing]);
 
   async function onSubmitContact(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -475,6 +526,7 @@ export function ContactFormBlock({
     setApptTime("");
     setSelectedServiceId("");
     setSelectedStaff("");
+    setPhoneForPricing("");
   }
 
   if (previewDisabled) {
@@ -537,14 +589,30 @@ export function ContactFormBlock({
                   {navServiceOptions.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.label}
+                      {servicePriceLabels[s.label] ?? ""}
                     </option>
                   ))}
                   {manualServiceOptions.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.label}
+                      {servicePriceLabels[s.label] ?? ""}
                     </option>
                   ))}
                 </select>
+                {selectedServiceLabel && showApptServicePrices && servicePriceLabels[selectedServiceLabel] ? (
+                  <p className="mt-1.5 text-sm text-zinc-800 dark:text-zinc-200" aria-live="polite">
+                    <span className="font-medium">Fiyat</span>
+                    {servicePriceLabels[selectedServiceLabel]}
+                  </p>
+                ) : selectedServiceLabel &&
+                  showApptServicePrices &&
+                  !servicePriceLabels[selectedServiceLabel] &&
+                  showConfigHints ? (
+                  <p className="mt-1.5 text-xs text-amber-800 dark:text-amber-200">
+                    Bu hizmet için yayınlanmış liste fiyatı yok. Ticaret → Liste fiyatlarından ekleyip «Yayınla» ile
+                    aktifleştirin.
+                  </p>
+                ) : null}
               </label>
               {showConfigHints && !navLoading && navParent && navServiceOptions.length === 0 ? (
                 <p className="text-[11px] text-amber-800 dark:text-amber-200">
@@ -556,6 +624,12 @@ export function ContactFormBlock({
                 <p className="text-[11px] text-amber-800 dark:text-amber-200">
                   Üst menüde «Hizmetlerimiz» başlıklı bir öğe bulunamadı. Admin’de menüyü düzenleyin veya blokta{" "}
                   <strong>Manuel</strong> kaynak seçin.
+                </p>
+              ) : null}
+              {showApptServicePrices && showConfigHints ? (
+                <p className="text-[11px] text-zinc-500">
+                  Fiyatlar yönetim panelindeki liste ve müşteri özel fiyatından gelir. Kayıtlı numaranız varsa telefonu
+                  girip alandan çıkınca size özel tutarlar güncellenir.
                 </p>
               ) : null}
               {eligibleStaff.length > 0 ? (

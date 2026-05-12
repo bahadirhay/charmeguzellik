@@ -85,6 +85,7 @@ export async function getSiteSettingsForTenant(tenantId: string): Promise<SiteSe
         cookieConsentJson: row.cookieConsentJson,
         appointmentNotifyAdminEmails: row.appointmentNotifyAdminEmails,
         appointmentNotifyOperatorEmails: row.appointmentNotifyOperatorEmails,
+        appointmentPanelShowListPrices: row.appointmentPanelShowListPrices,
         tenantId,
       },
     }),

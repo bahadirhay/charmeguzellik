@@ -447,6 +447,12 @@ export const SEED_STAFF_ROLES = [
     label: "Randevu operatörü",
     permissionsJson: JSON.stringify(["crm.appointments"]),
   },
+  {
+    id: "cmseedrole_commerce",
+    slug: "commerce",
+    label: "Ticaret (kasa, paket, cari)",
+    permissionsJson: JSON.stringify(["commerce.manage"]),
+  },
 ] as const;
 
 export const SEED_STAFF_USER_ID = "cmseeduser_admin";

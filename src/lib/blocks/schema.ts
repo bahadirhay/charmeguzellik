@@ -94,6 +94,8 @@ const contactFormProps = z.object({
   appointmentShowEmail: z.boolean().optional(),
   appointmentShowPhone: z.boolean().optional(),
   appointmentShowMessage: z.boolean().optional(),
+  /** Randevu: hizmet listesinde (katalog + varsa müşteri özel) fiyat göster */
+  appointmentShowServicePrices: z.boolean().optional(),
   /** İletişim formu alanları (varsayılan açık) */
   contactShowEmail: z.boolean().optional(),
   contactShowPhone: z.boolean().optional(),

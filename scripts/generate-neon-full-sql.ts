@@ -16,6 +16,7 @@ import {
   buildAllSeedPages,
   salonSettingsData,
 } from "../prisma/seed-data";
+import { DEFAULT_TENANT_ID_SEED } from "../src/lib/tenant-default";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outDir = join(root, "scripts", "sql");
@@ -113,28 +114,31 @@ function main() {
 
   const roleSql = SEED_STAFF_ROLES.map(
     (r) =>
-      `INSERT INTO "StaffRole" ("id", "slug", "label", "permissionsJson")\nVALUES (${dollarQuote(r.id)}, ${dollarQuote(r.slug)}, ${dollarQuote(r.label)}, ${dollarQuote(r.permissionsJson)})\nON CONFLICT ("slug") DO UPDATE SET\n  "label" = EXCLUDED."label",\n  "permissionsJson" = EXCLUDED."permissionsJson";`,
+      `INSERT INTO "StaffRole" ("id", "tenantId", "slug", "label", "permissionsJson")\nVALUES (${dollarQuote(r.id)}, ${dollarQuote(DEFAULT_TENANT_ID_SEED)}, ${dollarQuote(r.slug)}, ${dollarQuote(r.label)}, ${dollarQuote(r.permissionsJson)})\nON CONFLICT ("tenantId", "slug") DO UPDATE SET\n  "label" = EXCLUDED."label",\n  "permissionsJson" = EXCLUDED."permissionsJson";`,
   ).join("\n\n");
 
   const adminRoleId = SEED_STAFF_ROLES[0]!.id;
   const pwEsc = BOOTSTRAP_ADMIN_PASSWORD.replace(/'/g, "''");
-  const staffUserSql = `INSERT INTO "StaffUser" ("id", "username", "passwordHash", "displayName", "roleId", "active", "createdAt", "updatedAt")
+  const staffUserSql = `INSERT INTO "StaffUser" ("id", "tenantId", "username", "passwordHash", "displayName", "active", "createdAt", "updatedAt")
 VALUES (
   ${dollarQuote(SEED_STAFF_USER_ID)},
+  ${dollarQuote(DEFAULT_TENANT_ID_SEED)},
   'admin',
   crypt('${pwEsc}', gen_salt('bf', 12)),
   'Yönetici',
-  ${dollarQuote(adminRoleId)},
   true,
   NOW(),
   NOW()
 )
-ON CONFLICT ("username") DO UPDATE SET
+ON CONFLICT ("tenantId", "username") DO UPDATE SET
   "passwordHash" = EXCLUDED."passwordHash",
   "displayName" = EXCLUDED."displayName",
-  "roleId" = EXCLUDED."roleId",
   "active" = true,
   "updatedAt" = NOW();`;
+
+  const staffUserRoleSql = `INSERT INTO "StaffUserRole" ("staffUserId", "roleId")
+VALUES (${dollarQuote(SEED_STAFF_USER_ID)}, ${dollarQuote(adminRoleId)})
+ON CONFLICT ("staffUserId", "roleId") DO NOTHING;`;
 
   const header = `-- =============================================================================
 -- Neon / PostgreSQL — TAM şema + prisma/seed.ts ile aynı içerik (tek dosya)
@@ -162,6 +166,7 @@ ${ddl}
 -- BÖLÜM B — Uygulama verisini temizle (şemaya dokunmaz)
 -- -----------------------------------------------------------------------------
 TRUNCATE TABLE
+  "StaffUserRole",
   "StaffUser",
   "Appointment",
   "CrmContact",
@@ -192,6 +197,8 @@ ${navSql}
 ${roleSql}
 
 ${staffUserSql}
+
+${staffUserRoleSql}
 `;
 
   writeFileSync(outFile, `${header}${sectionA}\n${sectionB}\n${sectionC}\n`, "utf-8");

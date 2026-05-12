@@ -22,6 +22,10 @@ function printSection(title, lines) {
 
 function printOzeti() {
   printTitle("CANLIYA ALMAK — EN BASİT 5 ADIM (Neon + GitHub + Vercel düzeni)");
+  printSection("Önce (Neon)", [
+    "• Branch «production» → Computes listesinde durum «Suspended» ise: projeyi aç veya SQL Editor’da kısa bir sorgu çalıştır — compute uyanınca bağlantı çalışır.",
+    "• Bağlantı dizesi: aynı sayfada «Connect» → pooling URI (Vercel için genelde önerilen) kopyala.",
+  ]);
   printSection("Adımlar", [
     "1) Neon konsolda projene gir → Branch: «production» (varsayılan aktif dal) → «Connect» → URI kopyala.",
     "   «production_old_...» yedek dallarında sıkça compute yoktur; bağlantı çalışmaz. Yardım: npm run neon:baglanti-yardim",

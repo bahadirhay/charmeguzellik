@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getAdminSession } from "@/lib/session";
-import { allStaffPermissions, parsePermissionsJson } from "@/lib/staff-permissions";
+import { allStaffPermissions, mergePermissionsFromRoles } from "@/lib/staff-permissions";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 type Body = { login?: string; email?: string; password?: string };
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
 
   const staff = await prisma.staffUser.findFirst({
     where: { tenantId, username: loginRaw, active: true },
-    include: { role: true },
+    include: { roleAssignments: { include: { role: true } } },
   });
 
   if (staff) {
@@ -29,13 +29,21 @@ export async function POST(req: Request) {
     if (!ok) {
       return NextResponse.json({ ok: false }, { status: 401 });
     }
-    const perms = parsePermissionsJson(staff.role.permissionsJson);
+    if (!staff.roleAssignments.length) {
+      return NextResponse.json({ ok: false }, { status: 401 });
+    }
+    const roles = staff.roleAssignments.map((a) => a.role);
+    const perms = mergePermissionsFromRoles(roles);
+    const roleSlug = roles
+      .map((r) => r.slug)
+      .sort()
+      .join(", ");
     session.isLoggedIn = true;
     session.authKind = "staff";
     session.staffUserId = staff.id;
     session.username = staff.username;
     session.staffDisplayName = staff.displayName?.trim() || null;
-    session.roleSlug = staff.role.slug;
+    session.roleSlug = roleSlug;
     session.tenantId = tenantId;
     session.permissionsJson = JSON.stringify(perms.length ? perms : allStaffPermissions());
     session.email = undefined;

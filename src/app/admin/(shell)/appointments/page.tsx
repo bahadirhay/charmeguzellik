@@ -9,6 +9,7 @@ import { waPrefillForAppointment } from "@/lib/admin-whatsapp-prefill";
 import { parseAssignedStaffFromNotes, resolveServiceStaffMap } from "@/lib/appointment-staffing";
 import { requirePagePermission } from "@/lib/auth";
 import { buildNavTree, collectServiceLabelsFromNav } from "@/lib/navigation";
+import { formatTryFromMinor } from "@/lib/commerce/format-money";
 import { getFirstPublishedAppointmentFormRef, getFirstPublishedAppointmentSchedule } from "@/lib/published-appointment-schedule";
 import { prisma } from "@/lib/prisma";
 import { getSiteSettingsForTenant } from "@/lib/site-settings";
@@ -101,7 +102,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     headerNav,
     footerNav,
     appointmentSchedule,
-    settings,
+    tenantSettings,
     appointmentFormRef,
     reminderSentLast24h,
     reminderFailedLast24h,
@@ -121,7 +122,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
       orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
     }),
     getFirstPublishedAppointmentSchedule(tenantId),
-    getSiteSettingsForTenant(tenantId).then((s) => ({ themeTokensJson: s.themeTokensJson })),
+    getSiteSettingsForTenant(tenantId),
     getFirstPublishedAppointmentFormRef(tenantId),
     prisma.appointmentEvent.count({
       where: {
@@ -158,6 +159,20 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
       select: { createdAt: true, actor: true, outcome: true, channel: true },
     }),
   ]);
+  const settings = { themeTokensJson: tenantSettings.themeTokensJson };
+  let serviceListPrices: Record<string, string> | undefined;
+  if (tenantSettings.appointmentPanelShowListPrices) {
+    const priceRows = await prisma.commerceServicePrice.findMany({
+      where: { tenantId, active: true },
+      select: { label: true, priceMinor: true },
+    });
+    if (priceRows.length > 0) {
+      serviceListPrices = {};
+      for (const pr of priceRows) {
+        serviceListPrices[pr.label] = formatTryFromMinor(pr.priceMinor);
+      }
+    }
+  }
   const rows =
     appointmentScope === "self" ? filterAppointmentsForSelfScope(allRows, effectiveSelfLabel) : allRows;
   const serviceStaffMap = await resolveServiceStaffMap(prisma, settings.themeTokensJson, tenantId);
@@ -285,6 +300,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
             serviceStaffMap={serviceStaffMap}
             appointmentFormRef={appointmentFormRef}
             lockedStaffName={appointmentScope === "self" ? effectiveSelfLabel : null}
+            serviceListPrices={serviceListPrices}
           />
         </div>
       </details>

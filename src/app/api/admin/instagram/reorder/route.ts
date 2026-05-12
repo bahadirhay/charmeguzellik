@@ -15,13 +15,17 @@ export async function PUT(req: Request) {
   const all = await prisma.siteInstagramPost.findMany({
     where: { tenantId },
     select: { id: true },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
   const set = new Set(all.map((a) => a.id));
-  if (ids.length !== all.length || !ids.every((i) => set.has(i))) {
-    return NextResponse.json({ error: "Tüm satırlar gerekli" }, { status: 400 });
+  if (!ids.every((i) => set.has(i)) || new Set(ids).size !== ids.length) {
+    return NextResponse.json({ error: "Geçersiz veya yinelenen gönderi kimliği" }, { status: 400 });
   }
+  /** İstemci eski liste gönderirse (ör. başka sekmede yeni içe aktarma) eksik id’leri sona ekle */
+  const seen = new Set(ids);
+  const merged = [...ids, ...all.map((a) => a.id).filter((id) => !seen.has(id))];
   await prisma.$transaction(
-    ids.map((id, index) =>
+    merged.map((id, index) =>
       prisma.siteInstagramPost.update({
         where: { id },
         data: { sortOrder: index },

@@ -66,13 +66,13 @@ async function main() {
         username,
         passwordHash: hash,
         displayName: "Yönetici",
-        roleId: adminRole.id,
         active: true,
+        roleAssignments: { create: [{ roleId: adminRole.id }] },
       },
       update: {
         passwordHash: hash,
         active: true,
-        roleId: adminRole.id,
+        roleAssignments: { deleteMany: {}, create: [{ roleId: adminRole.id }] },
       },
     });
 

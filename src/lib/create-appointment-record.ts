@@ -8,6 +8,7 @@ import {
   withinOneHourOtherServiceExists,
   upsertCrmContactForAppointment,
 } from "@/lib/crm-contact";
+import { resolveQuotedPriceForAppointment } from "@/lib/commerce/resolve-prices";
 
 export class AppointmentDuplicateError extends Error {
   constructor() {
@@ -100,12 +101,16 @@ export async function createAppointmentRecord(
     crmContactId = c.id;
   }
 
+  const pq = await resolveQuotedPriceForAppointment(tx, input.tenantId, input.serviceName, crmContactId);
+
   return tx.appointment.create({
     data: {
       tenantId: input.tenantId,
       startAt: input.startAt,
       endAt: input.endAt,
       serviceName: input.serviceName,
+      quotedPriceMinor: pq.quotedPriceMinor,
+      priceSource: pq.priceSource,
       clientName: trimName,
       clientEmail: input.clientEmail?.trim() || null,
       clientPhone: trimPhone,

@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { DEFAULT_TENANT_ID_SEED, DEFAULT_TENANT_SLUG } from "@/lib/tenant-default";
+import type { TenantFeaturesJson } from "@/lib/tenant-features";
 import { ensureDefaultStaffRoles } from "@/lib/staff-roles-defaults";
 import { parseThemeTokens, themeTokensToJson } from "@/lib/theme-tokens";
 
@@ -11,6 +12,8 @@ export type ProvisionTenantParams = {
   cloneContent: boolean;
   /** false ise randevu modülü kapalı (tenant.featuresJson). Varsayılan: açık. */
   appointmentsEnabled?: boolean;
+  /** false ise ticaret modülü kapalı. Varsayılan: açık. */
+  commerceEnabled?: boolean;
   bootstrapAdmin?: { username: string; passwordPlain: string };
 };
 
@@ -102,10 +105,18 @@ export async function provisionTenant(
     update: { tenantId: tenant.id, isPrimary: true },
   });
 
-  if (params.appointmentsEnabled === false) {
+  const featurePatch: TenantFeaturesJson = {};
+  if (params.appointmentsEnabled === false) featurePatch.appointments = false;
+  if (params.commerceEnabled === false) featurePatch.commerce = false;
+  if (Object.keys(featurePatch).length > 0) {
+    const cur = await prisma.tenant.findUnique({ where: { id: tenant.id }, select: { featuresJson: true } });
+    const base: TenantFeaturesJson =
+      cur?.featuresJson != null && typeof cur.featuresJson === "object" && !Array.isArray(cur.featuresJson)
+        ? { ...(cur.featuresJson as TenantFeaturesJson) }
+        : {};
     await prisma.tenant.update({
       where: { id: tenant.id },
-      data: { featuresJson: { appointments: false } },
+      data: { featuresJson: { ...base, ...featurePatch } as object },
     });
   }
 
@@ -159,6 +170,7 @@ export async function provisionTenant(
           cookieConsentJson: settings.cookieConsentJson,
           appointmentNotifyAdminEmails: null,
           appointmentNotifyOperatorEmails: null,
+          appointmentPanelShowListPrices: false,
           tenantId: tenant.id,
         },
       });
@@ -186,13 +198,13 @@ export async function provisionTenant(
         username: uname,
         passwordHash: hash,
         displayName: "Yönetici",
-        roleId: adminRole.id,
         active: true,
+        roleAssignments: { create: [{ roleId: adminRole.id }] },
       },
       update: {
         passwordHash: hash,
         active: true,
-        roleId: adminRole.id,
+        roleAssignments: { deleteMany: {}, create: [{ roleId: adminRole.id }] },
       },
     });
   }

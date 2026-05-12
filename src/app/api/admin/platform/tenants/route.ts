@@ -5,7 +5,7 @@ import { requireStaffApiPerm } from "@/lib/admin-api-auth";
 import { denyUnlessPlatformProvisioner } from "@/lib/platform-provision-auth";
 import { platformControlTenantId } from "@/lib/platform-control-tenant";
 import { ProvisionConflictError, provisionTenant } from "@/lib/provision-tenant";
-import { isAppointmentsModuleEnabled } from "@/lib/tenant-features";
+import { isAppointmentsModuleEnabled, isCommerceModuleEnabled } from "@/lib/tenant-features";
 
 const postSchema = z.object({
   slug: z.string().min(2).max(64),
@@ -14,6 +14,8 @@ const postSchema = z.object({
   cloneContent: z.boolean().optional().default(true),
   /** Varsayılan true; false ise randevu modülü kapalı kiracı */
   appointmentsEnabled: z.boolean().optional().default(true),
+  /** Varsayılan true; false ise ticaret modülü kapalı kiracı */
+  commerceEnabled: z.boolean().optional().default(true),
   adminUsername: z.string().max(64).optional(),
   /** Boş ise panel kullanıcısı oluşturulmaz. En az 8 karakter. */
   adminPassword: z.string().min(8).optional(),
@@ -42,6 +44,7 @@ export async function GET(_req: Request) {
       status: t.status,
       isPlatformTenant: platformId !== null && t.id === platformId,
       appointmentsEnabled: isAppointmentsModuleEnabled(t.featuresJson),
+      commerceEnabled: isCommerceModuleEnabled(t.featuresJson),
       pageCount: t._count.pages,
       hosts: t.domains.map((d) => ({ host: d.host, primary: d.isPrimary })),
     })),
@@ -87,6 +90,7 @@ export async function POST(req: Request) {
         host: d.host,
         cloneContent: d.cloneContent ?? true,
         appointmentsEnabled: d.appointmentsEnabled,
+        commerceEnabled: d.commerceEnabled,
         bootstrapAdmin: bootstrap,
       },
       { forbidSlugs: plat?.slug ? [plat.slug] : [] },

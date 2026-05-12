@@ -34,7 +34,7 @@ async function ensureStaffRolesAndBootstrapUser() {
         username: uname,
         passwordHash: hash,
         displayName: "Yönetici",
-        roleId: adminRole.id,
+        roleAssignments: { create: [{ roleId: adminRole.id }] },
       },
     });
     console.log(`[seed] Panel kullanıcısı: ${uname} (şifre: ADMIN_PASSWORD)`);

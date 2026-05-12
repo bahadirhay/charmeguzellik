@@ -3,7 +3,7 @@ import { AdminShell } from "@/components/admin/AdminShell";
 import { platformControlTenantId } from "@/lib/platform-control-tenant";
 import { prisma, withPrismaEngine } from "@/lib/prisma";
 import { requireStaffPage } from "@/lib/staff-auth";
-import { isAppointmentsModuleEnabled } from "@/lib/tenant-features";
+import { isAppointmentsModuleEnabled, isCommerceModuleEnabled } from "@/lib/tenant-features";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +23,7 @@ export default async function AdminShellLayout({
     prisma.tenant.findUnique({ where: { id: tenantId }, select: { featuresJson: true } }),
   );
   const appointmentsModuleEnabled = isAppointmentsModuleEnabled(tenantRow?.featuresJson);
+  const commerceModuleEnabled = isCommerceModuleEnabled(tenantRow?.featuresJson);
   const plat = platformControlTenantId();
   const showPlatformNav = Boolean(plat && tenantId === plat);
   return (
@@ -33,6 +34,7 @@ export default async function AdminShellLayout({
       permissions={access.permissions}
       showPlatformNav={showPlatformNav}
       appointmentsModuleEnabled={appointmentsModuleEnabled}
+      commerceModuleEnabled={commerceModuleEnabled}
     >
       {children}
     </AdminShell>

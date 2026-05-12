@@ -1032,10 +1032,12 @@ function BlockSummary({ block }: { block: PageBlock }) {
       const ap = block.props.mode === "appointment";
       const n = block.props.serviceOptions?.length ?? 0;
       const auto = block.props.serviceNavUseAuto !== false;
+      const px = ap && block.props.appointmentShowServicePrices !== false ? " · fiyat" : "";
       return (
         <span className="text-sm">
           {ap ? "Randevu formu" : "İletişim formu"}
           {ap ? (auto ? ` · Hizmetlerimiz${n > 0 ? `+${n} ek` : ""}` : ` · özel menü${n > 0 ? `+${n} ek` : ""}`) : ""}
+          {px}
         </span>
       );
     }
@@ -1677,6 +1679,18 @@ function BlockFields({
                       }
                     />
                     Not (mesaj)
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={cf.appointmentShowServicePrices !== false}
+                      onChange={(e) =>
+                        setProps({
+                          appointmentShowServicePrices: e.target.checked ? true : false,
+                        })
+                      }
+                    />
+                    Hizmet fiyatlarını göster (liste + kayıtlı müşteri)
                   </label>
                 </div>
               </div>

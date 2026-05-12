@@ -10,6 +10,7 @@ const TOP_NAV: NavItem[] = [
   { href: "/admin/navigation", label: "Menü", perm: "content.nav" },
   { href: "/admin/crm", label: "CRM", perm: "crm.leads" },
   { href: "/admin/appointments", label: "Randevular", perm: "crm.appointments" },
+  { href: "/admin/commerce", label: "Ticaret", perm: "commerce.manage" },
 ];
 
 const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
@@ -55,13 +56,16 @@ const PLATFORM_NAV: NavItem[] = [
 function itemVisible(
   permissions: readonly string[],
   item: NavItem,
-  opts: { showPlatformNav: boolean; appointmentsModuleEnabled: boolean },
+  opts: { showPlatformNav: boolean; appointmentsModuleEnabled: boolean; commerceModuleEnabled: boolean },
 ): boolean {
   if (item.platformOnly && !opts.showPlatformNav) return false;
   if (
     !opts.appointmentsModuleEnabled &&
     (item.href === "/admin/appointments" || item.href === "/admin/appointments/personel-planlama")
   ) {
+    return false;
+  }
+  if (!opts.commerceModuleEnabled && item.href === "/admin/commerce") {
     return false;
   }
   if (!item.perm) return true;
@@ -83,7 +87,7 @@ function itemVisible(
 function filterItems(
   permissions: readonly string[],
   items: NavItem[],
-  opts: { showPlatformNav: boolean; appointmentsModuleEnabled: boolean },
+  opts: { showPlatformNav: boolean; appointmentsModuleEnabled: boolean; commerceModuleEnabled: boolean },
 ): NavItem[] {
   return items.filter((i) => itemVisible(permissions, i, opts));
 }
@@ -144,6 +148,7 @@ export function AdminShell({
   permissions,
   showPlatformNav = false,
   appointmentsModuleEnabled = true,
+  commerceModuleEnabled = true,
 }: {
   children: React.ReactNode;
   username: string;
@@ -154,8 +159,10 @@ export function AdminShell({
   showPlatformNav?: boolean;
   /** Tenant.featuresJson: randevu modülü kapalıysa false */
   appointmentsModuleEnabled?: boolean;
+  /** Tenant.featuresJson: ticaret modülü kapalıysa false */
+  commerceModuleEnabled?: boolean;
 }) {
-  const navOpts = { showPlatformNav, appointmentsModuleEnabled };
+  const navOpts = { showPlatformNav, appointmentsModuleEnabled, commerceModuleEnabled };
   const top = filterItems(permissions, TOP_NAV, navOpts);
   const baseGroups = NAV_GROUPS.map((g) => ({
     title: g.title,
@@ -165,7 +172,13 @@ export function AdminShell({
   const groups =
     platformItems.length > 0 ? [...baseGroups, { title: "Platform", items: platformItems }] : baseGroups;
 
-  const roleLine = isLegacy ? "Tam yetki (ortam girişi)" : roleSlug ? `Rol: ${roleSlug}` : "Panel";
+  const roleLine = isLegacy
+    ? "Tam yetki (ortam girişi)"
+    : roleSlug
+      ? roleSlug.includes(",")
+        ? `Roller: ${roleSlug}`
+        : `Rol: ${roleSlug}`
+      : "Panel";
 
   return (
     <div className="flex min-h-screen min-w-0 overflow-x-hidden bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">

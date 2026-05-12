@@ -1,22 +1,28 @@
-import { PrismaClient } from "@prisma/client";
+import "server-only";
+
+import { createRequire } from "node:module";
+import type { PrismaClient } from "@prisma/client";
+
+/**
+ * Turbopack bazen `@prisma/client` importunu tarayıcı koşuluna düşürür; tarayıcı stub'ında
+ * `commerceServicePrice` vb. yok → "upsert undefined". `createRequire` ile Node çözümlemesi zorlanır.
+ */
+const require = createRequire(import.meta.url);
 
 /**
  * `globalThis.prisma` yaygın bir isim; başka araçlar / eski süreç aynı anahtara yazarsa
  * eksik delegate’li yanlış nesne kullanılıyordu. Bu projeye özel anahtar kullan.
  */
-const PRISMA_GLOBAL_KEY = "__web_page_prisma_singleton_v2__" as const;
+/** v6: kasa (`commerceCashReceipt`, `commerceCashDayClose`) şemada; eksik client reddedilir */
+const PRISMA_GLOBAL_KEY = "__web_page_prisma_singleton_v6__" as const;
 type GlobalPrisma = typeof globalThis & { [PRISMA_GLOBAL_KEY]?: PrismaClient };
 const globalForPrisma = globalThis as GlobalPrisma;
 
-function createPrismaClient() {
-  return new PrismaClient({
+function createPrismaClient(): PrismaClient {
+  const { PrismaClient: PrismaClientCtor } = require("@prisma/client") as typeof import("@prisma/client");
+  return new PrismaClientCtor({
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
-}
-
-function hasCrmContactDelegate(client: unknown): boolean {
-  const c = client as { crmContact?: { findMany?: unknown } };
-  return typeof c.crmContact?.findMany === "function";
 }
 
 /** Şema güncellendiğinde eski dev önbelleğinde kalan client eksik delegate içerebilir. */
@@ -29,6 +35,11 @@ function clientMatchesSchema(client: PrismaClient): boolean {
     staffRole?: { findMany?: unknown };
     staffUser?: { findMany?: unknown };
     crmContact?: { findMany?: unknown };
+    commerceServicePrice?: { findMany?: unknown; upsert?: unknown };
+    commercePackagePayment?: { findMany?: unknown; create?: unknown };
+    commercePackagePurchase?: { findMany?: unknown };
+    commerceCashReceipt?: { findMany?: unknown; create?: unknown };
+    commerceCashDayClose?: { findMany?: unknown; upsert?: unknown };
   };
   return (
     typeof c.navItem?.findMany === "function" &&
@@ -37,7 +48,14 @@ function clientMatchesSchema(client: PrismaClient): boolean {
     typeof c.siteTiktokVideo?.findMany === "function" &&
     typeof c.staffRole?.findMany === "function" &&
     typeof c.staffUser?.findMany === "function" &&
-    typeof c.crmContact?.findMany === "function"
+    typeof c.crmContact?.findMany === "function" &&
+    typeof c.commerceServicePrice?.findMany === "function" &&
+    typeof c.commerceServicePrice?.upsert === "function" &&
+    typeof c.commercePackagePayment?.findMany === "function" &&
+    typeof c.commercePackagePayment?.create === "function" &&
+    typeof c.commercePackagePurchase?.findMany === "function" &&
+    typeof c.commerceCashReceipt?.findMany === "function" &&
+    typeof c.commerceCashReceipt?.create === "function"
   );
 }
 
@@ -51,9 +69,10 @@ function resolveSingleton(): PrismaClient {
     delete globalForPrisma[PRISMA_GLOBAL_KEY];
   }
   const created = createPrismaClient();
-  if (!hasCrmContactDelegate(created)) {
+  if (!clientMatchesSchema(created)) {
+    void created.$disconnect().catch(() => {});
     throw new Error(
-      "Prisma istemcisi şemada CrmContact içermiyor. Tüm dev süreçlerini durdurup proje kökünde çalıştırın: npx prisma generate",
+      "Prisma client şema ile uyumsuz (ticaret / kasa / paket modelleri eksik). Çözüm: tüm Node süreçlerini durdurun, proje kökünde `npx prisma generate`, ardından `npm run dev`. Windows EPERM: önce tüm node.exe ve IDE terminalindeki dev sunucularını kapatın.",
     );
   }
   globalForPrisma[PRISMA_GLOBAL_KEY] = created;

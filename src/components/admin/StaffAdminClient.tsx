@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 type RoleRow = { id: string; slug: string; label: string; permissionsJson: string };
 type UserRow = {
@@ -9,17 +9,28 @@ type UserRow = {
   username: string;
   displayName: string | null;
   active: boolean;
-  roleId: string;
-  roleSlug: string;
-  roleLabel: string;
+  roleIds: string[];
+  rolesSummary: string;
 };
+
+function defaultRoleIdsForNewUser(roles: RoleRow[]): string[] {
+  const admin = roles.find((r) => r.slug === "admin");
+  if (admin) return [admin.id];
+  return roles[0]?.id ? [roles[0].id] : [];
+}
 
 export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRow[]; users: UserRow[] }) {
   const router = useRouter();
   const [users, setUsers] = useState(initialUsers);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [nu, setNu] = useState({ username: "", password: "", roleId: roles[0]?.id ?? "", displayName: "" });
+  const initialPick = useMemo(() => defaultRoleIdsForNewUser(roles), [roles]);
+  const [nu, setNu] = useState({
+    username: "",
+    password: "",
+    displayName: "",
+    roleIds: initialPick,
+  });
 
   async function refresh() {
     const res = await fetch("/api/admin/staff/users", { credentials: "same-origin" });
@@ -33,6 +44,10 @@ export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRo
     e.preventDefault();
     setMsg(null);
     setErr(null);
+    if (nu.roleIds.length === 0) {
+      setErr("En az bir rol seçin.");
+      return;
+    }
     const res = await fetch("/api/admin/staff/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -40,7 +55,7 @@ export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRo
       body: JSON.stringify({
         username: nu.username,
         password: nu.password,
-        roleId: nu.roleId,
+        roleIds: nu.roleIds,
         displayName: nu.displayName || null,
       }),
     });
@@ -50,11 +65,14 @@ export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRo
       return;
     }
     setMsg("Kullanıcı eklendi.");
-    setNu({ username: "", password: "", roleId: roles[0]?.id ?? "", displayName: "" });
+    setNu({ username: "", password: "", displayName: "", roleIds: defaultRoleIdsForNewUser(roles) });
     await refresh();
   }
 
-  async function patchUser(id: string, patch: { active?: boolean; roleId?: string; password?: string }) {
+  async function patchUser(
+    id: string,
+    patch: { active?: boolean; roleIds?: string[]; password?: string },
+  ) {
     setMsg(null);
     setErr(null);
     const res = await fetch(`/api/admin/staff/users/${id}`, {
@@ -72,14 +90,26 @@ export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRo
     await refresh();
   }
 
+  function toggleUserRole(userId: string, currentIds: string[], roleId: string, checked: boolean) {
+    const next = checked
+      ? [...new Set([...currentIds, roleId])]
+      : currentIds.filter((id) => id !== roleId);
+    if (next.length === 0) {
+      setErr("En az bir rol kalmalı.");
+      return;
+    }
+    void patchUser(userId, { roleIds: next });
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-8">
       <div>
         <h1 className="text-2xl font-semibold">Personel & roller</h1>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Kullanıcı adı ve şifre ile giriş. <strong>Yönetici</strong> site ayarları ve entegrasyonları;{" "}
-          <strong>Editör</strong> sayfalar, site düzeni ve menü; <strong>Randevu operatörü</strong> yalnızca randevu
-          ekranına erişir. Ortam değişkeniyle giriş yapan hesap tam yetkilidir.
+          Her kullanıcıya <strong>birden fazla rol</strong> atanabilir; yetkiler rollerin birleşimidir.{" "}
+          <strong>Yönetici</strong> tüm modüller; <strong>Ticaret</strong> yalnızca kasa, paket ve cari;{" "}
+          <strong>Editör</strong> sayfa ve menü; <strong>Randevu operatörü</strong> randevu ekranı. Ortam
+          değişkeniyle giriş yapan hesap tam yetkilidir.
         </p>
       </div>
 
@@ -91,7 +121,7 @@ export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRo
           <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950">
             <tr>
               <th className="px-3 py-2">Kullanıcı</th>
-              <th className="px-3 py-2">Rol</th>
+              <th className="min-w-[200px] px-3 py-2">Roller</th>
               <th className="px-3 py-2">Aktif</th>
               <th className="px-3 py-2">Şifre</th>
             </tr>
@@ -99,34 +129,39 @@ export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRo
           <tbody>
             {users.map((u) => (
               <tr key={u.id} className="border-b border-zinc-100 dark:border-zinc-800">
-                <td className="px-3 py-2">
+                <td className="px-3 py-2 align-top">
                   <span className="font-mono font-medium">{u.username}</span>
                   {u.displayName ? <div className="text-xs text-zinc-500">{u.displayName}</div> : null}
                 </td>
-                <td className="px-3 py-2">
-                  <select
-                    className="rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-950"
-                    value={u.roleId}
-                    onChange={(e) => patchUser(u.id, { roleId: e.target.value })}
-                  >
+                <td className="px-3 py-2 align-top">
+                  <div className="flex max-w-xs flex-col gap-1.5 text-xs">
                     {roles.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.label}
-                      </option>
+                      <label key={r.id} className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="checkbox"
+                          className="rounded border-zinc-400"
+                          checked={u.roleIds.includes(r.id)}
+                          onChange={(e) => toggleUserRole(u.id, u.roleIds, r.id, e.target.checked)}
+                        />
+                        <span>{r.label}</span>
+                      </label>
                     ))}
-                  </select>
+                  </div>
+                  {u.rolesSummary ? (
+                    <p className="mt-2 text-[10px] text-zinc-500">Özet: {u.rolesSummary}</p>
+                  ) : null}
                 </td>
-                <td className="px-3 py-2">
+                <td className="px-3 py-2 align-top">
                   <label className="flex items-center gap-2 text-xs">
                     <input
                       type="checkbox"
                       checked={u.active}
-                      onChange={(e) => patchUser(u.id, { active: e.target.checked })}
+                      onChange={(e) => void patchUser(u.id, { active: e.target.checked })}
                     />
                     Aktif
                   </label>
                 </td>
-                <td className="px-3 py-2">
+                <td className="px-3 py-2 align-top">
                   <UserPasswordReset userId={u.id} onDone={refresh} onError={setErr} onOk={setMsg} />
                 </td>
               </tr>
@@ -167,20 +202,32 @@ export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRo
               autoComplete="new-password"
             />
           </label>
-          <label className="grid gap-1 text-xs">
-            Rol
-            <select
-              className="rounded border border-zinc-300 bg-white px-2 py-1 dark:border-zinc-600 dark:bg-zinc-950"
-              value={nu.roleId}
-              onChange={(e) => setNu((s) => ({ ...s, roleId: e.target.value }))}
-            >
+          <div className="grid gap-2 sm:col-span-2">
+            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+              Roller (birden fazla işaretlenebilir)
+            </span>
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
               {roles.map((r) => (
-                <option key={r.id} value={r.id}>
+                <label key={r.id} className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    className="rounded border-zinc-400"
+                    checked={nu.roleIds.includes(r.id)}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      setNu((s) => ({
+                        ...s,
+                        roleIds: on
+                          ? [...new Set([...s.roleIds, r.id])]
+                          : s.roleIds.filter((id) => id !== r.id),
+                      }));
+                    }}
+                  />
                   {r.label}
-                </option>
+                </label>
               ))}
-            </select>
-          </label>
+            </div>
+          </div>
           <div className="sm:col-span-2">
             <button
               type="submit"

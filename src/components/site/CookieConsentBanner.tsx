@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type CookieCategory = {
   id: string;
@@ -157,10 +157,19 @@ export function CookieConsentBanner({ rawConfig }: { rawConfig: string | null | 
   const noticeItems =
     cfg.personalDataNoticeItems?.length ? cfg.personalDataNoticeItems : DEFAULT_PERSONAL_DATA_ITEMS;
 
-  const [open, setOpen] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return cfg.enabled !== false && !window.localStorage.getItem(STORAGE_KEY);
-  });
+  /** Sunucu ve istemcinin ilk boyaması aynı olmalı; localStorage sadece mount sonrası okunur. */
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (cfg.enabled === false) {
+      setOpen(false);
+      return;
+    }
+    try {
+      if (!window.localStorage.getItem(STORAGE_KEY)) setOpen(true);
+    } catch {
+      setOpen(true);
+    }
+  }, [cfg.enabled]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [prefs, setPrefs] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};

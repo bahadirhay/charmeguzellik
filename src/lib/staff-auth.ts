@@ -56,7 +56,8 @@ export async function getStaffAccess(): Promise<StaffAccess | null> {
     return null;
   }
   const raw = permissionsFromSession(s);
-  const permissions = raw.length ? raw : allStaffPermissions();
+  const permissions =
+    raw.length > 0 ? raw : s.staffUserId ? [] : allStaffPermissions();
   const username = (s.username ?? s.email ?? "admin").trim();
   const isLegacy = s.authKind === "legacy" || (!s.staffUserId && !!s.email);
   return {

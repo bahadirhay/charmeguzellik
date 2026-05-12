@@ -21,6 +21,7 @@ const ALL_MODELS = [
   "NavItem",
   "StaffRole",
   "StaffUser",
+  "StaffUserRole",
 ] as const;
 
 const PAGES_MODELS = ["Page", "NavItem"] as const satisfies readonly (typeof ALL_MODELS)[number][];
@@ -38,6 +39,10 @@ const MODEL_READERS: Record<(typeof ALL_MODELS)[number], () => Promise<unknown>>
   NavItem: () => prisma.navItem.findMany({ where: { tenantId: BOOTSTRAP_TENANT_ID } }),
   StaffRole: () => prisma.staffRole.findMany({ where: { tenantId: BOOTSTRAP_TENANT_ID } }),
   StaffUser: () => prisma.staffUser.findMany({ where: { tenantId: BOOTSTRAP_TENANT_ID } }),
+  StaffUserRole: () =>
+    prisma.staffUserRole.findMany({
+      where: { staffUser: { tenantId: BOOTSTRAP_TENANT_ID } },
+    }),
 };
 
 function modelsForMode(mode: BackupMode): (typeof ALL_MODELS)[number][] {

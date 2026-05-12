@@ -359,6 +359,21 @@ export function SettingsForm({
             {apptModuleFeedback.text}
           </p>
         ) : null}
+        <label className="mt-4 flex cursor-pointer items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={row.appointmentPanelShowListPrices === true}
+            onChange={(e) => field("appointmentPanelShowListPrices", e.target.checked)}
+            className="mt-0.5 rounded border-zinc-400"
+          />
+          <span>
+            <span className="font-medium">Randevu panelinde liste fiyatlarını göster</span>
+            <span className="mt-0.5 block text-xs font-normal text-zinc-500">
+              Açıkken (ve Ticaret → Liste fiyatlarında kayıt varken) admin randevu formunda seçilen hizmetin liste fiyatı
+              gösterilir. Kapalıysa personel fiyat görmez. Kayıt için aşağıdaki formu kullanın (Site ayarları kaydet).
+            </span>
+          </span>
+        </label>
       </section>
 
       <nav className="sticky top-2 z-20 rounded-xl border border-zinc-200 bg-white/90 p-2 backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/90">

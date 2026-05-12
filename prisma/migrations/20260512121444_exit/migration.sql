@@ -1,0 +1,2 @@
+-- RenameIndex
+ALTER INDEX "CommerceCustomerPriceOverride_tenantId_crmContactId_serviceKey_" RENAME TO "CommerceCustomerPriceOverride_tenantId_crmContactId_service_key";

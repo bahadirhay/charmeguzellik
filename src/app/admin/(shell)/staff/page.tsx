@@ -15,7 +15,9 @@ export default async function StaffAdminPage() {
     }),
     prisma.staffUser.findMany({
       where: { tenantId },
-      include: { role: true },
+      include: {
+        roleAssignments: { include: { role: { select: { id: true, slug: true, label: true } } } },
+      },
       orderBy: { username: "asc" },
     }),
   ]);
@@ -28,15 +30,17 @@ export default async function StaffAdminPage() {
         label: r.label,
         permissionsJson: r.permissionsJson,
       }))}
-      users={users.map((u) => ({
-        id: u.id,
-        username: u.username,
-        displayName: u.displayName,
-        active: u.active,
-        roleId: u.roleId,
-        roleSlug: u.role.slug,
-        roleLabel: u.role.label,
-      }))}
+      users={users.map((u) => {
+        const roles = u.roleAssignments.map((a) => a.role);
+        return {
+          id: u.id,
+          username: u.username,
+          displayName: u.displayName,
+          active: u.active,
+          roleIds: roles.map((r) => r.id),
+          rolesSummary: roles.map((r) => r.label).join(", "),
+        };
+      })}
     />
   );
 }

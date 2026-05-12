@@ -13,6 +13,8 @@ export const STAFF_PERMISSION_KEYS = [
   "crm.appointments",
   /** Yalnızca kendisine atanmış randevular (notes içi [[STAFF:…]] ile eşleşir) */
   "crm.appointments.self",
+  /** Fiyat listesi, cari, stok, paket, prim (Ticaret paneli) */
+  "commerce.manage",
   "users.manage",
 ] as const;
 
@@ -39,4 +41,17 @@ export function hasStaffPermission(perms: readonly string[], need: string): bool
 
 export function hasAnyStaffPermission(perms: readonly string[], needs: readonly string[]): boolean {
   return needs.some((n) => perms.includes(n));
+}
+
+/** Birden fazla rolün `permissionsJson` değerlerinden tekilleştirilmiş yetki listesi. */
+export function mergePermissionsFromRoles(
+  roles: ReadonlyArray<{ permissionsJson: string }>,
+): string[] {
+  const out = new Set<string>();
+  for (const role of roles) {
+    for (const p of parsePermissionsJson(role.permissionsJson)) {
+      out.add(p);
+    }
+  }
+  return [...out];
 }

@@ -3,7 +3,7 @@ import { allStaffPermissions } from "@/lib/staff-permissions";
 import { BOOTSTRAP_TENANT_ID } from "@/lib/tenant-db";
 
 /**
- * Veritabanında rol satırı yoksa (seed atlanmış vb.) varsayılan üç rolü upsert eder.
+ * Veritabanında rol satırı yoksa (seed atlanmış vb.) varsayılan rolleri upsert eder.
  * Personel sayfası ve staff API’leri açılışta çağırır.
  */
 export async function ensureDefaultStaffRoles(
@@ -21,6 +21,11 @@ export async function ensureDefaultStaffRoles(
       slug: "scheduler",
       label: "Randevu operatörü",
       permissions: ["crm.appointments"],
+    },
+    {
+      slug: "commerce",
+      label: "Ticaret (kasa, paket, cari)",
+      permissions: ["commerce.manage"],
     },
     {
       slug: "practitioner",

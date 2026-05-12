@@ -33,6 +33,18 @@ model Tenant {
   siteYoutubeVideos      SiteYoutubeVideo[]
   siteTiktokVideos       SiteTiktokVideo[]
   cookieConsentLogs      CookieConsentLog[]
+  commerceServicePrices          CommerceServicePrice[]
+  commerceCustomerPriceOverrides CommerceCustomerPriceOverride[]
+  commerceLedgerEntries            CommerceLedgerEntry[]
+  commerceProducts                 CommerceProduct[]
+  commerceStockMovements           CommerceStockMovement[]
+  commerceCommissionRules          CommerceCommissionRule[]
+  commerceCommissionAccruals       CommerceCommissionAccrual[]
+  commercePackageTemplates         CommercePackageTemplate[]
+  commercePackagePurchases         CommercePackagePurchase[]
+  commercePackagePayments          CommercePackagePayment[]
+  commerceCashReceipts             CommerceCashReceipt[]
+  commerceCashDayCloses            CommerceCashDayClose[]
 }
 
 model TenantDomain {
@@ -126,6 +138,8 @@ model SiteSettings {
   appointmentNotifyAdminEmails    String?
   /// Yeni randevu talebi: operatör bilgilendirme e-postaları (virgül veya alt satır ile çoklu; ENV ile birleştirilir)
   appointmentNotifyOperatorEmails String?
+  /// Admin randevu panelinde «Liste fiyatları» varsa hizmet seçiminde TL göster (site ayarından aç/kapa)
+  appointmentPanelShowListPrices Boolean @default(false)
   updatedAt              DateTime @updatedAt
   /// Kiracı bağlantısı — faz 1 opsiyonel; mevcut satır migrate ile dolar. Uygulama sorgusu değişmeden kalır.
   tenantId               String?  @unique
@@ -218,6 +232,10 @@ model CrmContact {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   appointments Appointment[]
+  commercePriceOverrides   CommerceCustomerPriceOverride[]
+  commerceLedgerEntries    CommerceLedgerEntry[]
+  commercePackagePurchases CommercePackagePurchase[]
+  commerceCashReceipts     CommerceCashReceipt[]
 
   @@unique([tenantId, phoneKey])
   @@index([tenantId])
@@ -230,6 +248,10 @@ model Appointment {
   startAt        DateTime
   endAt          DateTime?
   serviceName    String?
+  /// Formda gösterilen / müşterinin gördüğü fiyat (kuruş, TRY)
+  quotedPriceMinor Int?
+  /// catalog | override | none
+  priceSource    String?
   clientName     String
   clientEmail    String?
   clientPhone    String?
@@ -251,6 +273,8 @@ model Appointment {
   crmContactId   String?
   crmContact     CrmContact? @relation(fields: [crmContactId], references: [id], onDelete: SetNull)
   events         AppointmentEvent[]
+  commissionAccruals CommerceCommissionAccrual[]
+  commerceCashReceipts CommerceCashReceipt[]
 
   @@index([tenantId, startAt, serviceName, status])
   @@index([cancelTokenHash])
@@ -294,17 +318,29 @@ model NavItem {
 
 /// Panel rolleri — permissionsJson: ["content.pages", "site.settings", ...]
 model StaffRole {
-  id              String      @id @default(cuid())
-  tenantId        String
-  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  slug            String
-  label           String
-  permissionsJson String
-  users           StaffUser[]
-  createdAt       DateTime    @default(now())
+  id               String          @id @default(cuid())
+  tenantId         String
+  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  slug             String
+  label            String
+  permissionsJson  String
+  userAssignments  StaffUserRole[]
+  createdAt        DateTime        @default(now())
 
   @@unique([tenantId, slug])
   @@index([tenantId])
+}
+
+/// Personel kullanıcı ↔ rol (bir kullanıcıya birden fazla rol).
+model StaffUserRole {
+  staffUserId String
+  roleId      String
+  staffUser   StaffUser @relation(fields: [staffUserId], references: [id], onDelete: Cascade)
+  role        StaffRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([staffUserId, roleId])
+  @@index([staffUserId])
+  @@index([roleId])
 }
 
 model StaffUser {
@@ -314,16 +350,269 @@ model StaffUser {
   username     String
   passwordHash String
   displayName  String?
-  roleId       String
-  role         StaffRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  roleAssignments StaffUserRole[]
+
   pushSubscriptions StaffPushSubscription[]
+  commerceCommissionAccruals CommerceCommissionAccrual[]
+  cashReceiptsRecorded       CommerceCashReceipt[] @relation("CashReceiptRecordedBy")
+  cashDayClosesStaff         CommerceCashDayClose[] @relation("CashDayCloseByStaff")
 
   @@unique([tenantId, username])
   @@index([tenantId])
+}
+
+// --- Ticaret (fiyat, paket, cari, stok, prim) — tenant kapsamlı ---
+
+/// Menü etiketi ile eşleşen genel liste fiyatı (kuruş, TRY)
+model CommerceServicePrice {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  serviceKey  String
+  label       String
+  priceMinor  Int
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, serviceKey])
+  @@index([tenantId])
+}
+
+/// CRM müşterisine özel hizmet fiyatı (serviceKey ile katalogu override eder)
+model CommerceCustomerPriceOverride {
+  id           String     @id @default(cuid())
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  crmContactId String
+  crmContact   CrmContact @relation(fields: [crmContactId], references: [id], onDelete: Cascade)
+  serviceKey   String
+  priceMinor   Int
+  note         String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([tenantId, crmContactId, serviceKey])
+  @@index([tenantId])
+  @@index([crmContactId])
+}
+
+/// Cari: charge pozitif (alacak artar), payment negatif (tahsilat)
+model CommerceLedgerEntry {
+  id           String     @id @default(cuid())
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  crmContactId String
+  crmContact   CrmContact @relation(fields: [crmContactId], references: [id], onDelete: Cascade)
+  occurredAt   DateTime   @default(now())
+  kind         String
+  amountMinor  Int
+  currency     String     @default("TRY")
+  memo         String?
+  refType      String?
+  refId        String?
+  createdAt    DateTime   @default(now())
+
+  cashReceipt CommerceCashReceipt?
+
+  @@index([tenantId, crmContactId, occurredAt])
+}
+
+/// Kasa tahsilatı: tutar kasaya giren pozitif kuruş; isteğe bağlı cari `payment` satırı ile eşlenir.
+model CommerceCashReceipt {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  occurredAt    DateTime @default(now())
+  amountMinor   Int
+  method        String
+  memo          String?
+
+  /// appointment | walk_in | manual
+  sourceKind    String   @default("manual")
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  crmContactId  String?
+  crmContact    CrmContact? @relation(fields: [crmContactId], references: [id], onDelete: SetNull)
+
+  staffUserId String?
+  staffUser   StaffUser? @relation("CashReceiptRecordedBy", fields: [staffUserId], references: [id], onDelete: SetNull)
+
+  ledgerEntryId String? @unique
+  ledgerEntry   CommerceLedgerEntry? @relation(fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, appointmentId])
+}
+
+/// Gün sonu kasa özeti (iş günü başına bir kayıt).
+model CommerceCashDayClose {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  businessDate       DateTime @db.Date
+  closedAt           DateTime @default(now())
+  staffUserId        String?
+  staffUser          StaffUser? @relation("CashDayCloseByStaff", fields: [staffUserId], references: [id], onDelete: SetNull)
+  expectedTotalMinor Int?
+  countedTotalMinor    Int?
+  notes                String?
+
+  @@unique([tenantId, businessDate])
+  @@index([tenantId, businessDate])
+}
+
+model CommerceProduct {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  sku            String
+  name           String
+  salePriceMinor Int      @default(0)
+  costMinor      Int?
+  trackStock     Boolean  @default(true)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  stockMovements CommerceStockMovement[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+}
+
+model CommerceStockMovement {
+  id         String          @id @default(cuid())
+  tenantId   String
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  productId  String
+  product    CommerceProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  occurredAt DateTime        @default(now())
+  qty        Int
+  reason     String
+  memo       String?
+  refType    String?
+  refId      String?
+
+  @@index([tenantId, productId, occurredAt])
+}
+
+model CommerceCommissionRule {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  name       String
+  serviceKey String?
+  percentBps Int?
+  fixedMinor Int?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  accruals CommerceCommissionAccrual[]
+
+  @@index([tenantId])
+}
+
+model CommerceCommissionAccrual {
+  id                String                  @id @default(cuid())
+  tenantId          String
+  tenant            Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  appointmentId     String?
+  appointment       Appointment?            @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  staffUserId       String?
+  staffUser         StaffUser?              @relation(fields: [staffUserId], references: [id], onDelete: SetNull)
+  staffNameSnapshot String?
+  ruleId            String?
+  rule              CommerceCommissionRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  amountMinor       Int
+  status            String                  @default("pending")
+  memo              String?
+  createdAt         DateTime                @default(now())
+
+  @@index([tenantId, appointmentId])
+  @@index([tenantId, status])
+}
+
+model CommercePackageTemplate {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  name           String
+  listPriceMinor Int      @default(0)
+  validityDays   Int?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  lines     CommercePackageTemplateLine[]
+  purchases CommercePackagePurchase[]
+
+  @@index([tenantId])
+}
+
+model CommercePackageTemplateLine {
+  id         String                  @id @default(cuid())
+  templateId String
+  template   CommercePackageTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  serviceKey String
+  sessions   Int                     @default(1)
+
+  @@index([templateId])
+}
+
+model CommercePackagePurchase {
+  id              String                  @id @default(cuid())
+  tenantId        String
+  tenant          Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  crmContactId    String
+  crmContact      CrmContact              @relation(fields: [crmContactId], references: [id], onDelete: Cascade)
+  templateId      String
+  template        CommercePackageTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  purchasedAt     DateTime                @default(now())
+  expiresAt       DateTime?
+  /// Anlaşılan paket bedeli (kuruş). Tahsilat toplamı buna göre kalan borcu verir.
+  salePriceMinor  Int?
+  /// Geriye uyumluluk: eski kayıtlarda yalnızca bu alan dolu olabilir.
+  paidAmountMinor Int?
+  status          String                  @default("active")
+
+  credits  CommercePackageCredit[]
+  payments CommercePackagePayment[]
+
+  @@index([tenantId, crmContactId])
+}
+
+/// Paket satışına yapılan tahsilat (nakit, kart, havale…); cariye payment satırı eşlenir.
+model CommercePackagePayment {
+  id          String                  @id @default(cuid())
+  tenantId    String
+  tenant      Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  purchaseId  String
+  purchase    CommercePackagePurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  amountMinor Int
+  method      String
+  memo        String?
+  paidAt      DateTime                @default(now())
+  createdAt   DateTime                @default(now())
+
+  @@index([tenantId, purchaseId])
+}
+
+model CommercePackageCredit {
+  id         String                  @id @default(cuid())
+  purchaseId String
+  purchase   CommercePackagePurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  serviceKey String
+  remaining  Int
+
+  @@unique([purchaseId, serviceKey])
 }
 
 /// Web Push (VAPID): yeni randevu gibi olaylarda tarayıcı bildirimi

@@ -37,6 +37,7 @@ const SETTINGS_PUT_KEYS = [
 function collectSettingsPutKeys(body: Record<string, unknown>): string[] {
   const keys: string[] = [];
   if ("showHeaderTopBar" in body) keys.push("showHeaderTopBar");
+  if ("appointmentPanelShowListPrices" in body) keys.push("appointmentPanelShowListPrices");
   if ("headerBlocks" in body) keys.push("headerBlocks");
   if ("footerBlocks" in body) keys.push("footerBlocks");
   if ("smtpPort" in body) keys.push("smtpPort");
@@ -131,6 +132,11 @@ export async function PUT(req: Request) {
   if ("showHeaderTopBar" in body) {
     const v = body.showHeaderTopBar;
     data.showHeaderTopBar = v === true || v === "true";
+  }
+
+  if ("appointmentPanelShowListPrices" in body) {
+    const v = body.appointmentPanelShowListPrices;
+    data.appointmentPanelShowListPrices = v === true || v === "true";
   }
 
   if ("headerBlocks" in body) {

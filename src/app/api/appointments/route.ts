@@ -32,6 +32,7 @@ import {
 } from "@/lib/appointment-phone";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
+import { accrueCommissionForNewAppointment } from "@/lib/commerce/commission-accrue";
 
 const postSchema = z.object({
   clientName: z.string().min(1).max(120),
@@ -220,6 +221,9 @@ export async function POST(req: Request) {
         `Telefon: ${created.clientPhone ?? "-"}`,
         `E-posta: ${created.clientEmail ?? "-"}`,
         `Hizmet: ${created.serviceName ?? "-"}`,
+        created.quotedPriceMinor != null
+          ? `Tahmini ücret (form): ${(created.quotedPriceMinor / 100).toLocaleString("tr-TR", { style: "currency", currency: "TRY" })} (${created.priceSource ?? "?"})`
+          : "",
         "",
         notesLine,
         "Yönetim: /admin/appointments",
@@ -261,6 +265,19 @@ export async function POST(req: Request) {
     }
   } catch (e) {
     console.warn("appointment telegram notify", e);
+  }
+
+  try {
+    await accrueCommissionForNewAppointment(
+      prisma,
+      tenantId,
+      created.id,
+      created.serviceName,
+      created.notes,
+      created.quotedPriceMinor,
+    );
+  } catch (e) {
+    console.warn("commerce commission accrue", e);
   }
 
   return NextResponse.json({ ok: true });

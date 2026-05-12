@@ -26,6 +26,8 @@ type Props = {
   appointmentFormRef?: PublishedAppointmentFormRef | null;
   /** Uygulayıcı rolü: yalnızca bu ada randevu eklenir */
   lockedStaffName?: string | null;
+  /** Site ayarı açık + Ticaret listesinde kayıt varsa: menü etiketi → formatlı liste fiyatı */
+  serviceListPrices?: Record<string, string>;
 };
 
 export function AppointmentForm({
@@ -34,6 +36,7 @@ export function AppointmentForm({
   serviceStaffMap = {},
   appointmentFormRef = null,
   lockedStaffName = null,
+  serviceListPrices,
 }: Props) {
   const [feedback, setFeedback] = useState<{ text: string; error: boolean } | null>(null);
   const [apptDate, setApptDate] = useState("");
@@ -295,6 +298,11 @@ export function AppointmentForm({
               </option>
             ))}
           </select>
+          {serviceListPrices && serviceNameValue.trim() && serviceListPrices[serviceNameValue.trim()] ? (
+            <p className="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+              Liste fiyatı: {serviceListPrices[serviceNameValue.trim()]}
+            </p>
+          ) : null}
         </label>
       ) : allowFreeServiceInput ? (
         <label className="text-sm text-zinc-700 dark:text-zinc-300">
