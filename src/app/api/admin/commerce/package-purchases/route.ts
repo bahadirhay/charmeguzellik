@@ -16,11 +16,11 @@ import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { prisma } from "@/lib/prisma";
 
 /** `payments` ilişkisi bazı ortamlarda eski Prisma DMMF’te yok; tahsilatlar ayrı sorguda yüklenir. */
-const purchaseInclude = Prisma.validator<Prisma.CommercePackagePurchaseInclude>()({
+const purchaseInclude = {
   crmContact: { select: { id: true, name: true, phoneKey: true } },
   template: { include: { lines: true } },
-  credits: { orderBy: { serviceKey: "asc" } },
-});
+  credits: { orderBy: { serviceKey: "asc" as const } },
+} as const satisfies Prisma.CommercePackagePurchaseInclude;
 
 type PurchaseCore = Prisma.CommercePackagePurchaseGetPayload<{ include: typeof purchaseInclude }>;
 type PurchaseRow = PurchaseCore & { payments: CommercePackagePaymentRow[] };
