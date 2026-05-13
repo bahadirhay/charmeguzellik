@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
-import { resolvePublicSiteUrl } from "@/lib/public-site-url";
+import { resolveCanonicalPublicBaseUrl, resolvePublicSiteUrl } from "@/lib/public-site-url";
 import { getSiteSettingsForTenant } from "@/lib/site-settings";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import {
@@ -21,8 +21,8 @@ function clampPriority(n: number, fallback: number): number {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = await resolvePublicSiteUrl();
   if (!process.env.DATABASE_URL?.trim()) {
+    const base = await resolvePublicSiteUrl();
     return [
       {
         url: `${base}/`,
@@ -35,89 +35,89 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const tenantId = await getTenantIdForRequest();
+    const base = await resolveCanonicalPublicBaseUrl(tenantId);
     const settings = await getSiteSettingsForTenant(tenantId);
-  const homePriority = clampPriority(settings?.sitemapHomePriority ?? 1, 1);
-  const pageDefaultPriority = clampPriority(settings?.sitemapPagePriority ?? 0.7, 0.7);
-  const extras = parseSitemapExtrasJson(settings?.sitemapExtrasJson);
+    const homePriority = clampPriority(settings?.sitemapHomePriority ?? 1, 1);
+    const pageDefaultPriority = clampPriority(settings?.sitemapPagePriority ?? 0.7, 0.7);
+    const extras = parseSitemapExtrasJson(settings?.sitemapExtrasJson);
 
-  const pages = await prisma.page.findMany({
-    where: {
-      tenantId,
-      published: true,
-      noIndex: false,
-      includeInSitemap: true,
-    },
-    select: {
-      slug: true,
-      updatedAt: true,
-      canonicalPath: true,
-      sitemapPriority: true,
-      sitemapChangeFrequency: true,
-    },
-  });
-
-  const home = pages.find((p) => p.slug === "home");
-  const homeCf =
-    (normalizeSitemapChangeFrequency(home?.sitemapChangeFrequency) as ChangeFreq | undefined) ??
-    "weekly";
-  const homePr =
-    home?.sitemapPriority != null && Number.isFinite(home.sitemapPriority)
-      ? clampPriority(home.sitemapPriority, homePriority)
-      : homePriority;
-
-  const entries: MetadataRoute.Sitemap = [];
-  if (home) {
-    entries.push({
-      url: pageUrlForSitemap(base, "home", home.canonicalPath),
-      lastModified: home.updatedAt,
-      changeFrequency: homeCf,
-      priority: homePr,
+    const pages = await prisma.page.findMany({
+      where: {
+        tenantId,
+        published: true,
+        noIndex: false,
+        includeInSitemap: true,
+      },
+      select: {
+        slug: true,
+        updatedAt: true,
+        canonicalPath: true,
+        sitemapPriority: true,
+        sitemapChangeFrequency: true,
+      },
     });
-  }
 
-  const seen = new Set(entries.map((e) => e.url));
+    const home = pages.find((p) => p.slug === "home");
+    const homeCf =
+      (normalizeSitemapChangeFrequency(home?.sitemapChangeFrequency) as ChangeFreq | undefined) ?? "weekly";
+    const homePr =
+      home?.sitemapPriority != null && Number.isFinite(home.sitemapPriority)
+        ? clampPriority(home.sitemapPriority, homePriority)
+        : homePriority;
 
-  for (const p of pages) {
-    if (p.slug === "home") continue;
-    const url = pageUrlForSitemap(base, p.slug, p.canonicalPath);
-    if (seen.has(url)) continue;
-    seen.add(url);
-    const cf =
-      (normalizeSitemapChangeFrequency(p.sitemapChangeFrequency) as ChangeFreq | undefined) ??
-      "monthly";
-    const pr =
-      p.sitemapPriority != null && Number.isFinite(p.sitemapPriority)
-        ? clampPriority(p.sitemapPriority, pageDefaultPriority)
-        : pageDefaultPriority;
-    entries.push({
-      url,
-      lastModified: p.updatedAt,
-      changeFrequency: cf,
-      priority: pr,
-    });
-  }
+    const entries: MetadataRoute.Sitemap = [];
+    if (home) {
+      entries.push({
+        url: pageUrlForSitemap(base, "home", home.canonicalPath),
+        lastModified: home.updatedAt,
+        changeFrequency: homeCf,
+        priority: homePr,
+      });
+    }
 
-  for (const ex of extras) {
-    const url = extraPathToSitemapUrl(base, ex.path);
-    if (!url || seen.has(url)) continue;
-    seen.add(url);
-    const cf =
-      (normalizeSitemapChangeFrequency(ex.changeFrequency) as ChangeFreq | undefined) ?? "monthly";
-    const pr =
-      ex.priority != null && Number.isFinite(ex.priority)
-        ? clampPriority(ex.priority, pageDefaultPriority)
-        : pageDefaultPriority;
-    entries.push({
-      url,
-      lastModified: new Date(),
-      changeFrequency: cf,
-      priority: pr,
-    });
-  }
+    const seen = new Set(entries.map((e) => e.url));
+
+    for (const p of pages) {
+      if (p.slug === "home") continue;
+      const url = pageUrlForSitemap(base, p.slug, p.canonicalPath);
+      if (seen.has(url)) continue;
+      seen.add(url);
+      const cf =
+        (normalizeSitemapChangeFrequency(p.sitemapChangeFrequency) as ChangeFreq | undefined) ?? "monthly";
+      const pr =
+        p.sitemapPriority != null && Number.isFinite(p.sitemapPriority)
+          ? clampPriority(p.sitemapPriority, pageDefaultPriority)
+          : pageDefaultPriority;
+      entries.push({
+        url,
+        lastModified: p.updatedAt,
+        changeFrequency: cf,
+        priority: pr,
+      });
+    }
+
+    for (const ex of extras) {
+      const url = extraPathToSitemapUrl(base, ex.path);
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      const cf =
+        (normalizeSitemapChangeFrequency(ex.changeFrequency) as ChangeFreq | undefined) ?? "monthly";
+      const pr =
+        ex.priority != null && Number.isFinite(ex.priority)
+          ? clampPriority(ex.priority, pageDefaultPriority)
+          : pageDefaultPriority;
+      entries.push({
+        url,
+        lastModified: new Date(),
+        changeFrequency: cf,
+        priority: pr,
+      });
+    }
 
     return entries;
   } catch (e) {
     console.error("sitemap generation", e);
+    const base = await resolvePublicSiteUrl();
     return [
       {
         url: `${base}/`,

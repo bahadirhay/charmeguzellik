@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
+import { resolveCanonicalPublicBaseUrl } from "@/lib/public-site-url";
 import { getSiteSettingsForTenant } from "@/lib/site-settings";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { normalizeSitemapChangeFrequency, sitemapExtrasArraySchema } from "@/lib/sitemap-config";
@@ -24,6 +25,7 @@ export async function GET() {
   const auth = await requireStaffApiPerm("content.sitemap");
   if (auth instanceof NextResponse) return auth;
   const tenantId = await getTenantIdForRequest();
+  const siteUrl = await resolveCanonicalPublicBaseUrl(tenantId);
 
   const settings = await getSiteSettingsForTenant(tenantId);
 
@@ -44,7 +46,7 @@ export async function GET() {
   });
 
   return NextResponse.json({
-    siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+    siteUrl,
     sitemapHomePriority: settings.sitemapHomePriority,
     sitemapPagePriority: settings.sitemapPagePriority,
     sitemapExtrasJson: settings.sitemapExtrasJson,
@@ -124,6 +126,7 @@ export async function PUT(req: Request) {
     }
 
     const settings = await getSiteSettingsForTenant(tenantId);
+    const siteUrl = await resolveCanonicalPublicBaseUrl(tenantId);
 
     const pages = await prisma.page.findMany({
       where: { tenantId },
@@ -142,7 +145,7 @@ export async function PUT(req: Request) {
     });
 
     return NextResponse.json({
-      siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+      siteUrl,
       sitemapHomePriority: settings.sitemapHomePriority,
       sitemapPagePriority: settings.sitemapPagePriority,
       sitemapExtrasJson: settings.sitemapExtrasJson,

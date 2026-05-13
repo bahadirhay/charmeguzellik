@@ -144,9 +144,11 @@ export function SitemapAdminClient() {
           <a className="text-rose-600 underline" href={robotsHref} target="_blank" rel="noreferrer">
             robots.txt
           </a>{" "}
-          bu adresi işaret eder. Üretimde kök URL için{" "}
+          bu adresi işaret eder. Çok kiracılı kurulumda URL kökü bu sitenin{" "}
+          <strong>TenantDomain</strong> kayıtlarından (birincil alan adı) veya istekteki Host ile eşleşen alan adından
+          üretilir; yalnızca yedek olarak{" "}
           <code className="rounded bg-zinc-100 px-1 text-xs dark:bg-zinc-800">NEXT_PUBLIC_SITE_URL</code>{" "}
-          ayarlayın.
+          kullanılır.
         </p>
       </div>
 

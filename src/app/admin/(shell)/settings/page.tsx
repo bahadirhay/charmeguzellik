@@ -15,10 +15,10 @@ export default async function SettingsPage() {
       <div>
         <h1 className="text-2xl font-semibold">Ayarlar & SEO</h1>
         <p className="text-sm text-zinc-500">
-          Üretimde{" "}
-          <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">NEXT_PUBLIC_SITE_URL</code>{" "}
-          mutlaka canlı alan adınız olsun — örn. <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">https://charmeguzellik.com</code> (Vercel
-          alt alanı değil). Böylece randevu iptal bağlantıları ve sitemap doğru domain ile üretilir. Hangi sayfaların{" "}
+          <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-900">NEXT_PUBLIC_SITE_URL</code> üretimde tanımlı
+          olmalı (yedek / cron / Host olmayan bağlamlar). Sitemap ve robots kök URL’si çok kiracılı kurulumda öncelikle
+          bu sitenin veritabanındaki alan adı (TenantDomain) ve istek host’u ile üretilir. Randevu iptal bağlantıları
+          için de canlı kök tercih edilir. Hangi sayfaların{" "}
           <a className="text-rose-600 underline" href="/admin/sitemap">
             sitemap.xml
           </a>{" "}
