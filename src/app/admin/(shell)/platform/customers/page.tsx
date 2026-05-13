@@ -4,6 +4,7 @@ import { requirePagePermission } from "@/lib/auth";
 import { redirectUnlessPlatformProvisioner } from "@/lib/platform-provision-auth";
 import { platformControlTenantId } from "@/lib/platform-control-tenant";
 import { isAppointmentsModuleEnabled, isCommerceModuleEnabled } from "@/lib/tenant-features";
+import { moduleUnlockConfigured, parseModuleUnlockHashes } from "@/lib/tenant-module-unlock";
 
 export const dynamic = "force-dynamic";
 
@@ -20,17 +21,22 @@ export default async function PlatformCustomersPage() {
     },
   });
 
-  const rows: TenantListRow[] = tenants.map((t) => ({
-    id: t.id,
-    slug: t.slug,
-    name: t.name,
-    status: t.status,
-    isPlatformTenant: platformId !== null && t.id === platformId,
-    appointmentsEnabled: isAppointmentsModuleEnabled(t.featuresJson),
-    commerceEnabled: isCommerceModuleEnabled(t.featuresJson),
-    pageCount: t._count.pages,
-    hosts: t.domains.map((d) => ({ host: d.host, primary: d.isPrimary })),
-  }));
+  const rows: TenantListRow[] = tenants.map((t) => {
+    const hashes = parseModuleUnlockHashes(t.moduleUnlockHashes);
+    return {
+      id: t.id,
+      slug: t.slug,
+      name: t.name,
+      status: t.status,
+      isPlatformTenant: platformId !== null && t.id === platformId,
+      appointmentsEnabled: isAppointmentsModuleEnabled(t.featuresJson),
+      commerceEnabled: isCommerceModuleEnabled(t.featuresJson),
+      appointmentsKeyProvisioned: moduleUnlockConfigured(hashes, "appointments"),
+      commerceKeyProvisioned: moduleUnlockConfigured(hashes, "commerce"),
+      pageCount: t._count.pages,
+      hosts: t.domains.map((d) => ({ host: d.host, primary: d.isPrimary })),
+    };
+  });
 
   return <PlatformCustomersClient initialTenants={rows} platformTenantId={platformId} />;
 }

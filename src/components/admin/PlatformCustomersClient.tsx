@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ModuleUnlockDialog } from "@/components/admin/ModuleUnlockDialog";
 
 export type TenantListRow = {
   id: string;
@@ -11,6 +12,8 @@ export type TenantListRow = {
   isPlatformTenant: boolean;
   appointmentsEnabled: boolean;
   commerceEnabled: boolean;
+  appointmentsKeyProvisioned: boolean;
+  commerceKeyProvisioned: boolean;
   pageCount: number;
   hosts: Array<{ host: string; primary: boolean }>;
 };
@@ -35,8 +38,96 @@ export function PlatformCustomersClient({
   const [adminPass, setAdminPass] = useState("");
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const [unlockTarget, setUnlockTarget] = useState<null | { tenantId: string; kind: "commerce" | "appointments" }>(
+    null,
+  );
+  const [unlockBusy, setUnlockBusy] = useState(false);
 
   const sorted = useMemo(() => [...rows].sort((a, b) => a.slug.localeCompare(b.slug)), [rows]);
+
+  async function patchPlatformFeatures(tenantId: string, body: Record<string, unknown>) {
+    const res = await fetch(`/api/admin/platform/tenants/${tenantId}/features`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body),
+    });
+    const j = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) {
+      return { ok: false as const, msg: j.error ?? `Özellik güncellenemedi (${res.status})` };
+    }
+    return { ok: true as const };
+  }
+
+  async function ensureTenantModuleKeys(tenantId: string) {
+    setFeatureBusyId(tenantId);
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/admin/platform/tenants/${tenantId}/module-unlock-keys`, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        newTokens?: Partial<Record<"commerce" | "appointments", string>>;
+        message?: string;
+      };
+      if (!res.ok) {
+        setFeedback({ ok: false, text: j.error ?? `Anahtar oluşturulamadı (${res.status})` });
+        return;
+      }
+      const nt = j.newTokens ?? {};
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === tenantId
+            ? {
+                ...r,
+                commerceKeyProvisioned: r.commerceKeyProvisioned || Boolean(nt.commerce),
+                appointmentsKeyProvisioned: r.appointmentsKeyProvisioned || Boolean(nt.appointments),
+              }
+            : r,
+        ),
+      );
+      const lines: string[] = [j.message ?? "Tamam."];
+      if (nt.commerce) lines.push(`commerce: ${nt.commerce}`);
+      if (nt.appointments) lines.push(`appointments: ${nt.appointments}`);
+      setFeedback({ ok: true, text: lines.join(" ") });
+      router.refresh();
+    } finally {
+      setFeatureBusyId(null);
+    }
+  }
+
+  async function submitPlatformUnlock(token: string) {
+    if (!unlockTarget) return;
+    const { tenantId, kind } = unlockTarget;
+    setUnlockBusy(true);
+    setFeatureBusyId(tenantId);
+    setFeedback(null);
+    try {
+      const body =
+        kind === "commerce"
+          ? { commerceEnabled: true, commerceUnlockToken: token }
+          : { appointmentsEnabled: true, appointmentsUnlockToken: token };
+      const r = await patchPlatformFeatures(tenantId, body);
+      if (!r.ok) {
+        setFeedback({ ok: false, text: r.msg });
+        return;
+      }
+      setRows((prev) =>
+        prev.map((row) => {
+          if (row.id !== tenantId) return row;
+          return kind === "commerce" ? { ...row, commerceEnabled: true } : { ...row, appointmentsEnabled: true };
+        }),
+      );
+      setFeedback({ ok: true, text: kind === "commerce" ? "Ticaret modülü açıldı." : "Randevu modülü açıldı." });
+      setUnlockTarget(null);
+      router.refresh();
+    } finally {
+      setUnlockBusy(false);
+      setFeatureBusyId(null);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -66,14 +157,28 @@ export function PlatformCustomersClient({
         ok?: boolean;
         error?: string;
         adminBootstrapNote?: string;
+        moduleUnlockTokens?: Partial<Record<"commerce" | "appointments", string>>;
+        moduleUnlockNote?: string;
       };
       if (!res.ok) {
         setFeedback({ ok: false, text: j.error ?? `Hata (${res.status})` });
         return;
       }
+      const tokenLines: string[] = [];
+      if (j.moduleUnlockTokens) {
+        if (j.moduleUnlockTokens.commerce) tokenLines.push(`commerce: ${j.moduleUnlockTokens.commerce}`);
+        if (j.moduleUnlockTokens.appointments) tokenLines.push(`appointments: ${j.moduleUnlockTokens.appointments}`);
+      }
       setFeedback({
         ok: true,
-        text: ["Kiracı oluşturuldu.", j.adminBootstrapNote].filter(Boolean).join(" "),
+        text: [
+          "Kiracı oluşturuldu.",
+          j.adminBootstrapNote,
+          j.moduleUnlockNote,
+          tokenLines.length ? `Anahtarlar (bir kez): ${tokenLines.join(" | ")}` : null,
+        ]
+          .filter(Boolean)
+          .join(" "),
       });
       setSlug("");
       setName("");
@@ -90,45 +195,59 @@ export function PlatformCustomersClient({
   }
 
   async function setTenantAppointmentsEnabled(tenantId: string, next: boolean) {
+    if (next) return;
     setFeatureBusyId(tenantId);
     try {
-      const res = await fetch(`/api/admin/platform/tenants/${tenantId}/features`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ appointmentsEnabled: next }),
-      });
-      const j = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        setFeedback({ ok: false, text: j.error ?? `Özellik güncellenemedi (${res.status})` });
+      const r = await patchPlatformFeatures(tenantId, { appointmentsEnabled: false });
+      if (!r.ok) {
+        setFeedback({ ok: false, text: r.msg });
         return;
       }
-      setRows((prev) => prev.map((r) => (r.id === tenantId ? { ...r, appointmentsEnabled: next } : r)));
-      setFeedback({ ok: true, text: next ? "Randevu modülü açıldı." : "Randevu modülü kapatıldı." });
+      setRows((prev) => prev.map((row) => (row.id === tenantId ? { ...row, appointmentsEnabled: false } : row)));
+      setFeedback({ ok: true, text: "Randevu modülü kapatıldı." });
+      router.refresh();
     } finally {
       setFeatureBusyId(null);
     }
   }
 
   async function setTenantCommerceEnabled(tenantId: string, next: boolean) {
+    if (next) return;
     setFeatureBusyId(tenantId);
     try {
-      const res = await fetch(`/api/admin/platform/tenants/${tenantId}/features`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ commerceEnabled: next }),
-      });
-      const j = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        setFeedback({ ok: false, text: j.error ?? `Özellik güncellenemedi (${res.status})` });
+      const r = await patchPlatformFeatures(tenantId, { commerceEnabled: false });
+      if (!r.ok) {
+        setFeedback({ ok: false, text: r.msg });
         return;
       }
-      setRows((prev) => prev.map((r) => (r.id === tenantId ? { ...r, commerceEnabled: next } : r)));
-      setFeedback({ ok: true, text: next ? "Ticaret modülü açıldı." : "Ticaret modülü kapatıldı." });
+      setRows((prev) => prev.map((row) => (row.id === tenantId ? { ...row, commerceEnabled: false } : row)));
+      setFeedback({ ok: true, text: "Ticaret modülü kapatıldı." });
+      router.refresh();
     } finally {
       setFeatureBusyId(null);
     }
+  }
+
+  function beginEnableAppointments(t: TenantListRow) {
+    if (!t.appointmentsKeyProvisioned) {
+      setFeedback({
+        ok: false,
+        text: "Bu kiracı için randevu anahtarı yok. Önce «Anahtar» ile güvenlik anahtarları oluşturun.",
+      });
+      return;
+    }
+    setUnlockTarget({ tenantId: t.id, kind: "appointments" });
+  }
+
+  function beginEnableCommerce(t: TenantListRow) {
+    if (!t.commerceKeyProvisioned) {
+      setFeedback({
+        ok: false,
+        text: "Bu kiracı için ticaret anahtarı yok. Önce «Anahtar» ile güvenlik anahtarları oluşturun.",
+      });
+      return;
+    }
+    setUnlockTarget({ tenantId: t.id, kind: "commerce" });
   }
 
   return (
@@ -258,6 +377,7 @@ export function PlatformCustomersClient({
                 <th className="px-3 py-2 font-medium">Alan adları</th>
                 <th className="px-3 py-2 font-medium">Randevu</th>
                 <th className="px-3 py-2 font-medium">Ticaret</th>
+                <th className="px-3 py-2 font-medium">Anahtarlar</th>
                 <th className="px-3 py-2 font-medium">Sayfa</th>
                 <th className="px-3 py-2 font-medium">Not</th>
               </tr>
@@ -294,10 +414,16 @@ export function PlatformCustomersClient({
                           type="checkbox"
                           checked={t.appointmentsEnabled}
                           disabled={featureBusyId === t.id}
-                          onChange={(e) => void setTenantAppointmentsEnabled(t.id, e.target.checked)}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            if (!on) void setTenantAppointmentsEnabled(t.id, false);
+                            else beginEnableAppointments(t);
+                          }}
                           className="rounded border-zinc-400"
                         />
-                        <span className="text-zinc-500">{featureBusyId === t.id ? "…" : t.appointmentsEnabled ? "açık" : "kapalı"}</span>
+                        <span className="text-zinc-500">
+                          {featureBusyId === t.id ? "…" : t.appointmentsEnabled ? "açık" : "kapalı"}
+                        </span>
                       </label>
                     )}
                   </td>
@@ -310,11 +436,31 @@ export function PlatformCustomersClient({
                           type="checkbox"
                           checked={t.commerceEnabled}
                           disabled={featureBusyId === t.id}
-                          onChange={(e) => void setTenantCommerceEnabled(t.id, e.target.checked)}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            if (!on) void setTenantCommerceEnabled(t.id, false);
+                            else beginEnableCommerce(t);
+                          }}
                           className="rounded border-zinc-400"
                         />
-                        <span className="text-zinc-500">{featureBusyId === t.id ? "…" : t.commerceEnabled ? "açık" : "kapalı"}</span>
+                        <span className="text-zinc-500">
+                          {featureBusyId === t.id ? "…" : t.commerceEnabled ? "açık" : "kapalı"}
+                        </span>
                       </label>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-xs">
+                    {t.isPlatformTenant ? (
+                      <span className="text-zinc-400">—</span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={featureBusyId === t.id}
+                        onClick={() => void ensureTenantModuleKeys(t.id)}
+                        className="rounded border border-zinc-300 px-2 py-1 text-[11px] font-medium hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:hover:bg-zinc-800"
+                      >
+                        Anahtar
+                      </button>
                     )}
                   </td>
                   <td className="px-3 py-2">{t.pageCount}</td>
@@ -331,6 +477,14 @@ export function PlatformCustomersClient({
           </table>
         </div>
       </section>
+
+      <ModuleUnlockDialog
+        open={unlockTarget !== null}
+        kind={unlockTarget?.kind ?? "commerce"}
+        busy={unlockBusy}
+        onClose={() => setUnlockTarget(null)}
+        onSubmit={(tok) => void submitPlatformUnlock(tok)}
+      />
     </div>
   );
 }

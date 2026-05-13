@@ -47,6 +47,10 @@ function printOzeti() {
     "",
     "5) Canlı adresi tarayıcıda aç → /admin ile giriş → bir sayfa randevu/ayar dene.",
     "",
+    "6) Modül güvenlik anahtarları (moduleUnlockHashes): migration sonrası eski kiracılarda kolon NULL olabilir;",
+    "   şu an açık modüller çalışır. Modülü kapatıp tekrar açmak için önce panelde «Güvenlik anahtarları oluştur» gerekir.",
+    "   Üretim DB özeti: DATABASE_URL tanımlı iken: node scripts/check-tenant-module-unlock-keys.mjs",
+    "",
     "Yerelde TipScript hatası aldıysan: npx prisma generate",
   ]);
 }
@@ -76,17 +80,18 @@ if (!kisaOnly) {
     "Alan boş (null) ise varsayılan: randevu AÇIK (eski siteler bozulmaz).",
   ]);
 
-  printSection("2) Normal kullanım (müşteri paneli)", [
+  printSection("2) Site modülleri (randevu / ticaret)", [
     "1. Müşteri alan adından admin panele girin (ör. https://musteri.com/admin).",
-    "2. Sol menü: «Genel ayarlar & SEO» (site.settings yetkisi gerekir).",
-    "3. Formun üstünde «Randevu modülü» kutusu → «Randevu özellikleri aktif» işaretini açın/kapatın.",
-    "4. Checkbox değişince kayıt sunucuya gider; menü güncellenmesi için sayfa yenilenir.",
+    "2. Sol menü: «Ayarlar & SEO» → «Modüller» (site.modules yetkisi; yönetici).",
+    "3. Modülü kapatmak: işareti kaldırmak yeterli.",
+    "4. Modülü açmak: önce «Güvenlik anahtarları oluştur» ile Tenant.moduleUnlockHashes doldurulur (düz anahtar bir kez",
+    "   gösterilir → GitHub Secret vb. saklayın); sonra açarken o anahtar istenir.",
   ]);
 
   printSection("3) Platform yöneticisi (siz — birden fazla müşteri sitesi)", [
     "PLATFORM_CONTROL_TENANT_ID ile tanımlı kiracıda panele girip «Müşteri siteleri» görürsünüz.",
-    "Yeni kiracı oluştururken: «Randevu modülünü başlangıçta aç» kutusu işaretliyse varsayılan açık oluşur.",
-    "Liste tablosunda her müşteri için «Randevu» sütunundan aç/kapa yapılır.",
+    "Yeni kiracı oluştururken: başlangıç modül işaretleri + oluşturma yanıtındaki güvenlik anahtarlarını (varsa) kaydedin.",
+    "Listede modül açmak için anahtar gerekir; «Anahtar» ile eksik hash üretilir. Kapatmak için işaret yeterli.",
   ]);
 
   printSection("4) Yerel/script ile kiracı oluşturma", [
@@ -105,7 +110,11 @@ if (!kisaOnly) {
     "   veya bu script ile:",
     "   $env:DATABASE_URL=\"postgresql://...\"; node scripts/canli-gecis.mjs --migrate",
     "C) Vercel / hosting ortamında NEXT_PUBLIC_SITE_URL canlı https adresiniz olsun.",
-    "D) Build zaten prisma generate içeriyor; yine de sorun olursa: npx prisma generate",
+  printSection("6) Eski kiracılar — modül açma anahtarı (moduleUnlockHashes)", [
+    "Migration sonrası kolon boş kalabilir; açık modüller mevcut davranışla çalışır.",
+    "Özet (üretim DATABASE_URL):  node scripts/check-tenant-module-unlock-keys.mjs",
+    "Uyarıları hata saymak için:  ... aynı komut --strict",
+    "Release pipeline içinde:  npm run release:check -- --tenant-module-keys  (ve isteğe bağlı --tenant-keys-strict)",
   ]);
 }
 
@@ -129,6 +138,9 @@ if (doMigrate) {
     process.exit(r.status ?? 1);
   }
   process.stdout.write("\n[OK] Migration uygulandı.\n");
+  process.stdout.write(
+    "[İpucu] Kiracı modül anahtarı özeti (eski veriler): node scripts/check-tenant-module-unlock-keys.mjs\n",
+  );
 } else if (!kisaOnly) {
   process.stdout.write(
     "\nİpucu: Üretim veritabanına migration uygulamak için:\n" +

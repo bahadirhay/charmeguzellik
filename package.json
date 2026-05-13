@@ -31,6 +31,8 @@
     "canli:adimlar": "node scripts/canli-gecis.mjs --kisa",
     "canli:rehber": "node scripts/canli-gecis.mjs",
     "canli:migrate": "node scripts/canli-gecis.mjs --migrate",
+    "check:tenant-module-keys": "node scripts/check-tenant-module-unlock-keys.mjs",
+    "check:tenant-module-keys:strict": "node scripts/check-tenant-module-unlock-keys.mjs --strict",
     "release:check": "node scripts/release-check.mjs",
     "smoke:live": "node scripts/smoke-live.mjs",
     "release:prod": "npm run release:check && npm run smoke:live",

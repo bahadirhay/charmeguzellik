@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { StaffUserDeleteDialog } from "@/components/admin/StaffUserDeleteDialog";
 
 type RoleRow = { id: string; slug: string; label: string; permissionsJson: string };
 type UserRow = {
@@ -22,8 +23,20 @@ function defaultRoleIdsForNewUser(roles: RoleRow[]): string[] {
 export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRow[]; users: UserRow[] }) {
   const router = useRouter();
   const [users, setUsers] = useState(initialUsers);
+  const [personelTab, setPersonelTab] = useState<"active" | "passive">("active");
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const activeUsers = useMemo(() => users.filter((u) => u.active), [users]);
+  const passiveUsers = useMemo(() => users.filter((u) => !u.active), [users]);
+  const transferCandidates = useMemo(
+    () =>
+      users
+        .filter((u) => u.active && u.id !== deleteUserId)
+        .map((u) => ({ id: u.id, username: u.username, displayName: u.displayName })),
+    [users, deleteUserId],
+  );
+
   const initialPick = useMemo(() => defaultRoleIdsForNewUser(roles), [roles]);
   const [nu, setNu] = useState({
     username: "",
@@ -112,9 +125,11 @@ export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRo
           değişkeniyle giriş tam yetkilidir.
         </p>
         <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          <strong>Silme yok.</strong> İşten ayrılan için <strong>Aktif</strong> kutusunu kapatın: giriş yapamaz,
-          randevu <strong>Personel planlama</strong> seçim listesinde görünmez; geçmiş randevulardaki atama
-          metni ve kayıtlar veritabanında kalır. Bu tabloda pasif personeli yalnızca buradan yönetenler görür.
+          İşten ayrılan için <strong>Aktif</strong> kutusunu kapatın: giriş yapamaz, randevu{" "}
+          <strong>Personel planlama</strong> listesinde görünmez. Pasif personel ayrı sekmede listelenir. Kaydı tamamen
+          kaldırmak için <strong>Pasif personel</strong> sekmesinden <strong>Kalıcı sil</strong>: randevu ataması, tema
+          personel eşlemesi ve kasa/prim bağlantıları önce seçtiğiniz aktif personele aktarılır (özet diyalogda
+          görülür); bağlantı yoksa doğrudan silinir.
         </p>
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-500">
           Kiracı <code className="rounded bg-zinc-100 px-1 dark:bg-zinc-800">Tenant.featuresJson</code>: randevu
@@ -132,6 +147,31 @@ export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRo
       {msg ? <p className="text-sm text-emerald-700 dark:text-emerald-400">{msg}</p> : null}
       {err ? <p className="text-sm text-red-600">{err}</p> : null}
 
+      <div className="flex flex-wrap gap-2 border-b border-zinc-200 pb-2 dark:border-zinc-800">
+        <button
+          type="button"
+          onClick={() => setPersonelTab("active")}
+          className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+            personelTab === "active"
+              ? "bg-rose-600 text-white"
+              : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+          }`}
+        >
+          Aktif personel ({activeUsers.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setPersonelTab("passive")}
+          className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+            personelTab === "passive"
+              ? "bg-rose-600 text-white"
+              : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+          }`}
+        >
+          Pasif personel ({passiveUsers.length})
+        </button>
+      </div>
+
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-zinc-200 bg-zinc-50 text-xs uppercase text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950">
@@ -140,25 +180,26 @@ export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRo
               <th className="min-w-[200px] px-3 py-2">Roller</th>
               <th className="px-3 py-2">Aktif</th>
               <th className="px-3 py-2">Şifre</th>
+              {personelTab === "passive" ? <th className="px-3 py-2">İşlem</th> : null}
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
-              <tr
-                key={u.id}
-                className={
-                  u.active
-                    ? "border-b border-zinc-100 dark:border-zinc-800"
-                    : "border-b border-zinc-100 bg-zinc-50/90 text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/50 dark:text-zinc-400"
-                }
-              >
+            {(personelTab === "active" ? activeUsers : passiveUsers).length === 0 ? (
+              <tr>
+                <td
+                  colSpan={personelTab === "passive" ? 5 : 4}
+                  className="px-3 py-8 text-center text-sm text-zinc-500"
+                >
+                  {personelTab === "active"
+                    ? "Aktif personel kaydı yok."
+                    : "Pasif personel yok. İşten çıkan için «Aktif» kutusunu kaldırın."}
+                </td>
+              </tr>
+            ) : (
+              (personelTab === "active" ? activeUsers : passiveUsers).map((u) => (
+              <tr key={u.id} className="border-b border-zinc-100 dark:border-zinc-800">
                 <td className="px-3 py-2 align-top">
                   <span className="font-mono font-medium">{u.username}</span>
-                  {!u.active ? (
-                    <span className="ml-2 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-medium uppercase text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">
-                      Pasif
-                    </span>
-                  ) : null}
                   {u.displayName ? <div className="text-xs text-zinc-500">{u.displayName}</div> : null}
                 </td>
                 <td className="px-3 py-2 align-top">
@@ -192,11 +233,42 @@ export function StaffAdminClient({ roles, users: initialUsers }: { roles: RoleRo
                 <td className="px-3 py-2 align-top">
                   <UserPasswordReset userId={u.id} onDone={refresh} onError={setErr} onOk={setMsg} />
                 </td>
+                {personelTab === "passive" ? (
+                  <td className="px-3 py-2 align-top">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErr(null);
+                        setDeleteUserId(u.id);
+                      }}
+                      className="rounded border border-red-300 bg-white px-2 py-1 text-[11px] font-medium text-red-700 hover:bg-red-50 dark:border-red-900 dark:bg-zinc-950 dark:text-red-300 dark:hover:bg-red-950/40"
+                    >
+                      Kalıcı sil…
+                    </button>
+                  </td>
+                ) : null}
               </tr>
-            ))}
+            ))
+            )}
           </tbody>
         </table>
       </div>
+      {personelTab === "active" && passiveUsers.length > 0 ? (
+        <p className="text-xs text-zinc-500">
+          {passiveUsers.length} pasif kayıt — <button type="button" className="text-rose-600 underline" onClick={() => setPersonelTab("passive")}>Pasif personel</button> sekmesinden yönetin.
+        </p>
+      ) : null}
+
+      <StaffUserDeleteDialog
+        open={deleteUserId !== null}
+        userId={deleteUserId}
+        candidates={transferCandidates}
+        onClose={() => setDeleteUserId(null)}
+        onDone={async () => {
+          setMsg("Kullanıcı silindi.");
+          await refresh();
+        }}
+      />
 
       <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-800 dark:bg-zinc-900/40">
         <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Yeni kullanıcı</h2>

@@ -17,6 +17,8 @@ model Tenant {
   status                 String              @default("active")
   /// Modül bayrakları: randevu varsayılan açık; ticaret yalnızca { "commerce": true } ile açık seçilir.
   featuresJson           Json?
+  /// Randevu/ticaret modülünü açma anahtarlarının bcrypt hash’leri — düz metin saklanmaz.
+  moduleUnlockHashes     Json?
   createdAt              DateTime            @default(now())
   updatedAt              DateTime            @updatedAt
   domains                TenantDomain[]

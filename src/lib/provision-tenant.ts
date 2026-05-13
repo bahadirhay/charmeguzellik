@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { DEFAULT_TENANT_ID_SEED, DEFAULT_TENANT_SLUG } from "@/lib/tenant-default";
 import type { TenantFeaturesJson } from "@/lib/tenant-features";
 import { ensureDefaultStaffRoles } from "@/lib/staff-roles-defaults";
+import { ensureTenantModuleUnlockKeys } from "@/lib/tenant-module-unlock";
 import { parseThemeTokens, themeTokensToJson } from "@/lib/theme-tokens";
 
 export type ProvisionTenantParams = {
@@ -21,6 +22,8 @@ export type ProvisionTenantResult = {
   tenantId: string;
   slug: string;
   host: string;
+  /** Yalnızca yeni üretilen düz anahtarlar; bir kez kopyalanıp GitHub Secret vb. saklanmalı. */
+  moduleUnlockTokens?: Partial<Record<"commerce" | "appointments", string>>;
 };
 
 export class ProvisionConflictError extends Error {
@@ -271,5 +274,12 @@ export async function provisionTenant(
     }
   }
 
-  return { tenantId: tenant.id, slug: tenant.slug, host };
+  const moduleUnlockTokens = await ensureTenantModuleUnlockKeys(prisma, tenant.id);
+
+  return {
+    tenantId: tenant.id,
+    slug: tenant.slug,
+    host,
+    ...(Object.keys(moduleUnlockTokens).length > 0 ? { moduleUnlockTokens } : {}),
+  };
 }

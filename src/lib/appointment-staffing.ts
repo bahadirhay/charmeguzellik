@@ -11,6 +11,10 @@ function normalizeText(v: string): string {
   return v.trim().toLocaleLowerCase("tr-TR");
 }
 
+export function appointmentStaffLabelsEqual(a: string, b: string): boolean {
+  return normalizeText(a) === normalizeText(b);
+}
+
 function serviceKey(serviceName: string | null | undefined): string {
   return normalizeText(serviceName ?? "");
 }
@@ -35,6 +39,22 @@ export function withAssignedStaffInNotes(notes: string | null | undefined, staff
     : body;
   if (!staffName?.trim()) return clean || null;
   return `${STAFF_MARKER_PREFIX}${staffName.trim()}${STAFF_MARKER_SUFFIX}${clean ? `\n${clean}` : ""}`;
+}
+
+/** Randevu notlarındaki [[STAFF:…]] atamasını başka personele taşır; eşleşme yoksa metni olduğu gibi döner. */
+export function reassignAssignedStaffInNotes(
+  notes: string | null | undefined,
+  fromStaffLabel: string,
+  toStaffLabel: string,
+): string | null {
+  const cur = parseAssignedStaffFromNotes(notes);
+  if (!cur?.trim()) return notes ?? null;
+  if (!appointmentStaffLabelsEqual(cur, fromStaffLabel)) return notes ?? null;
+  const body = (notes ?? "").trim();
+  const clean = body.startsWith(STAFF_MARKER_PREFIX)
+    ? body.slice((body.indexOf(STAFF_MARKER_SUFFIX) + STAFF_MARKER_SUFFIX.length) || 0).trim()
+    : body;
+  return withAssignedStaffInNotes(clean || null, toStaffLabel);
 }
 
 export type ServiceStaffMap = Record<string, string[]>;

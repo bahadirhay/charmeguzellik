@@ -6,6 +6,7 @@ import { denyUnlessPlatformProvisioner } from "@/lib/platform-provision-auth";
 import { platformControlTenantId } from "@/lib/platform-control-tenant";
 import { ProvisionConflictError, provisionTenant } from "@/lib/provision-tenant";
 import { isAppointmentsModuleEnabled, isCommerceModuleEnabled } from "@/lib/tenant-features";
+import { moduleUnlockConfigured, parseModuleUnlockHashes } from "@/lib/tenant-module-unlock";
 
 const postSchema = z.object({
   slug: z.string().min(2).max(64),
@@ -37,17 +38,22 @@ export async function GET(_req: Request) {
 
   const platformId = platformControlTenantId();
   return NextResponse.json({
-    tenants: tenants.map((t) => ({
-      id: t.id,
-      slug: t.slug,
-      name: t.name,
-      status: t.status,
-      isPlatformTenant: platformId !== null && t.id === platformId,
-      appointmentsEnabled: isAppointmentsModuleEnabled(t.featuresJson),
-      commerceEnabled: isCommerceModuleEnabled(t.featuresJson),
-      pageCount: t._count.pages,
-      hosts: t.domains.map((d) => ({ host: d.host, primary: d.isPrimary })),
-    })),
+    tenants: tenants.map((t) => {
+      const hashes = parseModuleUnlockHashes(t.moduleUnlockHashes);
+      return {
+        id: t.id,
+        slug: t.slug,
+        name: t.name,
+        status: t.status,
+        isPlatformTenant: platformId !== null && t.id === platformId,
+        appointmentsEnabled: isAppointmentsModuleEnabled(t.featuresJson),
+        commerceEnabled: isCommerceModuleEnabled(t.featuresJson),
+        appointmentsKeyProvisioned: moduleUnlockConfigured(hashes, "appointments"),
+        commerceKeyProvisioned: moduleUnlockConfigured(hashes, "commerce"),
+        pageCount: t._count.pages,
+        hosts: t.domains.map((d) => ({ host: d.host, primary: d.isPrimary })),
+      };
+    }),
     platformTenantId: platformId,
   });
 }
@@ -106,6 +112,13 @@ export async function POST(req: Request) {
       slug: r.slug,
       host: r.host,
       adminBootstrapNote,
+      ...(r.moduleUnlockTokens && Object.keys(r.moduleUnlockTokens).length > 0
+        ? {
+            moduleUnlockTokens: r.moduleUnlockTokens,
+            moduleUnlockNote:
+              "Modül güvenlik anahtarları yalnızca bu yanıtta görünür. GitHub repository / Actions secret olarak saklayın (ör. TENANT_<SLUG>_COMMERCE_UNLOCK).",
+          }
+        : {}),
     });
   } catch (e) {
     if (e instanceof ProvisionConflictError) {

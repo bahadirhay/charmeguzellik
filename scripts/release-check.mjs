@@ -59,4 +59,28 @@ if (!skipBuild) {
   if (build.code !== 0) fail("Build basarisiz.");
 }
 
+const runTenantKeyCheck =
+  process.argv.includes("--tenant-module-keys") || process.argv.includes("--tenant-keys-strict");
+const tenantKeysStrict = process.argv.includes("--tenant-keys-strict");
+if (runTenantKeyCheck) {
+  process.stdout.write("[release-check] Kiraci modul anahtari kontrolu...\n");
+  const url = process.env.DATABASE_URL?.trim();
+  if (!url) {
+    if (tenantKeysStrict) {
+      fail("--tenant-keys-strict icin DATABASE_URL ortam degiskeni gerekli.");
+    }
+    process.stdout.write("[release-check] DATABASE_URL yok; kiraci anahtar kontrolu atlandi.\n");
+  } else {
+    const args = ["scripts/check-tenant-module-unlock-keys.mjs"];
+    if (tenantKeysStrict) args.push("--strict");
+    const k = run("node", args, { stdio: "inherit" });
+    if (k.code !== 0) fail("Kiraci modul anahtari kontrolu basarisiz.");
+  }
+}
+
 process.stdout.write("\n[release-check] OK: yayin oncesi kontroller basarili.\n");
+if (!runTenantKeyCheck) {
+  process.stdout.write(
+    "[release-check] Istege bagli: uretim DATABASE_URL ile kiraci anahtari ozeti -> npm run release:check -- --tenant-module-keys\n",
+  );
+}
