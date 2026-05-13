@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import type { PageBlock } from "@/lib/blocks/schema";
 import { toVideoIframeSrc } from "@/lib/video-embed";
@@ -13,6 +12,7 @@ import { TestimonialCarousel } from "@/components/site/TestimonialCarousel";
 import { ImageGalleryBlock } from "@/components/site/ImageGalleryBlock";
 import { MarketingFooterBlock } from "@/components/site/MarketingFooterBlock";
 import { PublicSiteMenu } from "@/components/site/PublicSiteMenu";
+import { TextBlockView } from "@/components/site/TextBlockView";
 import { getPublishedNavTree } from "@/lib/navigation";
 import { getSiteSettings } from "@/lib/site-settings";
 import { resolveWaDigits } from "@/lib/whatsapp-url";
@@ -201,22 +201,13 @@ function BlockView({
       );
     }
     case "text": {
-      const align = block.props.align ?? "left";
-      const alignCls =
-        align === "center" ? "text-center" : align === "right" ? "text-right" : "text-left";
-      const c = block.props.content;
-      const as = block.props.as ?? "p";
-      const wrap = (child: ReactNode) => (
-        <section
-          className={`prose prose-zinc dark:prose-invert mx-auto w-full max-w-3xl ${alignCls}`}
-        >
-          {child}
-        </section>
+      return (
+        <TextBlockView
+          content={block.props.content}
+          as={block.props.as ?? "p"}
+          align={block.props.align ?? "left"}
+        />
       );
-      if (as === "h1") return wrap(<h1 className="whitespace-pre-wrap">{c}</h1>);
-      if (as === "h2") return wrap(<h2 className="whitespace-pre-wrap">{c}</h2>);
-      if (as === "h3") return wrap(<h3 className="whitespace-pre-wrap">{c}</h3>);
-      return wrap(<p className="whitespace-pre-wrap">{c}</p>);
     }
     case "button": {
       const v = block.props.variant ?? "primary";

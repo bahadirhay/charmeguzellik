@@ -532,7 +532,7 @@ const PALETTE: PaletteItem[] = [
     factory: () => ({
       id: nanoid(),
       type: "text",
-      props: { content: "Paragraf metni", as: "p", align: "left" },
+      props: { content: "", as: "p", align: "left" },
     }),
   },
   {
