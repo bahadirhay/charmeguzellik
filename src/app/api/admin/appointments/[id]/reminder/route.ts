@@ -8,11 +8,10 @@ import { buildAppointmentCancelUrl } from "@/lib/site-public-url";
 import { getSiteSettings } from "@/lib/site-settings";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
 import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
+import { APPOINTMENT_REMINDER_NOTE_PREFIX } from "@/lib/appointment-reminder";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
 type Ctx = { params: Promise<{ id: string }> };
-
-const REMINDER_NOTE_PREFIX = "Teyit hatırlatması gönderildi:";
 
 export async function POST(req: Request, ctx: Ctx) {
   const auth = await requireStaffApiAppointments();
@@ -39,7 +38,7 @@ export async function POST(req: Request, ctx: Ctx) {
       cancelCodeLast4: sec.codeLast4,
       cancelTokenHash: sec.tokenHash,
       cancelTokenExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 36),
-      notes: [row.notes, `${REMINDER_NOTE_PREFIX} ${auth.username} (${new Date().toLocaleString("tr-TR")})`]
+      notes: [row.notes, `${APPOINTMENT_REMINDER_NOTE_PREFIX} ${auth.username} (${new Date().toLocaleString("tr-TR")})`]
         .filter(Boolean)
         .join("\n"),
     },

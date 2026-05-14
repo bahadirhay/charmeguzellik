@@ -8,8 +8,7 @@ import { getSiteSettings } from "@/lib/site-settings";
 import { sendTransactionalEmail } from "@/lib/transactional-email";
 import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
-
-const REMINDER_NOTE_PREFIX = "Teyit hatırlatması gönderildi:";
+import { APPOINTMENT_REMINDER_NOTE_PREFIX, appointmentReminderCronWindowFromReferenceMs } from "@/lib/appointment-reminder";
 
 function hasValidCronSecret(req: Request): boolean {
   const required = process.env.APPOINTMENT_REMINDER_CRON_SECRET?.trim();
@@ -33,9 +32,7 @@ export async function POST(req: Request) {
     if (auth instanceof NextResponse) return auth;
   }
 
-  const now = Date.now();
-  const from = new Date(now + 23 * 60 * 60 * 1000);
-  const to = new Date(now + 25 * 60 * 60 * 1000);
+  const { from, to } = appointmentReminderCronWindowFromReferenceMs();
   const settings = await getSiteSettings();
   const siteName = settings.siteName?.trim() || "Salon";
   const rows = await prisma.appointment.findMany({
@@ -52,7 +49,7 @@ export async function POST(req: Request) {
   let skipped = 0;
   const errors: Array<{ id: string; error: string }> = [];
   for (const row of rows) {
-    if ((row.notes ?? "").includes(REMINDER_NOTE_PREFIX)) {
+    if ((row.notes ?? "").includes(APPOINTMENT_REMINDER_NOTE_PREFIX)) {
       skipped += 1;
       continue;
     }
@@ -65,7 +62,7 @@ export async function POST(req: Request) {
           cancelCodeLast4: sec.codeLast4,
           cancelTokenHash: sec.tokenHash,
           cancelTokenExpiresAt: new Date(Date.now() + 1000 * 60 * 60 * 36),
-          notes: [row.notes, `${REMINDER_NOTE_PREFIX} ${new Date().toLocaleString("tr-TR")}`].filter(Boolean).join("\n"),
+          notes: [row.notes, `${APPOINTMENT_REMINDER_NOTE_PREFIX} ${new Date().toLocaleString("tr-TR")}`].filter(Boolean).join("\n"),
         },
       });
       const link = buildAppointmentCancelUrl(sec.token, req);

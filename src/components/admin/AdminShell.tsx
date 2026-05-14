@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LogoutButton } from "@/components/admin/LogoutButton";
-import { hasStaffPermission } from "@/lib/staff-permissions";
+import { ADMIN_REPORT_PERMISSION_KEYS } from "@/lib/admin-reports-gate";
+import { hasAnyStaffPermission, hasStaffPermission } from "@/lib/staff-permissions";
 
 type NavItem = { href: string; label: string; perm: string | null; platformOnly?: boolean };
 
@@ -11,6 +12,7 @@ const TOP_NAV: NavItem[] = [
   { href: "/admin/crm", label: "CRM", perm: "crm.leads" },
   { href: "/admin/appointments", label: "Randevular", perm: "crm.appointments" },
   { href: "/admin/commerce", label: "Ticaret", perm: "commerce.manage" },
+  { href: "/admin/rapor", label: "Rapor", perm: "users.manage" },
 ];
 
 const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
@@ -68,6 +70,9 @@ function itemVisible(
   }
   if (!opts.commerceModuleEnabled && item.href === "/admin/commerce") {
     return false;
+  }
+  if (item.href === "/admin/rapor") {
+    return hasAnyStaffPermission(permissions, [...ADMIN_REPORT_PERMISSION_KEYS]);
   }
   if (!item.perm) return true;
   if (item.href === "/admin/crm") {

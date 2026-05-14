@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { AdminAppointmentFocusFromQuery } from "@/components/admin/AdminAppointmentFocusFromQuery";
 import { AdminAppointmentPushBanner } from "@/components/admin/AdminAppointmentPushBanner";
 import { AdminWhatsAppButton } from "@/components/admin/AdminWhatsAppButton";
 import { AppointmentForm } from "@/components/admin/AppointmentForm";
@@ -15,18 +17,18 @@ import { prisma } from "@/lib/prisma";
 import { getSiteSettingsForTenant } from "@/lib/site-settings";
 import { requireAppointmentModulePage } from "@/lib/require-appointment-module-page";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
+import { APPOINTMENT_REMINDER_NOTE_PREFIX, appointmentReminderCronWindowFromReferenceMs } from "@/lib/appointment-reminder";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 type AppointmentsPageProps = {
-  searchParams?: Promise<{ view?: string }>;
+  searchParams?: Promise<{ view?: string; appt?: string }>;
 };
 
 const CUSTOMER_RESCHEDULE_NOTE_PREFIX = "Müşteri takvim güncelledi (bağlantı):";
 const CUSTOMER_CANCEL_REQUEST_NOTE_PREFIX = "Müşteri iptal etti (bağlantı):";
 const PANEL_CANCEL_NOTE_PREFIX = "Panel iptal onayı:";
-const REMINDER_NOTE_PREFIX = "Teyit hatırlatması gönderildi:";
 const APPOINTMENT_TZ = "Europe/Istanbul";
 
 function formatAppointmentDateTime(d: Date): string {
@@ -56,10 +58,10 @@ function parseLastReminderInfo(notes: string | null | undefined): string | null 
   const lines = raw
     .split("\n")
     .map((x) => x.trim())
-    .filter((x) => x.startsWith(REMINDER_NOTE_PREFIX));
+    .filter((x) => x.startsWith(APPOINTMENT_REMINDER_NOTE_PREFIX));
   const last = lines.length > 0 ? lines[lines.length - 1] : null;
   if (!last) return null;
-  const value = last.slice(REMINDER_NOTE_PREFIX.length).trim();
+  const value = last.slice(APPOINTMENT_REMINDER_NOTE_PREFIX.length).trim();
   return value || null;
 }
 
@@ -94,8 +96,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
     params.view === "rescheduled" || params.view === "cancel_link"
       ? params.view
       : "all";
-  const reminderWindowStart = new Date(Date.now() + 23 * 60 * 60 * 1000);
-  const reminderWindowEnd = new Date(Date.now() + 25 * 60 * 60 * 1000);
+  const { from: reminderWindowStart, to: reminderWindowEnd } = appointmentReminderCronWindowFromReferenceMs();
   const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const [
     allRows,
@@ -220,6 +221,9 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
   );
   return (
     <div className="min-w-0 max-w-full space-y-8">
+      <Suspense fallback={null}>
+        <AdminAppointmentFocusFromQuery />
+      </Suspense>
       <header className="min-w-0">
         <h1 className="text-2xl font-semibold tracking-tight">Randevular</h1>
         {appointmentScope === "self" ? (
@@ -340,7 +344,7 @@ export default async function AppointmentsPage({ searchParams }: AppointmentsPag
           </thead>
           <tbody>
             {activeRows.map((r) => (
-              <tr key={r.id} className="border-b border-zinc-100 dark:border-zinc-800">
+              <tr key={r.id} data-admin-appt-id={r.id} className="border-b border-zinc-100 dark:border-zinc-800">
                 <td className="px-3 py-2 whitespace-nowrap">
                   {formatAppointmentDateTime(r.startAt)}
                 </td>
