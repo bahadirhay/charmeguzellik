@@ -170,8 +170,9 @@ export function AppointmentForm({
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const form = e.currentTarget;
     setFeedback(null);
-    const fd = new FormData(e.currentTarget);
+    const fd = new FormData(form);
     const name = String(fd.get("clientName") ?? "").trim();
     const phone = String(fd.get("clientPhone") ?? "").trim();
     const date = String(fd.get("apptDate") ?? "").trim();
@@ -238,7 +239,7 @@ export function AppointmentForm({
     });
     if (res.ok) {
       setFeedback({ text: "Randevu eklendi", error: false });
-      e.currentTarget.reset();
+      form.reset();
       setApptDate("");
       setApptTime("");
       setServiceNameValue("");

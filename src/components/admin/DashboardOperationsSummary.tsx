@@ -32,7 +32,16 @@ export type DashboardStaffWorkRow = {
   month: DashboardStaffPeriod;
 };
 
+export type DashboardKpiStrip = {
+  appointmentsToday: number;
+  pendingApprovals: number;
+  totalCustomers: number;
+  dailyRevenueMinor: number;
+};
+
 export type DashboardOperationsSummaryProps = {
+  /** Üst şerit — sade özet kartları */
+  kpi?: DashboardKpiStrip | null;
   appointments:
     | null
     | {
@@ -69,6 +78,35 @@ export type DashboardOperationsSummaryProps = {
   /** Rapor sayfasına gidebilecek yetkiler (ör. randevu + kasa yöneticileri) */
   showReportsLink?: boolean;
 };
+
+function KpiCard({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  accent?: "rose" | "amber" | "sky" | "emerald";
+}) {
+  const accentBar = {
+    rose: "bg-rose-500",
+    amber: "bg-amber-500",
+    sky: "bg-sky-500",
+    emerald: "bg-emerald-500",
+  }[accent ?? "rose"];
+  return (
+    <div
+      className="relative overflow-hidden rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"
+    >
+      <div className={`absolute left-0 top-0 h-1 w-full ${accentBar}`} />
+      <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{label}</p>
+      <p className="mt-2 text-3xl font-bold tabular-nums tracking-tight text-zinc-900 dark:text-zinc-50">{value}</p>
+      {sub ? <p className="mt-1 text-xs text-zinc-500">{sub}</p> : null}
+    </div>
+  );
+}
 
 function StatTile({
   label,
@@ -133,6 +171,7 @@ function StaffPeriodMini({
 }
 
 export function DashboardOperationsSummary({
+  kpi,
   appointments,
   commerce,
   staffWork,
@@ -141,7 +180,24 @@ export function DashboardOperationsSummary({
   const showSecondary = Boolean(commerce || staffWork);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {kpi ? (
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiCard label="Bugünkü randevular" value={kpi.appointmentsToday} accent="rose" />
+          <KpiCard label="Bekleyen onaylar" value={kpi.pendingApprovals} accent="amber" />
+          <KpiCard
+            label="Kayıtlı müşteri"
+            value={kpi.totalCustomers.toLocaleString("tr-TR")}
+            accent="sky"
+          />
+          <KpiCard
+            label="Günlük kasa"
+            value={formatTryMinor(kpi.dailyRevenueMinor)}
+            sub="Randevu + paket tahsilatları"
+            accent="emerald"
+          />
+        </section>
+      ) : null}
       {appointments ? (
         <section className="overflow-hidden rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-600 via-rose-700 to-rose-900 shadow-lg dark:border-rose-900/40 dark:from-rose-950 dark:via-rose-950 dark:to-zinc-950">
           <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">

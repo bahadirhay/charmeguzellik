@@ -1,6 +1,16 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import type { DashboardWeekDayColumn, DashboardWeekAppointmentRow } from "@/components/admin/DashboardOperationsSummary";
-import { DashboardOperationsSummary } from "@/components/admin/DashboardOperationsSummary";
+import { DashboardDesktopSummary } from "@/components/admin/dashboard/DashboardDesktopSummary";
+import { DashboardMobileSummary } from "@/components/admin/dashboard/DashboardMobileSummary";
+import type { DashboardOverduePendingItem, DashboardUpcomingItem } from "@/components/admin/dashboard/types";
+import {
+  daysOverdueFromStart,
+  fetchOverduePendingAppointments,
+  latestOverdueReviewNoteByAppointment,
+  syncOverduePendingEvents,
+} from "@/lib/appointment-overdue-pending";
+import { isMobileUserAgent } from "@/lib/is-mobile-user-agent";
 import { filterAppointmentsForSelfScope, resolveAppointmentPanelScope } from "@/lib/appointment-panel-access";
 import {
   appointmentStaffLabelsEqual,
@@ -19,13 +29,15 @@ import {
 } from "@/lib/istanbul-day-bounds";
 import { prisma, withPrismaEngine } from "@/lib/prisma";
 import { isAppointmentsModuleEnabled, isCommerceModuleEnabled } from "@/lib/tenant-features";
-import { getTenantIdForRequest } from "@/lib/tenant-db";
+import { getTenantForRequest, getTenantIdForRequest } from "@/lib/tenant-db";
 import { requireStaffPage } from "@/lib/auth";
 import { canAccessAdminReports } from "@/lib/admin-reports-gate";
 import { hasStaffPermission } from "@/lib/staff-permissions";
 
 export const dynamic = "force-dynamic";
 
+/** Randevu takvimi aktif listesi ile aynı (cancel_request ve checked_in dahil değil). */
+const APPT_ACTIVE_LIST_STATUSES = ["pending", "approved", "confirmed"] as const;
 const APPT_CALENDAR_STATUSES = ["pending", "approved", "confirmed", "cancel_request", "checked_in"] as const;
 const WEEK_PANEL_STATUSES = ["approved", "confirmed"] as const;
 const MAX_APPOINTMENTS_PER_DAY_COLUMN = 6;
@@ -116,6 +128,47 @@ function buildWeekStrip(
   return { rangeHint, days };
 }
 
+async function buildOverduePendingItems(
+  tenantId: string,
+  rows: Awaited<ReturnType<typeof fetchOverduePendingAppointments>>,
+  nowUtc: Date,
+): Promise<DashboardOverduePendingItem[]> {
+  const reviewNotes = await latestOverdueReviewNoteByAppointment(
+    prisma,
+    tenantId,
+    rows.map((r) => r.id),
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    label: formatRemindItemLabel(r),
+    daysOverdue: daysOverdueFromStart(r.startAt, nowUtc),
+    reviewNote: reviewNotes.get(r.id) ?? null,
+  }));
+}
+
+function mapUpcomingToday(
+  rows: Array<{
+    id: string;
+    startAt: Date;
+    clientName: string;
+    serviceName: string | null;
+    status: string;
+  }>,
+): DashboardUpcomingItem[] {
+  const timeFmt = new Intl.DateTimeFormat("tr-TR", {
+    timeZone: ISTANBUL_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    timeLabel: timeFmt.format(r.startAt),
+    clientName: r.clientName,
+    serviceName: r.serviceName?.trim() || "Randevu",
+    status: r.status,
+  }));
+}
+
 export default async function AdminDashboardPage({ searchParams }: Props) {
   const qp = await Promise.resolve(searchParams ?? {});
   const forbiddenKey = firstSearchParam(qp.forbidden);
@@ -123,8 +176,13 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
   const p = access.permissions;
   const { scope: apptScope, selfStaffLabel } = resolveAppointmentPanelScope(access);
   const t = await getTenantIdForRequest();
+  const tenantRow = await getTenantForRequest();
+  const tenantLabel = tenantRow?.slug?.trim() || tenantRow?.name?.trim() || t;
+  const hdrs = await headers();
+  const isMobileLayout = isMobileUserAgent(hdrs.get("user-agent"));
+  const greetingName = access.staffDisplayName?.trim() || access.username;
 
-  const { summaryAppointments, summaryCommerce, summaryStaffWork } = await withPrismaEngine(async () => {
+  const { summaryAppointments, summaryCommerce, summaryStaffWork, summaryKpi } = await withPrismaEngine(async () => {
     const tenantRow = await prisma.tenant.findUnique({ where: { id: t }, select: { featuresJson: true } });
     const appointmentsModuleEnabledInner = isAppointmentsModuleEnabled(tenantRow?.featuresJson);
     const commerceModuleEnabledInner = isCommerceModuleEnabled(tenantRow?.featuresJson);
@@ -152,7 +210,7 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
     const toRemindCutoffUtc = istanbulDayUtcRange(yRemind).startUtc;
 
     let summaryAppointmentsInner: {
-      pending: number;
+      pendingActionable: number;
       today: number;
       todayLabel: string;
       toRemind: number;
@@ -160,18 +218,36 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
       completedToday: number;
       completedThisWeek: number;
       weekStrip: { rangeHint: string; days: DashboardWeekDayColumn[] };
+      overduePending: DashboardOverduePendingItem[];
+      upcomingToday: DashboardUpcomingItem[];
+      todayPending: number;
+      todayCancelRequests: number;
     } | null = null;
+
+    const nowUtc = new Date();
 
     if (
       appointmentsModuleEnabledInner &&
       (hasStaffPermission(p, "crm.appointments") || hasStaffPermission(p, "crm.appointments.self"))
     ) {
+      await syncOverduePendingEvents(prisma, t, nowUtc);
+
+      const upcomingTodaySelect = {
+        id: true,
+        startAt: true,
+        clientName: true,
+        serviceName: true,
+        status: true,
+        notes: true,
+      } as const;
+
       if (apptScope === "self") {
         const pendingRows = await prisma.appointment.findMany({
           where: { tenantId: t, status: "pending" },
-          select: { notes: true },
+          select: { notes: true, startAt: true },
         });
-        const pending = filterAppointmentsForSelfScope(pendingRows, selfStaffLabel).length;
+        const pendingScoped = filterAppointmentsForSelfScope(pendingRows, selfStaffLabel);
+        const pendingActionable = pendingScoped.filter((r) => r.startAt >= nowUtc).length;
 
         const panelWeekRows = await prisma.appointment.findMany({
           where: {
@@ -189,7 +265,6 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
           orderBy: { startAt: "asc" },
         });
         const panelScoped = filterAppointmentsForSelfScope(panelWeekRows, selfStaffLabel);
-        const today = panelScoped.filter((r) => r.startAt >= dayStart && r.startAt < dayEnd).length;
         const weekStrip = buildWeekStrip(
           mondayYmd,
           todayYmd,
@@ -238,8 +313,33 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
         });
         const completedToday = filterAppointmentsForSelfScope(doneTodayRows, selfStaffLabel).length;
 
+        const overdueRaw = await fetchOverduePendingAppointments(prisma, t, nowUtc);
+        const overdueScoped = filterAppointmentsForSelfScope(overdueRaw, selfStaffLabel);
+        const overduePending = await buildOverduePendingItems(t, overdueScoped, nowUtc);
+
+        const upcomingRaw = await prisma.appointment.findMany({
+          where: {
+            tenantId: t,
+            startAt: { gte: dayStart, lt: dayEnd },
+            status: { in: [...APPT_ACTIVE_LIST_STATUSES] },
+          },
+          select: upcomingTodaySelect,
+          orderBy: { startAt: "asc" },
+          take: 12,
+        });
+        const upcomingScoped = filterAppointmentsForSelfScope(upcomingRaw, selfStaffLabel);
+        const todayCancelRequests = await prisma.appointment.count({
+          where: {
+            tenantId: t,
+            startAt: { gte: dayStart, lt: dayEnd },
+            status: "cancel_request",
+          },
+        });
+        const today = upcomingScoped.length;
+        const todayPending = upcomingScoped.filter((r) => r.status === "pending").length;
+
         summaryAppointmentsInner = {
-          pending,
+          pendingActionable,
           today,
           todayLabel: todayLabelPretty,
           toRemind,
@@ -247,6 +347,10 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
           completedToday,
           completedThisWeek,
           weekStrip,
+          overduePending,
+          upcomingToday: mapUpcomingToday(upcomingScoped),
+          todayPending,
+          todayCancelRequests,
         };
       } else if (hasStaffPermission(p, "crm.appointments")) {
         const panelWeekRows = await prisma.appointment.findMany({
@@ -265,13 +369,24 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
         });
         const weekStrip = buildWeekStrip(mondayYmd, todayYmd, panelWeekRows);
 
-        const [pending, today, remindRows, completedToday, completedThisWeek] = await Promise.all([
-          prisma.appointment.count({ where: { tenantId: t, status: "pending" } }),
+        const [pendingRows, todayActiveCount, todayCancelRequests, remindRows, completedToday, completedThisWeek, overdueRaw, upcomingRaw] =
+          await Promise.all([
+          prisma.appointment.findMany({
+            where: { tenantId: t, status: "pending" },
+            select: { startAt: true },
+          }),
           prisma.appointment.count({
             where: {
               tenantId: t,
               startAt: { gte: dayStart, lt: dayEnd },
-              status: { in: [...APPT_CALENDAR_STATUSES] },
+              status: { in: [...APPT_ACTIVE_LIST_STATUSES] },
+            },
+          }),
+          prisma.appointment.count({
+            where: {
+              tenantId: t,
+              startAt: { gte: dayStart, lt: dayEnd },
+              status: "cancel_request",
             },
           }),
           prisma.appointment.findMany({
@@ -302,21 +417,39 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
               startAt: { gte: isoWeekStart, lt: isoWeekEnd },
             },
           }),
+          fetchOverduePendingAppointments(prisma, t, nowUtc),
+          prisma.appointment.findMany({
+            where: {
+              tenantId: t,
+              startAt: { gte: dayStart, lt: dayEnd },
+              status: { in: [...APPT_ACTIVE_LIST_STATUSES] },
+            },
+            select: upcomingTodaySelect,
+            orderBy: { startAt: "asc" },
+            take: 12,
+          }),
         ]);
+        const pendingActionable = pendingRows.filter((r) => r.startAt >= nowUtc).length;
+        const overduePending = await buildOverduePendingItems(t, overdueRaw, nowUtc);
+        const todayPending = upcomingRaw.filter((r) => r.status === "pending").length;
         const toRemindItems = remindRows.map((r) => ({
           id: r.id,
           label: formatRemindItemLabel(r),
         }));
         const toRemind = remindRows.length;
         summaryAppointmentsInner = {
-          pending,
-          today,
+          pendingActionable,
+          today: todayActiveCount,
           todayLabel: todayLabelPretty,
           toRemind,
           toRemindItems,
           completedToday,
           completedThisWeek,
           weekStrip,
+          overduePending,
+          upcomingToday: mapUpcomingToday(upcomingRaw),
+          todayPending,
+          todayCancelRequests,
         };
       }
     }
@@ -485,18 +618,90 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
       summaryStaffWorkInner = { totals, byStaff };
     }
 
+    let summaryKpiInner: {
+      appointmentsToday: number;
+      pendingApprovals: number;
+      overduePending: number;
+      totalCustomers: number;
+      dailyRevenueMinor: number;
+      monthRevenueMinor: number;
+    } | null = null;
+
+    const showKpi =
+      summaryAppointmentsInner != null ||
+      summaryCommerceInner != null ||
+      (appointmentsModuleEnabledInner &&
+        (hasStaffPermission(p, "crm.appointments") || hasStaffPermission(p, "crm.appointments.self")));
+
+    if (showKpi) {
+      const overdueFallback =
+        summaryAppointmentsInner != null
+          ? summaryAppointmentsInner.overduePending.length
+          : appointmentsModuleEnabledInner &&
+              (hasStaffPermission(p, "crm.appointments") || hasStaffPermission(p, "crm.appointments.self"))
+            ? (
+                await prisma.appointment.count({
+                  where: { tenantId: t, status: "pending", startAt: { lt: nowUtc } },
+                })
+              )
+            : 0;
+
+      const [pendingApprovals, appointmentsToday, totalCustomers, dailyRevenueAgg] = await Promise.all([
+        summaryAppointmentsInner != null
+          ? Promise.resolve(summaryAppointmentsInner.pendingActionable)
+          : appointmentsModuleEnabledInner &&
+              (hasStaffPermission(p, "crm.appointments") || hasStaffPermission(p, "crm.appointments.self"))
+            ? prisma.appointment.count({
+                where: { tenantId: t, status: "pending", startAt: { gte: nowUtc } },
+              })
+            : Promise.resolve(0),
+        summaryAppointmentsInner != null
+          ? Promise.resolve(summaryAppointmentsInner.today)
+          : appointmentsModuleEnabledInner &&
+              (hasStaffPermission(p, "crm.appointments") || hasStaffPermission(p, "crm.appointments.self"))
+            ? prisma.appointment.count({
+                where: {
+                  tenantId: t,
+                  startAt: { gte: dayStart, lt: dayEnd },
+                  status: { in: [...APPT_ACTIVE_LIST_STATUSES] },
+                },
+              })
+            : Promise.resolve(0),
+        hasStaffPermission(p, "crm.leads") || hasStaffPermission(p, "crm.appointments")
+          ? prisma.crmContact.count({ where: { tenantId: t } })
+          : Promise.resolve(0),
+        canCommerce
+          ? prisma.commerceCashReceipt.aggregate({
+              where: { tenantId: t, occurredAt: { gte: dayStart, lt: dayEnd } },
+              _sum: { amountMinor: true },
+            })
+          : Promise.resolve({ _sum: { amountMinor: 0 } }),
+      ]);
+      summaryKpiInner = {
+        appointmentsToday,
+        pendingApprovals,
+        overduePending: overdueFallback,
+        totalCustomers,
+        dailyRevenueMinor: dailyRevenueAgg._sum.amountMinor ?? 0,
+        monthRevenueMinor: summaryCommerceInner?.month.sumMinor ?? 0,
+      };
+    }
+
     return {
       summaryAppointments: summaryAppointmentsInner,
       summaryCommerce: summaryCommerceInner,
       summaryStaffWork: summaryStaffWorkInner,
+      summaryKpi: summaryKpiInner,
     };
   });
 
+  const todayLabelHeader = summaryAppointments?.todayLabel ?? "";
+
   return (
     <div className="space-y-8">
-      <div>
+      {!isMobileLayout ? (
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">Özet</h1>
-      </div>
+      ) : null}
       {forbiddenKey ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
           {forbiddenKey === "appointment_module"
@@ -504,12 +709,31 @@ export default async function AdminDashboardPage({ searchParams }: Props) {
             : "Bu bölüme erişim yetkiniz yok. Sol menüden size açık olan sayfaları kullanın."}
         </p>
       ) : null}
-      <DashboardOperationsSummary
-        appointments={summaryAppointments}
-        commerce={summaryCommerce}
-        staffWork={summaryStaffWork}
-        showReportsLink={canAccessAdminReports(p)}
-      />
+      <p className="text-xs text-zinc-500">
+        Aktif salon: <span className="font-medium text-zinc-700 dark:text-zinc-300">{tenantLabel}</span>
+        {process.env.NODE_ENV === "development" ? (
+          <span className="text-zinc-400"> · kiracı id: {t.slice(0, 12)}…</span>
+        ) : null}
+      </p>
+      {isMobileLayout ? (
+        <DashboardMobileSummary
+          greetingName={greetingName}
+          todayLabel={todayLabelHeader}
+          kpi={summaryKpi}
+          appointments={summaryAppointments}
+          commerce={summaryCommerce}
+        />
+      ) : (
+        <DashboardDesktopSummary
+          greetingName={greetingName}
+          todayLabel={todayLabelHeader}
+          kpi={summaryKpi}
+          appointments={summaryAppointments}
+          commerce={summaryCommerce}
+          staffWork={summaryStaffWork}
+          showReportsLink={canAccessAdminReports(p)}
+        />
+      )}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {hasStaffPermission(p, "social.instagram") ? (
           <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">

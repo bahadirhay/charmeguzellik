@@ -26,6 +26,8 @@ import { buildAppointmentCancelUrl } from "@/lib/site-public-url";
 import { notifyTelegramAppointmentAction } from "@/lib/appointment-telegram-notify";
 import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
+import { isAppointmentOverduePending, logOverduePendingReview } from "@/lib/appointment-overdue-pending";
+import { logPanelStatusDecision, type PanelDecisionOutcome } from "@/lib/appointment-panel-events";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -78,9 +80,11 @@ export async function PATCH(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Geçersiz JSON" }, { status: 400 });
   }
 
-  const statusRaw = typeof body.status === "string" ? body.status.trim().toLowerCase() : "";
+    const statusRaw = typeof body.status === "string" ? body.status.trim().toLowerCase() : "";
+    const overdueReviewNote =
+      typeof body.overdueReviewNote === "string" ? body.overdueReviewNote.trim() : "";
 
-  if (statusRaw) {
+    if (statusRaw) {
     if (!DECISIONS.has(statusRaw)) {
       return NextResponse.json(
         { error: "status: approved | rejected | cancelled | cancel_request | checked_in | no_show olmalı" },
@@ -136,6 +140,8 @@ export async function PATCH(req: Request, ctx: Ctx) {
       }
     }
 
+    const wasOverdue = existing.status === "pending" && isAppointmentOverduePending(existing.startAt);
+
     let updated = await prisma.appointment.update({
       where: { id },
       data:
@@ -155,6 +161,28 @@ export async function PATCH(req: Request, ctx: Ctx) {
               }
           : { status: statusRaw },
     });
+
+    const decisionTypes = new Set(["approved", "rejected", "cancelled", "cancel_request", "checked_in", "no_show"]);
+    if (decisionTypes.has(statusRaw)) {
+      await logPanelStatusDecision(prisma, {
+        tenantId,
+        appointmentId: id,
+        actor: auth.username,
+        fromStatus: appStatus,
+        toStatus: statusRaw as PanelDecisionOutcome,
+        wasOverdue,
+        reviewNote: overdueReviewNote || null,
+      });
+      if (wasOverdue && overdueReviewNote) {
+        await logOverduePendingReview(prisma, {
+          tenantId,
+          appointmentId: id,
+          actor: auth.username,
+          reviewNote: overdueReviewNote,
+          resolution: statusRaw,
+        });
+      }
+    }
 
     if (statusRaw === "cancelled") {
       try {

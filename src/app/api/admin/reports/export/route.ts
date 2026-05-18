@@ -10,6 +10,12 @@ import { istanbulDayUtcRange } from "@/lib/istanbul-day-bounds";
 import { prisma } from "@/lib/prisma";
 import { hasStaffPermission } from "@/lib/staff-permissions";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
+import {
+  APPOINTMENT_EVENT_PANEL_DECISION,
+  APPOINTMENT_EVENT_PENDING_OVERDUE,
+  APPOINTMENT_EVENT_PENDING_OVERDUE_REVIEW,
+} from "@/lib/appointment-panel-events";
+import { daysOverdueFromStart, isAppointmentOverduePending } from "@/lib/appointment-overdue-pending";
 
 function csvCell(v: string | number | null | undefined): string {
   const s = v == null ? "" : String(v);
@@ -50,6 +56,8 @@ const EXPORT_TYPES = [
   "cash_day_closes",
   "leads",
   "staff_users",
+  "overdue_pending",
+  "approval_audit",
 ] as const;
 
 type ExportType = (typeof EXPORT_TYPES)[number];
@@ -645,6 +653,199 @@ export async function GET(req: Request) {
       );
     }
     return csvAttachment(lines.join("\n"), `personel-kullanicilar-${fromYmd}.csv`);
+  }
+
+  if (type === "overdue_pending") {
+    const denied = await denyIfAppointmentsDisabled(req);
+    if (denied) return denied;
+    if (!canApptExport) return NextResponse.json({ error: "Yetkisiz" }, { status: 403 });
+    const now = new Date();
+    const rowsRaw = await prisma.appointment.findMany({
+      where: {
+        tenantId,
+        status: "pending",
+        startAt: { gte: fromUtc, lt: toExclusive },
+      },
+      select: {
+        id: true,
+        startAt: true,
+        createdAt: true,
+        clientName: true,
+        clientPhone: true,
+        serviceName: true,
+        notes: true,
+      },
+      orderBy: { startAt: "asc" },
+      take: 50_000,
+    });
+    const rows = filterApptNotesRows(rowsRaw).filter((r) => isAppointmentOverduePending(r.startAt, now));
+    const ids = rows.map((r) => r.id);
+    const events =
+      ids.length > 0
+        ? await prisma.appointmentEvent.findMany({
+            where: {
+              tenantId,
+              appointmentId: { in: ids },
+              eventType: {
+                in: [
+                  APPOINTMENT_EVENT_PENDING_OVERDUE,
+                  APPOINTMENT_EVENT_PENDING_OVERDUE_REVIEW,
+                  APPOINTMENT_EVENT_PANEL_DECISION,
+                ],
+              },
+            },
+            orderBy: { createdAt: "desc" },
+            select: { appointmentId: true, eventType: true, outcome: true, actor: true, createdAt: true, detailsJson: true },
+          })
+        : [];
+    const eventsByAppt = new Map<string, typeof events>();
+    for (const ev of events) {
+      const list = eventsByAppt.get(ev.appointmentId) ?? [];
+      list.push(ev);
+      eventsByAppt.set(ev.appointmentId, list);
+    }
+    const header = [
+      "appointmentId",
+      "startAt",
+      "createdAt",
+      "daysOverdue",
+      "clientName",
+      "clientPhone",
+      "serviceName",
+      "whyUnapproved",
+      "lastReviewNote",
+      "lastPanelAction",
+      "lastActor",
+    ];
+    const lines = [header.join(",")];
+    for (const r of rows) {
+      const evs = eventsByAppt.get(r.id) ?? [];
+      const overdueEv = evs.find((e) => e.eventType === APPOINTMENT_EVENT_PENDING_OVERDUE);
+      const reviewEv = evs.find((e) => e.eventType === APPOINTMENT_EVENT_PENDING_OVERDUE_REVIEW);
+      const panelEv = evs.find((e) => e.eventType === APPOINTMENT_EVENT_PANEL_DECISION);
+      let lastReviewNote = "";
+      for (const ev of [reviewEv, panelEv]) {
+        if (!ev?.detailsJson) continue;
+        try {
+          const d = JSON.parse(ev.detailsJson) as { reviewNote?: string };
+          if (d.reviewNote?.trim()) {
+            lastReviewNote = d.reviewNote.trim();
+            break;
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      const why =
+        lastReviewNote ||
+        (overdueEv ? "Panel kararı verilmeden randevu saati geçti" : "Onay bekliyor (geçmiş tarih)");
+      lines.push(
+        [
+          csvCell(r.id),
+          csvCell(r.startAt.toISOString()),
+          csvCell(r.createdAt.toISOString()),
+          csvCell(daysOverdueFromStart(r.startAt, now)),
+          csvCell(r.clientName),
+          csvCell(r.clientPhone),
+          csvCell(r.serviceName),
+          csvCell(why),
+          csvCell(lastReviewNote),
+          csvCell(panelEv?.outcome ?? ""),
+          csvCell(panelEv?.actor ?? reviewEv?.actor ?? ""),
+        ].join(","),
+      );
+    }
+    return csvAttachment(lines.join("\n"), `gecikmis-onay-bekleyen-${fromYmd}_${toYmd}.csv`);
+  }
+
+  if (type === "approval_audit") {
+    const denied = await denyIfAppointmentsDisabled(req);
+    if (denied) return denied;
+    if (!canApptExport) return NextResponse.json({ error: "Yetkisiz" }, { status: 403 });
+    const rowsRaw = await prisma.appointmentEvent.findMany({
+      where: {
+        tenantId,
+        createdAt: { gte: fromUtc, lt: toExclusive },
+        eventType: {
+          in: [
+            APPOINTMENT_EVENT_PENDING_OVERDUE,
+            APPOINTMENT_EVENT_PENDING_OVERDUE_REVIEW,
+            APPOINTMENT_EVENT_PANEL_DECISION,
+          ],
+        },
+      },
+      include: {
+        appointment: { select: { id: true, clientName: true, startAt: true, notes: true, status: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50_000,
+    });
+    const rows =
+      apptScope === "self" && selfStaffLabel?.trim()
+        ? rowsRaw.filter(
+            (r) =>
+              r.appointment &&
+              notesAssignedStaffMatchesLabel(r.appointment.notes, selfStaffLabel),
+          )
+        : rowsRaw;
+    const header = [
+      "eventId",
+      "createdAt",
+      "eventType",
+      "outcome",
+      "actor",
+      "channel",
+      "appointmentId",
+      "appointmentStartAt",
+      "appointmentStatus",
+      "clientName",
+      "reviewNote",
+      "wasOverdue",
+      "fromStatus",
+    ];
+    const lines = [header.join(",")];
+    for (const r of rows) {
+      let reviewNote = "";
+      let wasOverdue = "";
+      let fromStatus = "";
+      if (r.detailsJson) {
+        try {
+          const d = JSON.parse(r.detailsJson) as {
+            reviewNote?: string;
+            wasOverdue?: boolean;
+            fromStatus?: string;
+            reason?: string;
+          };
+          reviewNote = d.reviewNote?.trim() ?? "";
+          if (d.wasOverdue === true) wasOverdue = "1";
+          if (d.wasOverdue === false) wasOverdue = "0";
+          fromStatus = d.fromStatus ?? "";
+          if (!reviewNote && d.reason === "panel_no_decision_before_start") {
+            reviewNote = "Panel kararı verilmeden randevu saati geçti";
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+      lines.push(
+        [
+          csvCell(r.id),
+          csvCell(r.createdAt.toISOString()),
+          csvCell(r.eventType),
+          csvCell(r.outcome),
+          csvCell(r.actor),
+          csvCell(r.channel),
+          csvCell(r.appointmentId),
+          csvCell(r.appointment?.startAt.toISOString() ?? ""),
+          csvCell(r.appointment?.status ?? ""),
+          csvCell(r.appointment?.clientName ?? ""),
+          csvCell(reviewNote),
+          csvCell(wasOverdue),
+          csvCell(fromStatus),
+        ].join(","),
+      );
+    }
+    return csvAttachment(lines.join("\n"), `onay-denetim-${fromYmd}_${toYmd}.csv`);
   }
 
   return NextResponse.json({ error: "Desteklenmeyen type" }, { status: 400 });

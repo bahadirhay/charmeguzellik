@@ -113,6 +113,20 @@ export async function getTenantIdForRequest(req?: Request): Promise<string> {
   const host = await getRequestHost(req);
   const mapped = await resolveTenantByHost(host);
   if (mapped?.tenantId) return mapped.tenantId;
+
+  const h = host?.trim().toLowerCase() ?? "";
+  if (
+    process.env.NODE_ENV === "development" &&
+    h &&
+    h !== "localhost" &&
+    h !== "127.0.0.1"
+  ) {
+    console.warn(
+      `[tenant-db] "${h}" için TenantDomain kaydı yok; varsayılan kiracıya düşülüyor. ` +
+        `Çok kiracılı testte randevular karışır. Çözüm: prisma Studio veya "npm run tenant:add-domain" ile bu hostu doğru tenantId'ye bağlayın.`,
+    );
+  }
+
   return tenantIdWhenNoDomainMaps();
 }
 

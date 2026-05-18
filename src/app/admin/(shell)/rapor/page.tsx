@@ -4,7 +4,9 @@ import { ADMIN_REPORT_PERMISSION_KEYS } from "@/lib/admin-reports-gate";
 import { notesAssignedStaffMatchesLabel, resolveAppointmentPanelScope } from "@/lib/appointment-panel-access";
 import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
 import { denyIfCommerceModuleDisabled } from "@/lib/commerce-module-guard";
+import { cashReceiptSourceLabel } from "@/lib/commerce/cash-receipt-labels";
 import { formatTryFromMinor } from "@/lib/commerce/format-money";
+import { reconcilePackagePaymentCashReceipts } from "@/lib/commerce/reconcile-package-cash-receipts";
 import { addCalendarDaysYmd, getIstanbulTodayYmd, istanbulDayUtcRange } from "@/lib/istanbul-day-bounds";
 import { prisma, withPrismaEngine } from "@/lib/prisma";
 import { requirePagePermission } from "@/lib/auth";
@@ -31,9 +33,23 @@ type ReportEventRow = Prisma.AppointmentEventGetPayload<{ include: typeof report
 const reportCashInclude = {
   staffUser: { select: { username: true, displayName: true } },
   appointment: { select: { clientName: true } },
+  crmContact: { select: { name: true } },
 } as const satisfies Prisma.CommerceCashReceiptInclude;
 
 type ReportCashRow = Prisma.CommerceCashReceiptGetPayload<{ include: typeof reportCashInclude }>;
+
+const reportPackagePaymentInclude = {
+  purchase: {
+    select: {
+      template: { select: { name: true } },
+      crmContact: { select: { name: true } },
+    },
+  },
+} as const satisfies Prisma.CommercePackagePaymentInclude;
+
+type ReportPackagePaymentRow = Prisma.CommercePackagePaymentGetPayload<{
+  include: typeof reportPackagePaymentInclude;
+}>;
 
 function exportHref(fromYmd: string, toYmd: string, type: string): string {
   const p = new URLSearchParams({ from: fromYmd, to: toYmd, type });
@@ -87,7 +103,7 @@ export default async function AdminReportPage({ searchParams }: Props) {
   const apptForbidden = canEvents ? await denyIfAppointmentsDisabled() : null;
   const commerceForbidden = canCash ? await denyIfCommerceModuleDisabled() : null;
 
-  const { eventsPreview, cashPreview } = await withPrismaEngine(async () => {
+  const { eventsPreview, cashPreview, packagePaymentsPreview } = await withPrismaEngine(async () => {
     let ev: ReportEventRow[] = [];
     if (canEvents && !apptForbidden) {
       const raw = await prisma.appointmentEvent.findMany({
@@ -106,15 +122,27 @@ export default async function AdminReportPage({ searchParams }: Props) {
           : raw;
     }
     let cash: ReportCashRow[] = [];
+    let pkg: ReportPackagePaymentRow[] = [];
     if (canCash && !commerceForbidden) {
-      cash = await prisma.commerceCashReceipt.findMany({
-        where: { tenantId, occurredAt: { gte: fromUtc, lt: toExclusive } },
-        include: reportCashInclude,
-        orderBy: { occurredAt: "desc" },
-        take: 150,
-      });
+      await reconcilePackagePaymentCashReceipts(prisma, tenantId);
+      const [cashRows, pkgRows] = await Promise.all([
+        prisma.commerceCashReceipt.findMany({
+          where: { tenantId, occurredAt: { gte: fromUtc, lt: toExclusive } },
+          include: reportCashInclude,
+          orderBy: { occurredAt: "desc" },
+          take: 150,
+        }),
+        prisma.commercePackagePayment.findMany({
+          where: { tenantId, paidAt: { gte: fromUtc, lt: toExclusive } },
+          include: reportPackagePaymentInclude,
+          orderBy: { paidAt: "desc" },
+          take: 80,
+        }),
+      ]);
+      cash = cashRows;
+      pkg = pkgRows;
     }
-    return { eventsPreview: ev, cashPreview: cash };
+    return { eventsPreview: ev, cashPreview: cash, packagePaymentsPreview: pkg };
   });
 
   const h = (type: string) => exportHref(fromYmd, toYmd, type);
@@ -135,22 +163,20 @@ export default async function AdminReportPage({ searchParams }: Props) {
         className="flex flex-wrap items-end gap-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
       >
         <label className="text-sm">
-          <span className="mb-1 block text-xs font-medium text-zinc-500">Başlangıç (YYYY-MM-DD)</span>
+          <span className="mb-1 block text-xs font-medium text-zinc-500">Başlangıç</span>
           <input
-            type="text"
+            type="date"
             name="from"
             defaultValue={fromYmd}
-            pattern="\d{4}-\d{2}-\d{2}"
             className="rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-950"
           />
         </label>
         <label className="text-sm">
-          <span className="mb-1 block text-xs font-medium text-zinc-500">Bitiş (YYYY-MM-DD)</span>
+          <span className="mb-1 block text-xs font-medium text-zinc-500">Bitiş</span>
           <input
-            type="text"
+            type="date"
             name="to"
             defaultValue={toYmd}
-            pattern="\d{4}-\d{2}-\d{2}"
             className="rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-950"
           />
         </label>
@@ -171,7 +197,160 @@ export default async function AdminReportPage({ searchParams }: Props) {
 
       {canEvents && !apptForbidden ? (
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Randevu ve operasyon</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Önizleme — randevu olayları</h2>
+            <a
+              href={h("events")}
+              className="rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+            >
+              Tam CSV
+            </a>
+          </div>
+          <p className="text-xs text-zinc-500">Son {eventsPreview.length} kayıt (oluşturulma zamanı).</p>
+          <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+            <table className="min-w-full text-left text-xs">
+              <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
+                <tr>
+                  <th className="px-2 py-2">Zaman</th>
+                  <th className="px-2 py-2">Olay</th>
+                  <th className="px-2 py-2">Kanal</th>
+                  <th className="px-2 py-2">Sonuç</th>
+                  <th className="px-2 py-2">İşlem yapan</th>
+                  <th className="px-2 py-2">Randevu</th>
+                </tr>
+              </thead>
+              <tbody>
+                {eventsPreview.map((r) => (
+                  <tr key={r.id} className="border-b border-zinc-100 dark:border-zinc-800">
+                    <td className="whitespace-nowrap px-2 py-1.5 text-zinc-600 dark:text-zinc-400">
+                      {r.createdAt.toLocaleString("tr-TR")}
+                    </td>
+                    <td className="px-2 py-1.5">{r.eventType}</td>
+                    <td className="px-2 py-1.5">{r.channel ?? "—"}</td>
+                    <td className="px-2 py-1.5">{r.outcome}</td>
+                    <td className="px-2 py-1.5">{r.actor ?? "—"}</td>
+                    <td className="max-w-[12rem] truncate px-2 py-1.5" title={r.appointment?.clientName ?? ""}>
+                      {r.appointment?.clientName ?? r.appointmentId}
+                    </td>
+                  </tr>
+                ))}
+                {eventsPreview.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-2 py-6 text-center text-zinc-500">
+                      Kayıt yok.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+
+      {canCash && !commerceForbidden ? (
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Önizleme — kasa</h2>
+              <p className="mt-0.5 text-xs text-zinc-500">
+                Randevu tahsilatı, paket satışı ödemeleri ve manuel kayıtlar (kaynak sütununa bakın).
+              </p>
+            </div>
+            <a
+              href={h("cash")}
+              className="rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+            >
+              Tam CSV
+            </a>
+          </div>
+          <p className="text-xs text-zinc-500">Son {cashPreview.length} kasa satırı.</p>
+          <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+            <table className="min-w-full text-left text-xs">
+              <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
+                <tr>
+                  <th className="px-2 py-2">Zaman</th>
+                  <th className="px-2 py-2">Kaynak</th>
+                  <th className="px-2 py-2">Tutar</th>
+                  <th className="px-2 py-2">Yöntem</th>
+                  <th className="px-2 py-2">Personel</th>
+                  <th className="px-2 py-2">Müşteri / detay</th>
+                  <th className="px-2 py-2">Not</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cashPreview.map((r) => (
+                  <tr key={r.id} className="border-b border-zinc-100 dark:border-zinc-800">
+                    <td className="whitespace-nowrap px-2 py-1.5 text-zinc-600 dark:text-zinc-400">
+                      {r.occurredAt.toLocaleString("tr-TR")}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <span
+                        className={
+                          r.sourceKind === "package_payment"
+                            ? "rounded bg-violet-100 px-1.5 py-0.5 text-violet-800 dark:bg-violet-950 dark:text-violet-200"
+                            : ""
+                        }
+                      >
+                        {cashReceiptSourceLabel(r.sourceKind)}
+                      </span>
+                    </td>
+                    <td className="px-2 py-1.5 font-medium">{formatTryFromMinor(r.amountMinor)}</td>
+                    <td className="px-2 py-1.5">{r.method}</td>
+                    <td className="px-2 py-1.5">
+                      {r.staffUser?.displayName?.trim() || r.staffUser?.username || "—"}
+                    </td>
+                    <td className="max-w-[10rem] truncate px-2 py-1.5">
+                      {r.appointment?.clientName ??
+                        r.crmContact?.name ??
+                        (r.sourceKind === "package_payment" ? "Paket müşterisi" : "—")}
+                    </td>
+                    <td className="max-w-[8rem] truncate px-2 py-1.5" title={r.memo ?? ""}>
+                      {r.memo ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+                {cashPreview.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-2 py-6 text-center text-zinc-500">
+                      Bu aralıkta kasa kaydı yok. Paket satışında ödeme aldıysanız Ticaret → Paket satışı bölümünü
+                      kontrol edin.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+          {packagePaymentsPreview.length > 0 ? (
+            <div className="rounded-xl border border-violet-200/80 bg-violet-50/50 p-4 dark:border-violet-900/50 dark:bg-violet-950/20">
+              <p className="text-sm font-medium text-violet-900 dark:text-violet-100">Paket ödemeleri (özet)</p>
+              <p className="mt-1 text-xs text-violet-800/80 dark:text-violet-200/80">
+                Dönemde {packagePaymentsPreview.length} paket tahsilatı; kasa satırına yansıyanlar yukarıda
+                &quot;Paket satışı&quot; olarak görünür.
+              </p>
+              <ul className="mt-2 space-y-1 text-xs text-violet-950 dark:text-violet-100">
+                {packagePaymentsPreview.slice(0, 8).map((p) => (
+                  <li key={p.id}>
+                    {p.paidAt.toLocaleString("tr-TR")} · {formatTryFromMinor(p.amountMinor)} ·{" "}
+                    {p.purchase.template.name} · {p.purchase.crmContact.name}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      <section className="space-y-6 border-t border-zinc-200 pt-8 dark:border-zinc-800">
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">CSV dışa aktarma</h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            Seçili tarih aralığı ({fromYmd} — {toYmd}) için tam listeler. UTF-8 (BOM), en fazla 50.000 satır.
+          </p>
+        </div>
+
+      {canEvents && !apptForbidden ? (
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Randevu ve operasyon</h3>
           <p className="text-xs text-zinc-500">
             Randevu satırları <span className="font-medium">başlangıç zamanına</span> göre; olaylar{" "}
             <span className="font-medium">oluşturulma zamanına</span> göre filtrelenir. Onaylı, teyitli, iptal vb. tüm
@@ -192,6 +371,16 @@ export default async function AdminReportPage({ searchParams }: Props) {
               title="Yapılan hizmetler (geldi / gelmedi)"
               description="Operasyon geçmişi ile aynı: checked_in ve no_show; atanmış personel etiketi dahil."
               href={h("operations")}
+            />
+            <CsvDownloadCard
+              title="Gecikmiş onay bekleyen"
+              description="Randevu saati geçmiş hâlâ pending kayıtlar; neden onaylanmadığı ve son panel notu."
+              href={h("overdue_pending")}
+            />
+            <CsvDownloadCard
+              title="Onay denetim kaydı"
+              description="Panel kararları, gecikmiş uyarılar ve inceleme notları (olay günlüğü)."
+              href={h("approval_audit")}
             />
           </div>
         </section>
@@ -266,111 +455,7 @@ export default async function AdminReportPage({ searchParams }: Props) {
         </section>
       ) : null}
 
-      {canEvents && !apptForbidden ? (
-        <section className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Önizleme — randevu olayları</h2>
-            <a
-              href={h("events")}
-              className="rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
-            >
-              Tam CSV
-            </a>
-          </div>
-          <p className="text-xs text-zinc-500">Son {eventsPreview.length} kayıt.</p>
-          <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-            <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
-                <tr>
-                  <th className="px-2 py-2">Zaman</th>
-                  <th className="px-2 py-2">Olay</th>
-                  <th className="px-2 py-2">Kanal</th>
-                  <th className="px-2 py-2">Sonuç</th>
-                  <th className="px-2 py-2">İşlem yapan</th>
-                  <th className="px-2 py-2">Randevu</th>
-                </tr>
-              </thead>
-              <tbody>
-                {eventsPreview.map((r) => (
-                  <tr key={r.id} className="border-b border-zinc-100 dark:border-zinc-800">
-                    <td className="whitespace-nowrap px-2 py-1.5 text-zinc-600 dark:text-zinc-400">
-                      {r.createdAt.toLocaleString("tr-TR")}
-                    </td>
-                    <td className="px-2 py-1.5">{r.eventType}</td>
-                    <td className="px-2 py-1.5">{r.channel ?? "—"}</td>
-                    <td className="px-2 py-1.5">{r.outcome}</td>
-                    <td className="px-2 py-1.5">{r.actor ?? "—"}</td>
-                    <td className="max-w-[12rem] truncate px-2 py-1.5" title={r.appointment?.clientName ?? ""}>
-                      {r.appointment?.clientName ?? r.appointmentId}
-                    </td>
-                  </tr>
-                ))}
-                {eventsPreview.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-2 py-6 text-center text-zinc-500">
-                      Kayıt yok.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
-
-      {canCash && !commerceForbidden ? (
-        <section className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Önizleme — kasa tahsilatları</h2>
-            <a
-              href={h("cash")}
-              className="rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
-            >
-              Tam CSV
-            </a>
-          </div>
-          <p className="text-xs text-zinc-500">Son {cashPreview.length} kayıt.</p>
-          <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-            <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
-                <tr>
-                  <th className="px-2 py-2">Zaman</th>
-                  <th className="px-2 py-2">Tutar</th>
-                  <th className="px-2 py-2">Yöntem</th>
-                  <th className="px-2 py-2">Personel</th>
-                  <th className="px-2 py-2">Not</th>
-                  <th className="px-2 py-2">Randevu</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cashPreview.map((r) => (
-                  <tr key={r.id} className="border-b border-zinc-100 dark:border-zinc-800">
-                    <td className="whitespace-nowrap px-2 py-1.5 text-zinc-600 dark:text-zinc-400">
-                      {r.occurredAt.toLocaleString("tr-TR")}
-                    </td>
-                    <td className="px-2 py-1.5 font-medium">{formatTryFromMinor(r.amountMinor)}</td>
-                    <td className="px-2 py-1.5">{r.method}</td>
-                    <td className="px-2 py-1.5">
-                      {r.staffUser?.displayName?.trim() || r.staffUser?.username || "—"}
-                    </td>
-                    <td className="max-w-[10rem] truncate px-2 py-1.5" title={r.memo ?? ""}>
-                      {r.memo ?? "—"}
-                    </td>
-                    <td className="max-w-[10rem] truncate px-2 py-1.5">{r.appointment?.clientName ?? "—"}</td>
-                  </tr>
-                ))}
-                {cashPreview.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-2 py-6 text-center text-zinc-500">
-                      Kayıt yok.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
+      </section>
 
       <p className="text-xs text-zinc-500">
         CSV başına en fazla 50.000 satır. Personel (self) randevu yetkisinde dışa aktarmalar yalnızca size atanmış
