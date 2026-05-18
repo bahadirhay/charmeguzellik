@@ -34,9 +34,12 @@ export async function POST(req: Request) {
     }
     const roles = staff.roleAssignments.map((a) => a.role);
     /** `admin` rolü tam yönetici: DB’deki permissionsJson gecikse bile koddeki güncel liste (ör. site.modules) oturuma yazılır. */
-    const perms = roles.some((r) => r.slug === "admin")
-      ? allStaffPermissions()
-      : mergePermissionsFromRoles(roles);
+    const isDemoOnly =
+      roles.every((r) => r.slug === "demo") || staff.username.trim().toLowerCase() === "demo";
+    const perms =
+      roles.some((r) => r.slug === "admin") && !isDemoOnly
+        ? allStaffPermissions()
+        : mergePermissionsFromRoles(roles);
     const roleSlug = roles
       .map((r) => r.slug)
       .sort()

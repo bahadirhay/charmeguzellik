@@ -47,6 +47,27 @@ model Tenant {
   commercePackagePayments          CommercePackagePayment[]
   commerceCashReceipts             CommerceCashReceipt[]
   commerceCashDayCloses            CommerceCashDayClose[]
+  demoPanelAudits                  DemoPanelAudit[]
+}
+
+/// Demo panel kullanıcısının yaptığı değişiklikler — admin tek seferde geri alabilir.
+model DemoPanelAudit {
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actorUsername String
+  entityType    String
+  entityId      String
+  action        String
+  label         String?
+  beforeJson    String?
+  afterJson     String?
+  createdAt     DateTime  @default(now())
+  revertedAt    DateTime?
+  revertedBy    String?
+
+  @@index([tenantId, revertedAt, createdAt])
+  @@index([tenantId, entityType, entityId])
 }
 
 model TenantDomain {

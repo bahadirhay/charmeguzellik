@@ -22,6 +22,8 @@ import {
 import { getSiteSettingsForTenant } from "@/lib/site-settings";
 import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
+import { isDemoPanelActor } from "@/lib/demo-staff";
+import { appointmentAuditSnapshot, recordDemoPanelChange } from "@/lib/demo-panel-audit";
 
 export async function GET() {
   const auth = await requireStaffApiAppointments();
@@ -40,7 +42,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireStaffApiAppointments();
+  const auth = await requireStaffApiAppointments(req);
   if (auth instanceof NextResponse) return auth;
   const apptForbidden = await denyIfAppointmentsDisabled(req);
   if (apptForbidden) return apptForbidden;
@@ -171,6 +173,19 @@ export async function POST(req: Request) {
     }
   } catch (e) {
     console.warn("admin appointment telegram notify", e);
+  }
+  if (isDemoPanelActor(auth)) {
+    const when = row.startAt.toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" });
+    await recordDemoPanelChange(prisma, {
+      tenantId,
+      actorUsername: auth.username,
+      roleSlug: auth.roleSlug,
+      entityType: "appointment",
+      entityId: row.id,
+      action: "create",
+      label: `Randevu oluşturdu: ${row.clientName} · ${when}`,
+      after: appointmentAuditSnapshot(row),
+    });
   }
   return NextResponse.json(row);
 }

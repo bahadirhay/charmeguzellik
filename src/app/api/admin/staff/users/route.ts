@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
 import { ensureDefaultStaffRoles } from "@/lib/staff-roles-defaults";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
+import { demoRoleAssignmentError, isDemoPanelActor } from "@/lib/demo-staff";
+import { isStructureAdmin } from "@/lib/platform-structure-guard";
+import { recordDemoPanelChange } from "@/lib/demo-panel-audit";
 
 const userInclude = {
   roleAssignments: { include: { role: { select: { id: true, slug: true, label: true } } } },
@@ -30,8 +33,8 @@ function mapUser(u: {
   };
 }
 
-export async function GET() {
-  const auth = await requireStaffApiPerm("users.manage");
+export async function GET(req: Request) {
+  const auth = await requireStaffApiPerm("users.manage", req);
   if (auth instanceof NextResponse) return auth;
   const tenantId = await getTenantIdForRequest();
   await ensureDefaultStaffRoles(prisma, tenantId);
@@ -46,7 +49,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireStaffApiPerm("users.manage");
+  const auth = await requireStaffApiPerm("users.manage", req);
   if (auth instanceof NextResponse) return auth;
   const tenantId = await getTenantIdForRequest(req);
   await ensureDefaultStaffRoles(prisma, tenantId);
@@ -81,6 +84,13 @@ export async function POST(req: Request) {
   if (roles.length !== roleIds.length) {
     return NextResponse.json({ error: "Geçersiz rol seçimi" }, { status: 400 });
   }
+  if (isDemoPanelActor(auth)) {
+    const roleErr = demoRoleAssignmentError(roles);
+    if (roleErr) return NextResponse.json({ error: roleErr }, { status: 403 });
+  }
+  if (username === "admin" && !isStructureAdmin(auth)) {
+    return NextResponse.json({ error: "admin kullanıcı adı yalnızca yönetici tarafından oluşturulabilir." }, { status: 403 });
+  }
   const hash = await bcrypt.hash(password, 12);
   try {
     const user = await prisma.staffUser.create({
@@ -93,6 +103,18 @@ export async function POST(req: Request) {
       },
       include: userInclude,
     });
+    if (isDemoPanelActor(auth)) {
+      await recordDemoPanelChange(prisma, {
+        tenantId,
+        actorUsername: auth.username,
+        roleSlug: auth.roleSlug,
+        entityType: "staff_user",
+        entityId: user.id,
+        action: "create",
+        label: `Personel eklendi: ${user.username} (${roles.map((r) => r.label).join(", ")})`,
+        after: { username: user.username, roleSlugs: roles.map((r) => r.slug) },
+      });
+    }
     return NextResponse.json({ user: mapUser(user) });
   } catch {
     return NextResponse.json({ error: "Bu kullanıcı adı kullanılıyor" }, { status: 409 });

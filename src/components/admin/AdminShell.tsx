@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LogoutButton } from "@/components/admin/LogoutButton";
+import { TechizmetBrandLogo } from "@/components/admin/TechizmetBrandLogo";
 import { ADMIN_REPORT_PERMISSION_KEYS } from "@/lib/admin-reports-gate";
 import { hasAnyStaffPermission, hasStaffPermission } from "@/lib/staff-permissions";
 
@@ -189,7 +190,9 @@ export function AdminShell({
   return (
     <div className="flex min-h-screen min-w-0 overflow-x-hidden bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">
       <aside className="hidden w-60 shrink-0 border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 md:block">
-        <div className="p-4 text-sm font-semibold text-rose-600 dark:text-rose-400">Yönetim</div>
+        <div className="border-b border-zinc-100 px-4 py-4 dark:border-zinc-800">
+          <TechizmetBrandLogo variant="sidebar" href="/admin/dashboard" />
+        </div>
         <nav className="flex flex-col gap-1 px-2 pb-4">
           {top.map((l) => (
             <Link
@@ -216,7 +219,7 @@ export function AdminShell({
       <div className="flex min-h-screen min-w-0 flex-1 flex-col overflow-x-hidden">
         <header className="max-h-[50vh] overflow-y-auto border-b border-zinc-200 bg-white px-3 py-3 dark:border-zinc-800 dark:bg-zinc-900 md:hidden">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="text-sm font-medium">Admin</span>
+            <TechizmetBrandLogo variant="header" href="/admin/dashboard" />
           </div>
           <div className="flex flex-col gap-2">
             {top.map((l) => (

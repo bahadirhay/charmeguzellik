@@ -11,16 +11,16 @@ import type { Appointment } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 
-export async function requireStaffApiPerm(perm: string): Promise<StaffAccess | NextResponse> {
-  const auth = await requireStaffApi();
+export async function requireStaffApiPerm(perm: string, req?: Request): Promise<StaffAccess | NextResponse> {
+  const auth = await requireStaffApi(req);
   if (auth instanceof NextResponse) return auth;
   const denied = ensureStaffPerm(auth, perm);
   if (denied) return denied;
   return auth;
 }
 
-export async function requireStaffApiAny(perms: readonly string[]): Promise<StaffAccess | NextResponse> {
-  const auth = await requireStaffApi();
+export async function requireStaffApiAny(perms: readonly string[], req?: Request): Promise<StaffAccess | NextResponse> {
+  const auth = await requireStaffApi(req);
   if (auth instanceof NextResponse) return auth;
   if (!hasAnyStaffPermission(auth.permissions, perms)) return staffPermDenied();
   return auth;
@@ -36,8 +36,8 @@ export type StaffAppointmentAuth = StaffAccess & {
 };
 
 /** Randevu API — tam (`crm.appointments`) veya yalnızca kendi (`crm.appointments.self`) */
-export async function requireStaffApiAppointments(): Promise<StaffAppointmentAuth | NextResponse> {
-  const auth = await requireStaffApi();
+export async function requireStaffApiAppointments(req?: Request): Promise<StaffAppointmentAuth | NextResponse> {
+  const auth = await requireStaffApi(req);
   if (auth instanceof NextResponse) return auth;
   const { scope, selfStaffLabel: fromPerm } = resolveAppointmentPanelScope(auth);
   if (!scope) return staffPermDenied();

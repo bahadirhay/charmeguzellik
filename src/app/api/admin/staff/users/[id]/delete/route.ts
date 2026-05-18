@@ -3,6 +3,7 @@ import { requireStaffApiPerm } from "@/lib/admin-api-auth";
 import { prisma } from "@/lib/prisma";
 import { transferStaffReferencesAndDeleteUser } from "@/lib/staff-transfer-delete";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
+import { isDemoPanelActor, staffUserHasAdminRole } from "@/lib/demo-staff";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -11,10 +12,13 @@ type Ctx = { params: Promise<{ id: string }> };
  * Body: `{ transferToStaffUserId?: string | null }`
  */
 export async function POST(req: Request, ctx: Ctx) {
-  const auth = await requireStaffApiPerm("users.manage");
+  const auth = await requireStaffApiPerm("users.manage", req);
   if (auth instanceof NextResponse) return auth;
   const tenantId = await getTenantIdForRequest(req);
   const { id } = await ctx.params;
+  if (isDemoPanelActor(auth)) {
+    return NextResponse.json({ error: "Demo hesabı personel silemez." }, { status: 403 });
+  }
   if (!id?.trim()) {
     return NextResponse.json({ error: "Geçersiz kullanıcı" }, { status: 400 });
   }

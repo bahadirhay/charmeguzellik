@@ -28,6 +28,8 @@ import { denyIfAppointmentsDisabled } from "@/lib/appointments-module-guard";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { isAppointmentOverduePending, logOverduePendingReview } from "@/lib/appointment-overdue-pending";
 import { logPanelStatusDecision, type PanelDecisionOutcome } from "@/lib/appointment-panel-events";
+import { isDemoPanelActor } from "@/lib/demo-staff";
+import { appointmentAuditSnapshot, recordDemoPanelChange } from "@/lib/demo-panel-audit";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -66,7 +68,7 @@ function isOnlyNotesDetailChange(existing: Appointment, input: UpdateAppointment
 }
 
 export async function PATCH(req: Request, ctx: Ctx) {
-  const auth = await requireStaffApiAppointments();
+  const auth = await requireStaffApiAppointments(req);
   if (auth instanceof NextResponse) return auth;
   const apptForbidden = await denyIfAppointmentsDisabled(req);
   if (apptForbidden) return apptForbidden;
@@ -141,6 +143,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     }
 
     const wasOverdue = existing.status === "pending" && isAppointmentOverduePending(existing.startAt);
+    const demoBefore = isDemoPanelActor(auth) ? appointmentAuditSnapshot(existing) : null;
 
     let updated = await prisma.appointment.update({
       where: { id },
@@ -182,6 +185,21 @@ export async function PATCH(req: Request, ctx: Ctx) {
           resolution: statusRaw,
         });
       }
+    }
+
+    if (demoBefore) {
+      const when = existing.startAt.toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" });
+      await recordDemoPanelChange(prisma, {
+        tenantId,
+        actorUsername: auth.username,
+        roleSlug: auth.roleSlug,
+        entityType: "appointment",
+        entityId: id,
+        action: "update",
+        label: `Randevu ${statusRaw}: ${existing.clientName} · ${when}`,
+        before: demoBefore,
+        after: appointmentAuditSnapshot(updated),
+      });
     }
 
     if (statusRaw === "cancelled") {

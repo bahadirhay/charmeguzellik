@@ -10,6 +10,8 @@ import { PACKAGE_PAYMENT_METHODS, packagePaymentMethodLabel } from "@/lib/commer
 import { getTenantIdForRequest } from "@/lib/tenant-db";
 import { prisma } from "@/lib/prisma";
 import { reconcilePackagePaymentCashReceipts } from "@/lib/commerce/reconcile-package-cash-receipts";
+import { isDemoPanelActor } from "@/lib/demo-staff";
+import { recordDemoPanelChange } from "@/lib/demo-panel-audit";
 
 const postSchema = z.object({
   amountMinor: z.number().int().min(1).max(100_000_000),
@@ -24,7 +26,7 @@ const postSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const auth = await requireStaffApiPerm("commerce.manage");
+  const auth = await requireStaffApiPerm("commerce.manage", req);
   if (auth instanceof NextResponse) return auth;
   const commerceForbidden = await denyIfCommerceModuleDisabled(req);
   if (commerceForbidden) return commerceForbidden;
@@ -116,6 +118,19 @@ export async function POST(req: Request) {
         },
       });
     });
+
+    if (isDemoPanelActor(auth)) {
+      await recordDemoPanelChange(prisma, {
+        tenantId,
+        actorUsername: auth.username,
+        roleSlug: auth.roleSlug,
+        entityType: "commerce_cash_receipt",
+        entityId: item.id,
+        action: "create",
+        label: `Kasa tahsilatı: ${formatTryFromMinor(item.amountMinor)}`,
+        after: { ledgerEntryId: item.ledgerEntryId ?? null },
+      });
+    }
 
     return NextResponse.json({
       ok: true,

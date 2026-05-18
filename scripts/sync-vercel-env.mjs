@@ -177,6 +177,23 @@ Otomatik gönderim için:
     { key: "NEXT_PUBLIC_SITE_URL", value: siteUrl, type: "plain", target },
   ];
 
+  const platformTenantId = process.env.PLATFORM_CONTROL_TENANT_ID?.trim();
+  const platformHost = process.env.PLATFORM_CONTROL_HOST?.trim();
+  if (platformTenantId) {
+    payloads.push({ key: "PLATFORM_CONTROL_TENANT_ID", value: platformTenantId, type: "plain", target });
+  }
+  if (platformHost) {
+    payloads.push({ key: "PLATFORM_CONTROL_HOST", value: platformHost, type: "plain", target });
+  }
+  const demoUsers = process.env.DEMO_PANEL_USERNAMES?.trim();
+  if (demoUsers) {
+    payloads.push({ key: "DEMO_PANEL_USERNAMES", value: demoUsers, type: "plain", target });
+  }
+  const demoPass = process.env.DEMO_PANEL_PASSWORD?.trim();
+  if (demoPass) {
+    payloads.push({ key: "DEMO_PANEL_PASSWORD", value: demoPass, type: "sensitive", target });
+  }
+
   process.stdout.write(
     `\n--- Otomatik gönderim özeti (parola/URL tam metin yazdırılmaz) ---\nProje: ${projectId}\n` +
       `teamId: ${orgId ?? "(yok)"}\n` +

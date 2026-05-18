@@ -87,9 +87,20 @@ export async function requirePagePermission(need: string | readonly string[]) {
   return a;
 }
 
-export async function requireStaffApi(): Promise<StaffAccess | NextResponse> {
+export async function requireStaffApi(req?: Request): Promise<StaffAccess | NextResponse> {
   const a = await getStaffAccess();
   if (!a) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  if (req) {
+    const { denyIfDemoRestrictedRoute } = await import("@/lib/demo-staff");
+    const denied = denyIfDemoRestrictedRoute(req, a);
+    if (denied) return denied;
+    const { getTenantIdForRequest } = await import("@/lib/tenant-db");
+    const { denyUnlessStructureAdminOnPlatform } = await import("@/lib/platform-structure-guard");
+    const tenantId = await getTenantIdForRequest(req);
+    const path = new URL(req.url).pathname;
+    const structureDenied = denyUnlessStructureAdminOnPlatform(tenantId, a, path, req.method);
+    if (structureDenied) return structureDenied;
+  }
   return a;
 }
 

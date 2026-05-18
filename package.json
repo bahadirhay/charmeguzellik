@@ -18,6 +18,7 @@
     "site:reset-basics": "prisma generate && tsx scripts/site-ayarlari-sifirla.ts",
     "tenant:create": "prisma generate && tsx scripts/create-tenant.ts",
     "example:bakirkoybeauty": "tsx scripts/example-bakirkoybeauty.ts",
+    "setup:platform-control": "tsx scripts/setup-platform-control.ts",
     "tenant:add-domain": "prisma generate && tsx scripts/add-tenant-domain.ts",
     "tenant:strip-notifications": "tsx scripts/strip-tenant-notifications.ts",
     "sql:neon-full": "tsx scripts/generate-neon-full-sql.ts",

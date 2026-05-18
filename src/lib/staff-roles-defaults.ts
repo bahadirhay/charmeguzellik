@@ -32,6 +32,11 @@ export async function ensureDefaultStaffRoles(
       label: "Uygulayıcı (yalnızca kendi randevuları)",
       permissions: ["crm.appointments.self"],
     },
+    {
+      slug: "demo",
+      label: "Demo (satış)",
+      permissions: ["crm.leads", "crm.appointments", "commerce.manage", "users.manage"],
+    },
   ];
   for (const r of roleSpecs) {
     await prisma.staffRole.upsert({

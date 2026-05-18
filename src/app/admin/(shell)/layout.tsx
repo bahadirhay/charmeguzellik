@@ -5,6 +5,10 @@ import { prisma, withPrismaEngine } from "@/lib/prisma";
 import { requireStaffPage } from "@/lib/staff-auth";
 import { isAppointmentsModuleEnabled, isCommerceModuleEnabled } from "@/lib/tenant-features";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
+import { isDemoPanelActor } from "@/lib/demo-staff";
+import { isPlatformTenantId, isStructureAdmin } from "@/lib/platform-structure-guard";
+import { countPendingDemoPanelChanges } from "@/lib/demo-panel-audit";
+import { DemoRevertBanner } from "@/components/admin/DemoRevertBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +30,11 @@ export default async function AdminShellLayout({
   const commerceModuleEnabled = isCommerceModuleEnabled(tenantRow?.featuresJson);
   const plat = platformControlTenantId();
   const showPlatformNav = Boolean(plat && tenantId === plat);
+  const isDemoActor = isDemoPanelActor(access);
+  const demoPendingCount =
+    isPlatformTenantId(tenantId) && isStructureAdmin(access) && !isDemoActor
+      ? await countPendingDemoPanelChanges(tenantId)
+      : 0;
   return (
     <AdminShell
       username={access.username}
@@ -36,6 +45,7 @@ export default async function AdminShellLayout({
       appointmentsModuleEnabled={appointmentsModuleEnabled}
       commerceModuleEnabled={commerceModuleEnabled}
     >
+      <DemoRevertBanner pendingCount={demoPendingCount} isDemoActor={isDemoActor} />
       {children}
     </AdminShell>
   );

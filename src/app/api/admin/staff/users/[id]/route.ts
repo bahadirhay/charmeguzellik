@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireStaffApiPerm } from "@/lib/admin-api-auth";
 import { getTenantIdForRequest } from "@/lib/tenant-db";
+import { demoRoleAssignmentError, isDemoPanelActor, staffUserHasAdminRole } from "@/lib/demo-staff";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -32,10 +33,13 @@ function mapUser(u: {
 }
 
 export async function PATCH(req: Request, ctx: Ctx) {
-  const auth = await requireStaffApiPerm("users.manage");
+  const auth = await requireStaffApiPerm("users.manage", req);
   if (auth instanceof NextResponse) return auth;
   const tenantId = await getTenantIdForRequest(req);
   const { id } = await ctx.params;
+  if (isDemoPanelActor(auth) && (await staffUserHasAdminRole(tenantId, id))) {
+    return NextResponse.json({ error: "Demo hesabı yönetici kullanıcıyı düzenleyemez." }, { status: 403 });
+  }
   const body = (await req.json()) as {
     password?: string;
     roleIds?: string[];
@@ -90,6 +94,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
     });
     if (roles.length !== roleIds.length) {
       return NextResponse.json({ error: "Geçersiz rol seçimi" }, { status: 400 });
+    }
+    if (isDemoPanelActor(auth)) {
+      const roleErr = demoRoleAssignmentError(roles);
+      if (roleErr) return NextResponse.json({ error: roleErr }, { status: 403 });
     }
   }
 
